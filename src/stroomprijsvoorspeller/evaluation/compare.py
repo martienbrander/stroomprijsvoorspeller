@@ -67,14 +67,15 @@ def test_origins(features: pd.DataFrame, cfg: Config, start: date | None, einde:
 
 
 def vergelijk(cfg: Config, methoden: list[str] | None = None, start: date | None = None, einde: date | None = None,
-              hertrain: int | None = None, rapport: Path | None = None) -> pd.DataFrame:
+              hertrain: int | None = None, rapport: Path | None = None,
+              uitvoer_bestand: str = VOORSPELLINGEN_BESTAND) -> pd.DataFrame:
     f = laad_features(cfg)
     methoden = list(methoden or ALLE_METHODEN)
     origins = test_origins(f, cfg, start, einde)
     log.info("vergelijking: %d methoden, %d voorspelmomenten (%s .. %s)", len(methoden), len(origins),
              origins[0], origins[-1])
     voorsp = run_rolling(f, cfg, methoden, origins, hertrain_elke_dagen=hertrain)
-    voorsp.to_parquet(cfg.processed_dir / VOORSPELLINGEN_BESTAND, index=False)
+    voorsp.to_parquet(cfg.processed_dir / uitvoer_bestand, index=False)
     ruw = samenvatting(voorsp, "p10", "p90")
     kal = samenvatting(voorsp, "p10_kal", "p90_kal")
     tabel = ruw.merge(kal[["methode", "horizon_dag", "dekking80", "breedte80", "pinball_p10", "pinball_p90"]],

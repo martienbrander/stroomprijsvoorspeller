@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-model = ["lightgbm>=4.3", "scikit-learn>=1.4", "matplotlib>=3.8"]
+model = ["lightgbm>=4.3", "scikit-learn>=1.4", "statsmodels>=0.14", "scipy>=1.11", "matplotlib>=3.8", "joblib>=1.3"]
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.scripts]

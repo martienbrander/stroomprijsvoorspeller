@@ -77,3 +77,57 @@ def pas_conformal_toe(voorsp: pd.DataFrame, venster_dagen: int, alpha: float = 0
     uit["p10_kal"] = np.minimum(uit["p10_kal"], uit["p50"])
     uit["p90_kal"] = np.maximum(uit["p90_kal"], uit["p50"])
     return uit
+
+
+def pas_aci_toe(voorsp: pd.DataFrame, venster_dagen: int, gamma: float = 0.02, alpha: float = 0.2,
+                min_scores: int = MIN_SCORES, alpha_min: float = 0.01, alpha_max: float = 0.5) -> pd.DataFrame:
+    """Adaptive Conformal Inference (Gibbs en Candès 2021) bovenop de rolling conformal-correctie.
+
+    Het foutniveau alpha_t wordt per (methode, horizon) online bijgestuurd: alpha_{t+1} = alpha_t + gamma (alpha - err_t),
+    waarbij err_t het aandeel uren buiten het interval is van het meest recente voorspelmoment waarvan de uitkomsten
+    bekend zijn. Bij structurele onderdekking (err > alpha) daalt alpha_t en wordt het interval breder.
+    Voegt p10_aci, p90_aci en alpha_aci toe.
+    """
+    uit = voorsp.copy()
+    uit["alpha_aci"] = alpha
+    uit["p10_aci"] = uit["p10"]
+    uit["p90_aci"] = uit["p90"]
+    score = conformal_score(uit["doel"], uit["p10"], uit["p90"])
+    venster = pd.Timedelta(days=venster_dagen)
+
+    for idx in uit.groupby(["methode", "horizon_dag"]).groups.values():
+        g = uit.loc[idx]
+        origins = pd.to_datetime(g["origin"]).to_numpy()
+        tijden = pd.DatetimeIndex(g["time_utc"]).tz_convert("UTC").tz_localize(None).to_numpy()
+        sc = score[uit.index.get_indexer(idx)]
+        pos = {D: np.flatnonzero(origins == D) for D in np.unique(origins)}
+        q_per_origin: dict = {}
+        a_t = alpha
+        verwerkt: set = set()
+        for D in sorted(pos):
+            D_ts = pd.Timestamp(D)
+            grens = bekend_tot(D_ts.date()).tz_convert("UTC").tz_localize(None).to_datetime64()
+            # update alpha met alle eerdere voorspelmomenten waarvan nu alle uren bekend zijn
+            for D2 in sorted(pos):
+                if D2 >= D or D2 in verwerkt or D2 not in q_per_origin:
+                    continue
+                rows = pos[D2]
+                if not (tijden[rows] < grens).all():
+                    continue
+                err = float(np.nanmean(sc[rows] > q_per_origin[D2]))
+                a_t = float(np.clip(a_t + gamma * (alpha - err), alpha_min, alpha_max))
+                verwerkt.add(D2)
+            mask = (origins >= (D_ts - venster).to_datetime64()) & (origins < D_ts.to_datetime64()) \
+                & (tijden < grens) & ~np.isnan(sc)
+            if mask.sum() < min_scores:
+                q = 0.0
+            else:
+                q = conformal_correctie(sc[mask], a_t)
+            q_per_origin[D] = q
+            rows = idx[pos[D]]
+            uit.loc[rows, "alpha_aci"] = a_t
+            uit.loc[rows, "p10_aci"] = uit.loc[rows, "p10"] - q
+            uit.loc[rows, "p90_aci"] = uit.loc[rows, "p90"] + q
+    uit["p10_aci"] = np.minimum(uit["p10_aci"], uit["p50"])
+    uit["p90_aci"] = np.maximum(uit["p90_aci"], uit["p50"])
+    return uit

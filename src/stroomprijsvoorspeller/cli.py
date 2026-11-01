@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -71,9 +72,21 @@ def cmd_compare(args) -> int:
 
     cfg = load_config(args.config)
     methoden = args.methoden.split(",") if args.methoden else None
-    tabel = compare.vergelijk(cfg, methoden, _datum(args.start), _datum(args.einde), args.hertrain)
+    extra = {}
+    if args.uit:
+        extra = {"uitvoer_bestand": args.uit, "rapport": cfg.root / "reports" / f"{Path(args.uit).stem}.md"}
+    tabel = compare.vergelijk(cfg, methoden, _datum(args.start), _datum(args.einde), args.hertrain, **extra)
     with pd.option_context("display.width", 200, "display.max_columns", 20):
         print(tabel.round(3).to_string(index=False))
+    return 0
+
+
+def cmd_backtest(args) -> int:
+    from stroomprijsvoorspeller.evaluation import report
+
+    cfg = load_config(args.config)
+    pad = report.maak_rapport(cfg, gamma_aci=args.gamma)
+    print(f"rapport: {pad}")
     return 0
 
 
@@ -147,7 +160,12 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--start", help="eerste voorspelmoment in de test, YYYY-MM-DD")
     c.add_argument("--einde", help="laatste voorspelmoment in de test, YYYY-MM-DD")
     c.add_argument("--hertrain", type=int, help="hertrainen elke N dagen (standaard uit config)")
+    c.add_argument("--uit", help="naam van het uitvoerbestand in data/processed (standaard voorspellingen_rolling.parquet)")
     c.set_defaults(func=cmd_compare)
+
+    bt = sub.add_parser("backtest", help="schrijf reports/backtest.md met tabellen en grafieken uit de rolling voorspellingen")
+    bt.add_argument("--gamma", type=float, default=0.02, help="leersnelheid van de online kalibratie (ACI)")
+    bt.set_defaults(func=cmd_backtest)
 
     t = sub.add_parser("train", help="train het operationele model op het rolling venster t/m vandaag")
     t.add_argument("--methode", default="lightgbm", help="lightgbm | lightgbm_asinh | lineair | combinatie")
