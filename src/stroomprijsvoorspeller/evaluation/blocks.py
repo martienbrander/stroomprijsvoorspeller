@@ -25,8 +25,7 @@ def goedkoopste_blok(prijzen: np.ndarray, lengte: int = 3) -> tuple[int, float]:
     p = np.asarray(prijzen, dtype=float)
     if len(p) < lengte:
         return 0, float("nan")
-    np.ones(lengte) / lengte
-    # convolutie met NaN-propagatie
+    # glijdend gemiddelde met NaN-propagatie
     gem = np.array([np.mean(p[i:i + lengte]) for i in range(len(p) - lengte + 1)])
     if np.all(np.isnan(gem)):
         return 0, float("nan")
