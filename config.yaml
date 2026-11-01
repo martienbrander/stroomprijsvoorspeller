@@ -1,0 +1,46 @@
+# Eén configbestand voor de hele pipeline. Alle tijden intern in UTC; dag-grenzen in de tijdzone hieronder.
+tijdzone: Europe/Amsterdam
+biedzone: NL
+
+data:
+  start: "2022-11-01"          # eerste dag prijshistorie (3 jaar)
+  weer_start: "2024-03-01"     # Open-Meteo previous-runs data bestaat vanaf hier
+  raw_dir: data/raw
+  processed_dir: data/processed
+
+prijzen:
+  bron: energy_charts          # energy_charts | entsoe (entsoe alleen met ENTSOE_TOKEN in .env)
+  kwartier_vanaf: "2025-10-01" # vanaf hier levert EPEX kwartierprijzen
+
+weer:
+  model: best_match
+  variabelen: [wind_speed_100m, shortwave_radiation, cloud_cover, temperature_2m]
+  forecast_dagen: 7            # dagelijkse run: zoveel dagen vooruit ophalen
+  lead_dagen: [1, 2, 3, 4, 5]  # previous-runs: verwachting zoals die N dagen eerder was
+  punten:
+    # zee
+    - {naam: borssele,            lat: 51.70, lon: 3.05, type: zee}
+    - {naam: hollandse_kust_zuid, lat: 52.35, lon: 4.05, type: zee}
+    - {naam: hollandse_kust_noord,lat: 52.70, lon: 4.00, type: zee}
+    - {naam: gemini,              lat: 54.05, lon: 5.95, type: zee}
+    - {naam: duitse_bocht,        lat: 54.20, lon: 7.20, type: zee_buitenland}
+    # land, wind
+    - {naam: flevoland,           lat: 52.50, lon: 5.55, type: land}
+    - {naam: groningen,           lat: 53.40, lon: 6.85, type: land}
+    - {naam: fryslan,             lat: 53.00, lon: 5.35, type: land}
+    - {naam: wieringermeer,       lat: 52.85, lon: 5.00, type: land}
+    - {naam: maasvlakte,          lat: 51.95, lon: 4.05, type: land}
+    - {naam: zeeland,             lat: 51.55, lon: 3.90, type: land}
+    - {naam: duitsland_noord,     lat: 53.30, lon: 9.00, type: land_buitenland}
+    # land, zon en vraag
+    - {naam: de_bilt,             lat: 52.10, lon: 5.18, type: land_zon}
+    - {naam: eindhoven,           lat: 51.45, lon: 5.37, type: land_zon}
+
+voorspelling:
+  publicatie_uur_lokaal: 13    # backtest: op dit uur zijn de prijzen t/m morgen bekend
+  horizon_dagen: [2, 3, 4, 5]  # dagen vooruit die we voorspellen
+
+model:
+  kwantielen: [0.10, 0.50, 0.90]
+  rolling_venster_dagen: 180
+  recente_prijs_dagen: 7       # venster voor "recent prijsniveau"-features
