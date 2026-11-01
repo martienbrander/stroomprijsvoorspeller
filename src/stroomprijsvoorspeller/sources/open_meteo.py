@@ -123,6 +123,10 @@ def update_previous_runs(cfg: Config, session: requests.Session | None = None,
     for punt in cfg.weerpunten:
         pad = prev_runs_bestand(cfg.raw_dir, punt.naam)
         bestaand = _lees(pad)
+        nodig = {lead_kolom(v, n) for v in cfg.weer_variabelen for n in cfg.lead_dagen}
+        if bestaand is not None and not nodig.issubset(bestaand.columns):
+            log.info("weer prev-runs %s: nieuwe variabelen of leads in config, haal alles opnieuw op", punt.naam)
+            bestaand = None
         if bestaand is None or bestaand.empty:
             start = pd.Timestamp(cfg.weer_start, tz="UTC")
         else:

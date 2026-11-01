@@ -1,5 +1,7 @@
-# data en modellen worden gegenereerd
-data/
+# data en modellen worden gegenereerd (data/leveranciers.yaml is bronmateriaal en blijft in git)
+data/raw/
+data/processed/
+data/runs/
 models/
 site/data/*.json
 

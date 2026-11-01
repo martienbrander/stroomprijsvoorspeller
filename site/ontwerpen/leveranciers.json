@@ -1,0 +1,334 @@
+{
+ "peildatum_lijst": "2026-11-01",
+ "bron_register": "https://www.acm.nl/nl/energie/elektriciteit-en-gas/energie-verkopen/energie-leveren-met-vergunning/energieleveranciers-met-een-vergunning",
+ "leveranciers": [
+  {
+   "naam": "ANWB Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.488,
+   "vaste_kosten_maand_eur_incl_btw": 8.5,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.anwb.nl/energie/actuele-tarieven"
+  },
+  {
+   "naam": "Balans Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.653,
+   "vaste_kosten_maand_eur_incl_btw": 6.65,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://balansenergie.nl/dynamisch/"
+  },
+  {
+   "naam": "Budget Thuis",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.388,
+   "vaste_kosten_maand_eur_incl_btw": 5.99,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.keuze.nl/energie/energieleveranciers/budget-energie/dynamisch-contract"
+  },
+  {
+   "naam": "Clean Energy Dynamics",
+   "inkoopvergoeding_ct_kwh_excl_btw": null,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "niet_gepubliceerd",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://ce-dynamics.nl/dynamische-energie-tarieven"
+  },
+  {
+   "naam": "Coolblue Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.653,
+   "vaste_kosten_maand_eur_incl_btw": 7.49,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://selectra.nl/energie/energieleverancier/coolblue-energie/tarieven"
+  },
+  {
+   "naam": "DELTA Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.037,
+   "vaste_kosten_maand_eur_incl_btw": 8.49,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.deltaenergie.nl/media/ohjb20ah/dynamisch-delta-groene-stroom-delta-gas-consumenten-23-april-2026.pdf"
+  },
+  {
+   "naam": "easyEnergy",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.8,
+   "vaste_kosten_maand_eur_incl_btw": 7.0,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.easyenergy.com/klantenservice/ons-aanbod/wat-kost-energie-bij-easyenergy"
+  },
+  {
+   "naam": "Eneco",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.885,
+   "vaste_kosten_maand_eur_incl_btw": 8.99,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.eneco.nl/duurzame-energie/combinatie-dynamisch-en-vast/"
+  },
+  {
+   "naam": "Energie VanOns",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.397,
+   "vaste_kosten_maand_eur_incl_btw": 6.99,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Energiedirect",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.694,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Energiek",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.49,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.energiek.nl/energie/dynamisch"
+  },
+  {
+   "naam": "EnergyZero",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.853,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://support.energyzero.nl/hc/nl/articles/34692105423773-Hoe-hoog-is-de-verkoopvergoeding"
+  },
+  {
+   "naam": "ENGIE",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.57,
+   "vaste_kosten_maand_eur_incl_btw": 6.95,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Essent",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.091,
+   "vaste_kosten_maand_eur_incl_btw": 7.5,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Frank Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.5,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.frankenergie.nl/nl/aanmelden/samenstellen"
+  },
+  {
+   "naam": "Greenchoice",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.851,
+   "vaste_kosten_maand_eur_incl_btw": 7.5,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "GroeneStroomLokaal",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.8,
+   "vaste_kosten_maand_eur_incl_btw": 5.0,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.overstappen.nl/energie/leveranciers/dynamisch"
+  },
+  {
+   "naam": "GroenPand",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.0,
+   "vaste_kosten_maand_eur_incl_btw": 8.47,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Hegg Energy",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.818,
+   "vaste_kosten_maand_eur_incl_btw": 7.5,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://hegg.energy/dynamisch-energiecontract"
+  },
+  {
+   "naam": "Hezelaer Energy",
+   "inkoopvergoeding_ct_kwh_excl_btw": null,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "niet_gepubliceerd",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.hezelaer.nl/energie-voor-thuis"
+  },
+  {
+   "naam": "Holland Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": null,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "niet_gepubliceerd",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://holland-energie.nl/dynamische-energie/"
+  },
+  {
+   "naam": "Innova Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.231,
+   "vaste_kosten_maand_eur_incl_btw": 6.96,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "LiveEnergy",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.8,
+   "vaste_kosten_maand_eur_incl_btw": 4.95,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.overstappen.nl/energie/leveranciers/dynamisch"
+  },
+  {
+   "naam": "Mega",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.504,
+   "vaste_kosten_maand_eur_incl_btw": 6.05,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.gaslicht.com/stroom-vergelijken/mega/stroom-dynamisch-5324"
+  },
+  {
+   "naam": "NextEnergy",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.736,
+   "vaste_kosten_maand_eur_incl_btw": 5.99,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.nextenergy.nl/dynamische-energie"
+  },
+  {
+   "naam": "Noord Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.603,
+   "vaste_kosten_maand_eur_incl_btw": 4.82,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Oxxio",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.901,
+   "vaste_kosten_maand_eur_incl_btw": 6.49,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Powerpeers",
+   "inkoopvergoeding_ct_kwh_excl_btw": 0.826,
+   "vaste_kosten_maand_eur_incl_btw": 6.25,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://powerpeers.nl/tarieven/lage-inkoopvergoeding/"
+  },
+  {
+   "naam": "Pure Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.488,
+   "vaste_kosten_maand_eur_incl_btw": 6.05,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.gaslicht.com/stroom-vergelijken/raedthuys-pure-energie/nederlandse-groene-stroom-dynamisch-5118"
+  },
+  {
+   "naam": "Quatt Energy",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.488,
+   "vaste_kosten_maand_eur_incl_btw": 7.5,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://support.quatt.io/nl/articles/15693656-waarom-rekent-quatt-een-inkoopvergoeding-over-mijn-verbruikte-en-teruggeleverde-stroom"
+  },
+  {
+   "naam": "SamenOm",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.0661,
+   "vaste_kosten_maand_eur_incl_btw": 8.57,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.samenom.nl/tarieven/"
+  },
+  {
+   "naam": "SamSam",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.745,
+   "vaste_kosten_maand_eur_incl_btw": 7.99,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://samsam.nu/groene-energie"
+  },
+  {
+   "naam": "SolarEdge Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.851,
+   "vaste_kosten_maand_eur_incl_btw": 7.5,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Sunergy",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.853,
+   "vaste_kosten_maand_eur_incl_btw": 7.49,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.sunergy.nl/dynamische-energie"
+  },
+  {
+   "naam": "Tibber",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.488,
+   "vaste_kosten_maand_eur_incl_btw": 6.99,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://tibber.com/nl/energiecontract"
+  },
+  {
+   "naam": "TinQE",
+   "inkoopvergoeding_ct_kwh_excl_btw": 2.025,
+   "vaste_kosten_maand_eur_incl_btw": 5.75,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Vandebron",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.826,
+   "vaste_kosten_maand_eur_incl_btw": 7.01,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.gaslicht.com/stroom-vergelijken/vandebron/nl-groene-stroom-dynamisch-5235"
+  },
+  {
+   "naam": "Vattenfall",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.24,
+   "vaste_kosten_maand_eur_incl_btw": 5.99,
+   "status": "alleen_vergelijker",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://jeroen.nl/dynamische-energie/aanbieders"
+  },
+  {
+   "naam": "Ventum",
+   "inkoopvergoeding_ct_kwh_excl_btw": null,
+   "vaste_kosten_maand_eur_incl_btw": null,
+   "status": "niet_gepubliceerd",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.ventum.nl/dynamisch-energiecontract/"
+  },
+  {
+   "naam": "Zonneplan",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.653,
+   "vaste_kosten_maand_eur_incl_btw": 6.25,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.zonneplan.nl/energie/dynamisch-energiecontract"
+  },
+  {
+   "naam": "Zonopnaam Energie",
+   "inkoopvergoeding_ct_kwh_excl_btw": 1.65,
+   "vaste_kosten_maand_eur_incl_btw": 8.0,
+   "status": "bevestigd_tariefpagina",
+   "peildatum": "2026-11-01",
+   "bron_url": "https://www.zonopnaam.nl/files/ZON_Tarievenblad_2026M11_Dynamisch_V01.pdf"
+  }
+ ]
+}

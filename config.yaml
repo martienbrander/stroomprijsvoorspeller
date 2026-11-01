@@ -15,8 +15,8 @@ prijzen:
 weer:
   model: best_match
   variabelen: [wind_speed_100m, shortwave_radiation, cloud_cover, temperature_2m]
-  forecast_dagen: 7            # dagelijkse run: zoveel dagen vooruit ophalen
-  lead_dagen: [1, 2, 3, 4, 5]  # previous-runs: verwachting zoals die N dagen eerder was
+  forecast_dagen: 9            # dagelijkse run: zoveel dagen vooruit ophalen (D+7 moet volledig binnen vallen)
+  lead_dagen: [1, 2, 3, 4, 5, 6, 7]  # previous-runs: verwachting zoals die N dagen eerder was (max 7)
   punten:
     # zee
     - {naam: borssele,            lat: 51.70, lon: 3.05, type: zee}
@@ -38,9 +38,21 @@ weer:
 
 voorspelling:
   publicatie_uur_lokaal: 13    # backtest: op dit uur zijn de prijzen t/m morgen bekend
-  horizon_dagen: [2, 3, 4, 5]  # dagen vooruit die we voorspellen
+  horizon_dagen: [2, 3, 4, 5, 6, 7]  # dagen vooruit die de site toont, met betrouwbaarheidsindicator per dag
+  backtest_horizon_dagen: [2, 3, 4, 5, 6, 7]  # dagen vooruit die de backtest doorrekent
 
 model:
   kwantielen: [0.10, 0.50, 0.90]
   rolling_venster_dagen: 180
   recente_prijs_dagen: 7       # venster voor "recent prijsniveau"-features
+  profiel_dagen: 28            # venster voor het gemiddelde uurprofiel (baseline c)
+  hertrain_elke_dagen: 7       # backtest: hoe vaak de modellen opnieuw geschat worden
+  kalibratie_venster_dagen: 30 # conformal-correctie: zoveel dagen bekende uitkomsten
+  lightgbm:
+    n_estimators: 400
+    learning_rate: 0.05
+    num_leaves: 31
+    min_child_samples: 30
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8

@@ -1,9 +1,15 @@
 # stroomprijsvoorspeller
 
-Open, gratis voorspeller van de Nederlandse day-ahead stroomprijs (EPEX, biedzone NL), tot 5 dagen vooruit, met een
+Open, gratis voorspeller van de Nederlandse day-ahead stroomprijs (EPEX, biedzone NL), tot 7 dagen vooruit, met een
 onzekerheidsmarge. Voor huishoudens met een dynamisch contract die willen weten wanneer laden of wassen goedkoop is.
 
-Status: in opbouw. Fase 1 (data) is klaar. Zie [PLAN.md](PLAN.md) voor de fasen en [DECISIONS.md](DECISIONS.md) voor alle keuzes.
+Status: in opbouw. Fase 1 (data) en fase 2 (modellen) zijn klaar. Zie [PLAN.md](PLAN.md) voor de fasen en
+[DECISIONS.md](DECISIONS.md) voor alle keuzes.
+
+Eerste resultaat (rolling-origin backtest, 786 dagen, aug 2024 t/m okt 2026): het LightGBM-kwantielmodel zit op dag 2
+gemiddeld 20,7 EUR/MWh (2,1 ct/kWh) naast de werkelijke uurprijs, op dag 7 27,0. Het naïeve 4-weeks uurprofiel zit op
+28 tot 30. Het 80%-interval dekt na kalibratie 79% van de werkelijke prijzen. Details en eerlijke kanttekeningen in
+[reports/methodenvergelijking.md](reports/methodenvergelijking.md).
 
 ## Bronnen
 
@@ -21,10 +27,18 @@ python -m venv .venv
 epv fetch      # haalt prijzen (vanaf nov 2022) en weer (vanaf maart 2024) op, incrementeel
 epv build      # bouwt data/processed
 epv status     # toont wat er aan data is
+epv features   # bouwt de featurematrix per voorspelmoment en doeluur
+epv compare    # rolling-origin vergelijking van baselines en modellen -> reports/methodenvergelijking.md (duurt ~2 uur)
+epv train      # traint het operationele model op de laatste 180 dagen
+epv predict    # voorspelt dag 2 t/m 7 met de actuele weersverwachting
 pytest
 ```
 
-Alle instellingen staan in `config.yaml`: weerpunten, horizon, kwantielen, rolling venster.
+Alle instellingen staan in `config.yaml`: weerpunten, horizon, kwantielen, rolling venster, LightGBM-parameters.
+
+Verdere rapporten: [dataverkenning](reports/verkenning/data-verkenning.md), [literatuurmemo over
+schattingsmethoden](reports/literatuur-schattingsmethoden.md), [inventarisatie van leveranciers met een dynamisch
+contract](reports/leveranciers-inventarisatie.md). Ontwerpvarianten van de site: `site/ontwerpen/`.
 
 ## Licentie
 

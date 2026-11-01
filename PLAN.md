@@ -13,7 +13,7 @@ gratis hosting (GitHub Actions + GitHub Pages).
 | Fase | Inhoud | Resultaat |
 |---|---|---|
 | 1 | Data ophalen en verwerken | `data/raw/*.parquet`, `data/processed/*.parquet`, `python -m stroomprijsvoorspeller fetch` werkt incrementeel, tests |
-| 2 | Baselines + LightGBM-kwantielmodel + kalibratie | `stroomprijsvoorspeller/model/`, `python -m stroomprijsvoorspeller train` |
+| 2 | Features, baselines, kwantielmodellen (lineair asinh, LightGBM), conformal-kalibratie, methodenvergelijking op rolling-origin | `epv features`, `epv compare` -> `reports/methodenvergelijking.md`, `epv train`, `epv predict` |
 | 3 | Backtest met dagelijkse 13:00-simulatie | `reports/backtest.md` + png's, tests op lekkage |
 | 4 | Dagelijkse run + statische site | `site/` leest `site/data/forecast.json` |
 | 5 | README + lokale planner; later GitHub Actions + Pages | eerst alles lokaal op deze pc, pas daarna online |
@@ -45,9 +45,17 @@ stroomprijsvoorspeller/
 │   │   └── calendar.py        feestdagen (holidays), weekdag, uur, maand, seizoen
 │   ├── processing/
 │   │   ├── prices.py          kwartier -> uurgemiddelde, kwartierreeks apart, gaten
-│   │   └── dataset.py         bouwt data/processed uit data/raw
-│   ├── model/                 fase 2: baselines, kwantielmodellen, kalibratie, methodenvergelijking
-│   ├── evaluation/            fase 3: backtest (13:00-simulatie), metrics, rapport
+│   │   ├── dataset.py         bouwt data/processed uit data/raw
+│   │   └── features.py        featurematrix per (voorspelmoment, doeluur); prijzen alleen < bekend_tot(D)
+│   ├── model/
+│   │   ├── baselines.py       laatste bekende dag, vorige week, 4-weeks profiel
+│   │   ├── quantile_models.py LineairKwantiel (asinh), LightGBMKwantiel, Combinatie; één interface fit/predict
+│   │   ├── calibration.py     conformal (CQR) per methode en horizon, rolling venster, lekkage-vrij
+│   │   └── operational.py     train op venster t/m vandaag, voorspel met actuele weersverwachting
+│   ├── evaluation/
+│   │   ├── rolling.py         rolling-origin loop: trainset zonder toekomst, hertrainen elke N dagen
+│   │   ├── metrics.py         MAE, RMSE, pinball, dekking, breedte (fase 3: 3-uursblok, DM-toets)
+│   │   └── compare.py         features bouwen/bewaren, methodenvergelijking, rapport
 │   └── publish/               fase 4: forecast.json en scores.json voor de site
 │
 ├── scripts/                   fase 4/5: daily.py, weekly_backtest.py, Windows Taakplanner-registratie
@@ -103,6 +111,58 @@ sterk mee via de koppeling met DE-LU. Zon (ca. 25 GW) ligt verspreid over het he
 | duitsland_noord | 53.30 | 9.00 | Duitse onshore wind (Nedersaksen, Sleeswijk-Holstein) | land, buitenland |
 
 Alle punten staan in `config.yaml` en zijn zonder codewijziging aan te passen.
+
+## Evaluatie van de verversingsruns (besluit 33)
+
+Vraag: maken de lichte verversingen om 19:00, 01:00 en 07:00 (alleen nieuw weer, geen hertraining) de voorspelling
+voor dezelfde doeluren beter dan de hoofdrun van 13:15? En verandert het advies erdoor?
+
+### Wat elke run vastlegt (fase 4, in `epv daily` en `epv refresh`)
+
+Elke run, hoofdrun of verversing, schrijft één bestand `data/runs/run_<YYYYMMDD_HHMM>.parquet` met per doeluur:
+
+| Kolom | Betekenis |
+|---|---|
+| `run_utc`, `run_type` | tijdstip van de run; `hoofd` of `verversing` |
+| `origin` | de dag van de laatste hoofdrun (de dag waarop morgen bekend werd) |
+| `model_getraind_utc` | wanneer het gebruikte model getraind is |
+| `weer_uitgegeven_utc` | tijdstempel van de gebruikte weersverwachting |
+| `time_utc`, `horizon_uren_run` | doeluur en afstand in uren vanaf het runmoment |
+| `p10`, `p50`, `p90`, `p10_kal`, `p90_kal`, `bekend` | voorspelling (bekende uren ongewijzigd, `bekend = true`) |
+| `laadblok_start`, `wasblok_start` | het geadviseerde goedkoopste blok per dag met de standaardinstellingen |
+
+Bekende uren mogen door een verversing nooit veranderen. Dat is een test.
+
+### Hoe we meten (`epv evalueer-verversingen`, wekelijks, rapport `reports/verversingen.md`)
+
+1. **Gepaard per doeluur.** Voor elk doeluur vergelijken we de fout van de hoofdrun met de fout van elke latere
+   verversing voor datzelfde uur, zodra de echte prijs bekend is. Alleen paren waar beide runs bestaan.
+2. **Per verversingsslot en per doeldag.** Tabel met rijen 19:00, 01:00, 07:00 en kolommen doeldag D+2 .. D+5
+   (gezien vanaf de hoofdrun): MAE hoofdrun, MAE verversing, verschil in EUR/MWh en in procent, pinball P10/P90,
+   dekking van het 80%-interval. Het belangrijkste vakje is 07:00 voor D+2: dat is "morgen" voor wie 's ochtends kijkt.
+3. **Toets.** Diebold-Mariano op de dagelijkse verliesverschillen per slot en doeldag, eenzijdig, met HAC-correctie
+   (dezelfde toets als in de backtest, fase 3). Opeenvolgende dagen zijn niet onafhankelijk.
+4. **Praktijkmaat.** Hoe vaak verschuift het geadviseerde laadblok door de verversing, en was het nieuwe blok achteraf
+   echt goedkoper dan het oude (in EUR/MWh en in ct/kWh)? Zelfde voor het wasblok. Een verversing die het advies
+   nooit verandert is niet nuttig, ook al daalt de MAE iets.
+5. **Verklaring.** Uit het weerarchief: hoeveel verandert de windverwachting (zee, land) en de stralingsverwachting
+   tussen de opeenvolgende uitgiften voor hetzelfde doeluur, en hoeveel dichter zit de latere uitgifte bij de
+   uiteindelijke verwachting van lead 1? Zo zien we of de winst uit het weer komt of toeval is.
+6. **Betrouwbaarheid.** Aantal mislukte of te late runs per slot, en de doorlooptijd.
+
+### Beslisregel
+
+Na minstens 6 weken (ongeveer 40 dagen met volledige paren):
+
+- Een slot blijft als de MAE voor de eerstvolgende voorspelde dag minstens 3% lager is met DM-toets p < 0,10, **of**
+  als het advies in minstens 10% van de dagen verschuift naar een blok dat achteraf goedkoper was.
+- Anders gaat het slot eruit. Hoofdrun om 13:15 blijft altijd.
+- Uitkomst en cijfers komen in `DECISIONS.md` (besluit 33 wordt dan "besloten") en in de README onder beperkingen.
+
+### Wat de site toont
+
+Tijdstip van de laatste run en of het een hoofdrun of verversing was. In de uitleg: "Prijzen voor morgen worden
+rond 13:00 bekend. Daarna werken we de verwachting een paar keer per dag bij met het nieuwste weer."
 
 ## Belangrijkste risico's
 

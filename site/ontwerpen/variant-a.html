@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stroomprijsvoorspeller — variant A</title>
+<meta name="description" content="Wanneer is stroom goedkoop? Verwachte stroomprijs per uur voor de komende dagen, met onder- en bovengrens.">
+<style>
+  :root {
+    --achtergrond: #ffffff; --vlak: #f6f7f9; --tekst: #1b1f24; --zacht: #5c6670; --rand: #e3e6ea;
+    --accent: #1f5fbf; --accent-zacht: #e7eefb;
+    --g-tekst: #1b1f24; --g-zacht: #5c6670; --g-raster: #e3e6ea; --g-lijn: #1f5fbf; --g-bekend: #1f5fbf; --g-band: #1f5fbf; --g-nu: #c2410c; --g-vlak: #ffffff;
+    --sl-g-t: #0b6b2b; --sl-g-a: #e3f5e8; --sl-m-t: #8a5300; --sl-m-a: #fff1d6; --sl-d-t: #a3121f; --sl-d-a: #fde4e6;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --achtergrond: #121417; --vlak: #1b1f24; --tekst: #e8eaed; --zacht: #a3acb5; --rand: #2b3138;
+      --accent: #7aa7ea; --accent-zacht: #1b2a44;
+      --g-tekst: #e8eaed; --g-zacht: #a3acb5; --g-raster: #2b3138; --g-lijn: #7aa7ea; --g-bekend: #7aa7ea; --g-band: #7aa7ea; --g-nu: #f59e6b; --g-vlak: #1b1f24;
+      --sl-g-t: #8fe3ad; --sl-g-a: #143a22; --sl-m-t: #f7c66a; --sl-m-a: #3f2d0a; --sl-d-t: #ff9aa5; --sl-d-a: #46141b;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--achtergrond); color: var(--tekst); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
+  main, header, footer { max-width: 44rem; margin: 0 auto; padding: 0 1rem; }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", "Iowan Old Style", serif; font-weight: 500; letter-spacing: -0.01em; line-height: 1.2; margin: 0 0 .5rem; }
+  h1 { font-size: clamp(1.7rem, 5.5vw, 2.5rem); margin-top: .75rem; }
+  h2 { font-size: 1.4rem; margin-top: 2.5rem; }
+  h3 { font-size: 1.15rem; margin-top: 1.5rem; }
+  h4 { margin: 1.2rem 0 .3rem; font-size: 1rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); }
+  .kop { padding-top: 1.25rem; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid var(--rand); padding-bottom: .75rem; }
+  .kop .naam { font-weight: 600; letter-spacing: .02em; text-transform: uppercase; font-size: .8rem; color: var(--zacht); }
+  .kop .bijgewerkt { font-size: .85rem; color: var(--zacht); }
+  .intro { font-size: 1.15rem; color: var(--zacht); }
+  .intro strong { color: var(--tekst); font-weight: 600; }
+  figure { margin: 1.5rem 0 0; }
+  canvas { display: block; width: 100%; }
+  figcaption { font-size: .85rem; color: var(--zacht); margin-top: .5rem; }
+  .legenda { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; list-style: none; padding: 0; margin: .5rem 0 0; font-size: .85rem; color: var(--zacht); }
+  .legenda li::before { content: ""; display: inline-block; width: 1.4em; height: .7em; vertical-align: -0.05em; margin-right: .4em; border-radius: 2px; }
+  .legenda .l-bekend::before { background: var(--accent); }
+  .legenda .l-voorspeld::before { background: transparent; border-top: 2px dashed var(--accent); height: 0; }
+  .legenda .l-band::before { background: var(--accent); opacity: .25; }
+  .resolutie { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; margin: .6rem 0 0; }
+  .resolutie .noot { font-size: .8rem; color: var(--zacht); }
+  .tarief-details { margin: .4rem 0 0; font-size: .9rem; }
+  .tarief-details summary { cursor: pointer; color: var(--accent); list-style: none; display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; }
+  .tarief-details summary::-webkit-details-marker { display: none; }
+  .tarief-details .chevron { transition: transform .15s; flex: none; }
+  .tarief-details[open] .chevron { transform: rotate(90deg); }
+  .tarief-details .hint { font-weight: 400; color: var(--zacht); font-size: .85rem; }
+  .tarief-details .info { display: inline-flex; align-items: center; justify-content: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 1px solid var(--accent); font: 600 .7rem/1 Georgia, serif; color: var(--accent); cursor: help; }
+  .tarief-details .noot { font-size: .85rem; color: var(--zacht); }
+  .tarief-details fieldset { margin-bottom: 0; }
+
+  .segment { display: inline-flex; border: 1px solid var(--rand); border-radius: .5rem; overflow: hidden; }
+  .segment button { font: inherit; font-size: .85rem; padding: .3rem .7rem; border: 0; background: transparent; color: var(--zacht); cursor: pointer; }
+  .segment button[aria-pressed=true] { background: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .segment button[aria-pressed=true] { color: #0b1020; } }
+  .l-spits::before, .vak.spits { background: repeating-linear-gradient(135deg, var(--zacht) 0 1px, transparent 1px 4px) !important; opacity: .55; }
+  details { margin: .75rem 0; }
+  summary { cursor: pointer; color: var(--accent); font-size: .95rem; }
+  .sp-tabel { border-collapse: collapse; width: 100%; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .sp-tabel th, .sp-tabel td { text-align: left; padding: .25rem .5rem; border-bottom: 1px solid var(--rand); }
+  .sp-tabel td { text-align: right; } .sp-tabel td:last-child { text-align: left; }
+  .sp-tabel thead th { color: var(--zacht); font-weight: 500; }
+
+  .dag { padding: 1.25rem 0; border-top: 1px solid var(--rand); }
+  .dag h3 { margin-top: 0; display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .dag h3 .datum { font: 400 .95rem/1 system-ui, sans-serif; color: var(--zacht); }
+  .dag .status { font-size: .85rem; color: var(--zacht); display: flex; flex-wrap: wrap; gap: .3rem .5rem; align-items: center; }
+  .dagdelen { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin: .75rem 0 1rem; }
+  .dagdeel { background: var(--vlak); border-radius: .5rem; padding: .55rem .6rem; font-size: .85rem; min-width: 0; }
+  .dagdeel .naam { color: var(--zacht); display: block; }
+  .dagdeel .prijs { font-weight: 600; font-variant-numeric: tabular-nums; display: block; margin: .15rem 0 .3rem; }
+  .dagdeel .band { color: var(--zacht); display: block; font-size: .8rem; margin-bottom: .3rem; }
+  .beste { display: grid; gap: .5rem; grid-template-columns: 1fr 1fr; }
+  .beste div { display: flex; gap: .6rem; align-items: flex-start; font-size: .95rem; }
+  .beste svg { flex: none; width: 1.5rem; height: 1.5rem; color: var(--accent); margin-top: .1rem; }
+  .beste b { display: block; font-weight: 600; }
+  .beste b small { font-weight: 400; color: var(--zacht); }
+  .beste span { color: var(--zacht); font-size: .9rem; }
+  @media (max-width: 480px) { .dagdelen { grid-template-columns: repeat(2, 1fr); } .beste { grid-template-columns: 1fr; } }
+
+  .sl { display: inline-flex; align-items: center; gap: .3em; font-weight: 600; font-size: .8rem; padding: .1em .55em; border-radius: 999px; white-space: nowrap; }
+  .sl-icoon { font-size: .75em; }
+  .sl-goedkoop { color: var(--sl-g-t); background: var(--sl-g-a); }
+  .sl-gemiddeld { color: var(--sl-m-t); background: var(--sl-m-a); }
+  .sl-duur { color: var(--sl-d-t); background: var(--sl-d-a); }
+
+  .btr { display: inline-flex; align-items: center; gap: .35em; font-size: .8rem; font-weight: 600; padding: .1em .55em; border-radius: 999px; white-space: nowrap; }
+  .btr-icoon { font-size: .7em; letter-spacing: .05em; }
+  /* betrouwbaarheid: een kleur (indigo/paars), van verzadigd (zeker) naar bleek (onzeker); los van het stoplicht */
+  .btr-bekend { color: #ffffff; background: #3730a3; }
+  .btr-hoog { color: #3730a3; background: #e0e7ff; }
+  .btr-redelijk { color: #6d28d9; background: #f3e8ff; }
+  .btr-laag { color: #6b6480; background: #faf5ff; box-shadow: inset 0 0 0 1px #e9d5ff; }
+  @media (prefers-color-scheme: dark) {
+    .btr-bekend { color: #1e1b4b; background: #a5b4fc; }
+    .btr-hoog { color: #c7d2fe; background: #312e81; }
+    .btr-redelijk { color: #d8b4fe; background: #3b2a5e; }
+    .btr-laag { color: #a69fb5; background: #26222f; box-shadow: inset 0 0 0 1px #3f3650; }
+  }
+  .grafiek-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .grafiek-scroll canvas { min-width: 620px; }
+  .schuifhint { display: none; font-size: .78rem; color: var(--zacht); margin: .25rem 0 0; }
+  @media (max-width: 640px) { .schuifhint { display: block; } }
+  .kader { background: var(--vlak); border-radius: .75rem; padding: 1rem 1.25rem; margin: 1.5rem 0; }
+  form.tarief { margin-top: .75rem; }
+  form.tarief fieldset { border: 0; padding: 0; margin: 0 0 1.1rem; min-width: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; }
+  form.tarief legend { font-weight: 600; padding: 0; margin-bottom: .4rem; }
+  form.tarief select { width: 100%; font: inherit; padding: .4rem .5rem; border: 1px solid var(--rand); border-radius: .4rem; background: var(--achtergrond); color: var(--tekst); }
+  form.tarief .laad-uitleg, form.tarief .tarief-noot, form.tarief .leverancier-info, form.tarief .leveranciers-noot { grid-column: 1 / -1; margin: 0; font-size: .9rem; color: var(--zacht); }
+  form.tarief .leverancier-info { color: var(--tekst); }
+  @media (max-width: 480px) { form.tarief fieldset { grid-template-columns: 1fr; } }
+  form.tarief label { font-size: .85rem; color: var(--zacht); display: block; }
+  form.tarief input[type=number] { width: 100%; font: inherit; padding: .4rem .5rem; border: 1px solid var(--rand); border-radius: .4rem; background: var(--achtergrond); color: var(--tekst); }
+  form.tarief .schakel { grid-column: 1 / -1; display: flex; align-items: center; gap: .5rem; font-size: 1rem; color: var(--tekst); }
+  form.tarief button { font: inherit; padding: .45rem 1rem; border-radius: .4rem; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+  .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin: .75rem 0; }
+  .scores div { background: var(--achtergrond); border: 1px solid var(--rand); border-radius: .5rem; padding: .6rem .8rem; }
+  .scores b { display: block; font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .scores span { font-size: .85rem; color: var(--zacht); }
+  footer { border-top: 1px solid var(--rand); margin-top: 3rem; padding: 1.5rem 1rem 3rem; font-size: .85rem; color: var(--zacht); }
+  footer p { margin-bottom: .5rem; }
+  .fout { background: var(--sl-d-a); color: var(--sl-d-t); padding: 1rem; border-radius: .5rem; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header class="kop">
+  <span class="naam">Stroomprijsvoorspeller</span>
+  <span class="bijgewerkt" id="bijgewerkt"></span>
+</header>
+
+<main>
+  <h1 id="kop">Even laden…</h1>
+  <p class="intro" id="intro"></p>
+
+  <figure>
+    <div class="grafiek-scroll"><canvas id="grafiek" aria-describedby="legenda"></canvas></div>
+    <p class="schuifhint">Schuif opzij voor alle 7 dagen.</p>
+    <div class="resolutie prijsstand">
+      <div class="segment" role="group" aria-label="Welke prijs" id="standen">
+        <button type="button" data-stand="markt" aria-pressed="false">Marktprijs</button>
+        <button type="button" data-stand="marktplus" aria-pressed="false">Marktprijs+</button>
+        <button type="button" data-stand="allin" aria-pressed="true">All-in</button>
+      </div>
+      <span class="noot tarief-uitleg"></span>
+    </div>
+    <details class="tarief-details">
+      <summary><svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Mijn tarief <span class="info" tabindex="0" role="img" aria-label="Uitleg" title="Kies hier je leverancier; dan vullen we de inkoopvergoeding in. Scheelt een paar tienden van een cent per kWh, verandert het beste moment niet. Zonder instelling rekenen we met 1,65 ct.">i</span><span class="hint">leverancier en inkoopvergoeding</span></summary>
+      <p class="noot" style="margin:.4rem 0 .6rem">Voor de fijnproever: de inkoopvergoeding van je leverancier scheelt een paar tienden van een cent per kWh en verandert niets aan het beste moment. Zonder instelling rekenen we met 1,65 ct.</p>
+      <form class="tarief" id="tarief-prijs">
+      <fieldset>
+        <legend>Prijs</legend>
+        <label>Mijn leverancier<select name="leverancier"><option value="">Anders / zelf invullen</option></select></label>
+        <label>Inkoopvergoeding (ct/kWh, zonder btw)<input type="number" name="inkoop" step="0.01" min="0" inputmode="decimal"></label>
+        <p class="leverancier-info"></p>
+        <p class="leveranciers-noot"></p>
+        <p class="tarief-noot"></p>
+      </fieldset>
+      </form>
+    </details>
+    <div class="resolutie">
+      <div class="segment" role="group" aria-label="Prijzen per uur of per kwartier" id="resolutie">
+        <button type="button" data-resolutie="uur" aria-pressed="true">Per uur</button>
+        <button type="button" data-resolutie="kwartier" aria-pressed="false">Per kwartier</button>
+      </div>
+      <span class="noot">kwartier alleen voor vandaag en morgen; de verwachting is per uur</span>
+    </div>
+
+    <ul class="legenda" id="legenda">
+      <li class="l-bekend">bekend (prijs staat vast)</li>
+      <li class="l-voorspeld">verwacht</li>
+      <li class="l-band">waarschijnlijk tussen onder- en bovengrens</li>
+      <li class="l-spits">netspits 16–21 uur</li>
+    </ul>
+    <figcaption id="eenheid"></figcaption>
+    <p style="font-size:.85rem;color:var(--zacht);margin:.25rem 0 0">Hoe hoger de lichte band, hoe onzekerder de prijs. De kleuren van het stoplicht zijn overal gelijk; het label bij elke dag zegt hoe betrouwbaar de verwachting is.</p>
+    <details><summary>Dezelfde cijfers als tabel</summary><div id="tabel"></div></details>
+  </figure>
+
+  <h2>Per dag</h2>
+  <p class="intro" style="font-size:1rem">Het stoplicht vergelijkt dagdelen met de hele periode: het goedkoopste derde is groen, het duurste derde rood. Hoe verder vooruit, hoe grover de indeling.</p>
+  <div id="dagen"></div>
+
+  <h2>Hoe zeker is dit?</h2>
+  <p>De prijzen van <strong>vandaag en morgen</strong> staan vast. Ze komen rechtstreeks van de stroombeurs en veranderen niet meer.</p>
+  <p>Vanaf <strong>overmorgen</strong> is het een verwachting. Die rekenen we uit met de weersverwachting (wind, zon, temperatuur) en de prijzen van de afgelopen dagen. Bij elke verwachting hoort een ondergrens en een bovengrens. In ongeveer 8 van de 10 gevallen valt de echte prijs daartussen.</p>
+  <p>Dag 4 en 5 zijn grof. Daarom tonen we dan alleen dagdelen, geen losse uren. Een goedkoop dagdeel blijft meestal goedkoop, maar het exacte uur kan schuiven.</p>
+  <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Bij elke dag staat hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
+  <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen. Daarom is "gratis stroom" op de rekening niet gratis. Marktprijs toont de kale beursprijs zonder btw, Marktprijs+ de beursprijs plus de inkoopvergoeding met btw, All-in alles zoals op de rekening.</p>
+  <p>De gearceerde uren zijn de netspits (16–21 uur): de overheid vraagt om dan zo min mogelijk stroom te gebruiken, omdat het stroomnet dan het drukst is. Dat staat los van de prijs; het advies op deze site gaat over de prijs.</p>
+  <div class="kader" id="scores"></div>
+
+  <div class="kader">
+    <h3 style="margin-top:0">Uw auto</h3>
+    <p style="font-size:.95rem;color:var(--zacht)">Standaard een laadblok van 3 uur en 30 kWh. Vul uw laadvermogen en hoeveelheid in voor uw eigen laadbeurt. We bewaren dit alleen in uw eigen browser.</p>
+    <form class="tarief" id="tarief">
+      <fieldset class="laad">
+        <legend>Auto laden</legend>
+        <label>Laadvermogen<select name="kw"><option value="">kies…</option><option value="2.3">2,3 kW (stopcontact)</option><option value="3.7">3,7 kW</option><option value="7.4">7,4 kW</option><option value="11">11 kW</option><option value="22">22 kW</option><option value="anders">anders…</option></select></label>
+        <label class="kw-anders" hidden>Vermogen in kW<input type="number" name="kw-anders" step="0.1" min="0.5" inputmode="decimal"></label>
+        <label>Te laden (kWh)<input type="number" name="kwh" step="1" min="1" placeholder="30" inputmode="decimal"></label>
+        <p class="laad-uitleg"></p>
+      </fieldset>
+      <button type="submit">Toepassen</button>
+    </form>
+  </div>
+</main>
+
+<footer>
+  <p><strong>Hulpmiddel, geen garantie.</strong> De verwachting kan afwijken van de echte prijs. Uw leverancier bepaalt wat u betaalt.</p>
+  <p>Prijzen: <a href="https://www.energy-charts.info/">Energy-Charts</a> (Fraunhofer ISE, data Bundesnetzagentur/SMARD, CC BY 4.0). Weer: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Biedzone Nederland, day-ahead.</p>
+  <p>Geen cookies, geen tracking. Open source.</p>
+</footer>
+
+<script src="gedeeld.js"></script>
+<script>
+(function () {
+  const ICOON_LADEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M19 10h2v4h-2M7 12h6M10 9l-2 3h4l-2 3"/></svg>';
+  const ICOON_WASSEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M8 6h2M14 6h2M8.5 14c1.2-1 2.4-1 3.5 0s2.3 1 3.5 0"/></svg>';
+  let forecast = null, grafiek = null, model = null, tarief = null, laad = null, resolutie = 'uur';
+
+  function render() {
+    const m = model = SP.verwerk(forecast, tarief, laad, resolutie);
+    document.getElementById('bijgewerkt').textContent = 'Bijgewerkt ' + SP.gegenereerdTekst(m.gegenereerd);
+    document.getElementById('eenheid').textContent = 'Prijs in ' + m.eenheidLabel + '. Vandaag en morgen zijn bekend, daarna is het een verwachting. Dag 4 en verder per dagdeel.';
+
+    // kop: morgen (bekend) als er een morgen is
+    const morgen = m.dagen[1] || m.dagen[0];
+    const b = morgen.laden;
+    document.getElementById('kop').textContent = SP.dagNaam(morgen, true) + ' is stroom het goedkoopst tussen ' + SP.fmtUur(b.start) + ' en ' + SP.fmtUur(b.eind) + (b.volgendeDag ? ' (tot ' + b.eindDagNaam + ')' : '') + '.';
+    document.getElementById('intro').innerHTML = 'Dan kost een kilowattuur <strong>' + SP.fmt(b.p50) + ' cent</strong>, ' + SP.fmt(b.marge) + ' cent minder dan het daggemiddelde van ' + SP.fmt(b.dagGem) + ' cent. Een laadbeurt van ' + SP.fmt(m.laad.kwh, m.laad.kwh % 1 ? 1 : 0) + ' kWh kost dan ' + SP.fmtEuro(SP.blokKosten(b, m.laad.kwh).euro) + '. ' +
+      (m.dagen[2] ? 'De dagen daarna zijn een verwachting: ' + goedkoopsteDagZin(m) : '');
+
+    if (!grafiek) grafiek = SP.tekenGrafiek(document.getElementById('grafiek'), m, {});
+    else grafiek.update(m);
+    SP.maakTabel(document.getElementById('tabel'), m);
+
+    const dagenEl = document.getElementById('dagen');
+    dagenEl.innerHTML = m.dagen.map(dagHtml).join('');
+
+    const s = m.scores;
+    document.getElementById('scores').innerHTML = '<h3 style="margin-top:0">Afgelopen ' + s.periode + ' dagen</h3>' +
+      '<p style="font-size:.95rem;color:var(--zacht);margin-bottom:.25rem">Zo veel zat de verwachting er gemiddeld naast (in de gekozen prijsstand):</p>' +
+      '<div class="scores">' +
+      ['2', '3', '4', '5'].map(function (k) { return '<div><b>' + SP.fmt(s.mae[k]) + ' ct</b><span>dag ' + k + ' vooruit</span></div>'; }).join('') +
+      '</div><p style="font-size:.9rem;color:var(--zacht);margin:0">De echte prijs viel in ' + Math.round(s.dekking[2] * 100) + '% van de uren tussen onder- en bovengrens voor dag 2, en in ' + Math.round(s.dekking[5] * 100) + '% voor dag 5. Het doel is 80%.</p>';
+  }
+
+  function goedkoopsteDagZin(m) {
+    const voorspeld = m.dagen.filter(function (d) { return !d.bekend; });
+    if (!voorspeld.length) return '';
+    const g = voorspeld.reduce(function (a, d) { return d.gem < a.gem ? d : a; });
+    return SP.dagNaam(g, true).toLowerCase() + ' lijkt de goedkoopste dag (gemiddeld rond ' + SP.fmt(g.gem) + ' cent, ' + g.betrouwbaarheid.label + ').';
+  }
+
+  function dagHtml(d) {
+    const status = d.bekend ? '' : (d.perUur ? 'Verwachting per uur.' : 'Verwachting per dagdeel.');
+    const dagdelen = d.dagdelen.map(function (b) {
+      return '<div class="dagdeel">' +
+        '<span class="naam">' + b.label + ' <small>' + b.van + '–' + b.tot + ' u</small></span>' +
+        '<span class="prijs">' + SP.fmt(b.p50) + ' ct</span>' +
+        (d.bekend ? '' : '<span class="band">' + SP.fmt(b.p10) + ' tot ' + SP.fmt(b.p90) + '</span>') +
+        SP.stoplichtHtml(b.stoplicht) + '</div>';
+    }).join('');
+    const bl = d.laden, bw = d.wassen;
+    const beste = bl ? '<div class="beste">' +
+      '<div>' + ICOON_LADEN + '<div><b>Laden: ' + SP.blokTijd(bl) + ' <small>(' + bl.n + ' uur)</small></b><span>' + SP.laadZin(bl, model.laad.kwh) + '</span></div></div>' +
+      (bw ? '<div>' + ICOON_WASSEN + '<div><b>Wassen: ' + SP.blokTijd(bw) + ' <small>(' + bw.n + ' uur)</small></b><span>' + SP.wasZin(bw) + '</span></div></div>' : '') +
+      '</div>' : '';
+    return '<article class="dag"><h3>' + SP.dagNaam(d, true) + (d.index < 2 ? '<span class="datum">' + SP.dagDatumKort(d) + '</span>' : '') + '</h3>' +
+      '<p class="status">' + SP.betrouwbaarheidHtml(d, false) + ' ' + status + ' Gemiddeld ' + (d.bekend ? '' : 'rond ') + SP.fmt(d.gem) + ' ct/kWh.</p>' +
+      '<div class="dagdelen">' + dagdelen + '</div>' + beste + '</article>';
+  }
+  Promise.all([SP.laadForecast('voorbeeld-forecast.json'), SP.laadLeveranciers('leveranciers.json')]).then(function (res) {
+    forecast = res[0];
+    const lijst = res[1];
+    const form = document.getElementById('tarief');
+    document.querySelector('.tarief-noot').textContent = SP.tariefUitlegTekst();
+    const prijsForm = document.getElementById('tarief-prijs');
+    tarief = SP.koppelTarief({ standen: document.getElementById('standen'), inkoop: prijsForm.querySelector('[name=inkoop]'), uitleg: document.querySelector('.tarief-uitleg'), form: prijsForm,
+      leveranciers: prijsForm.querySelector('[name=leverancier]'), leverancierInfo: prijsForm.querySelector('.leverancier-info'), leveranciersNoot: prijsForm.querySelector('.leveranciers-noot'), lijst: lijst }, function (t) { tarief = t; render(); });
+    laad = SP.koppelLaadinstellingen(form, function (l) { laad = l; render(); });
+    resolutie = SP.koppelResolutie(document.getElementById('resolutie'), function (r) { resolutie = r; render(); });
+    render();
+  }).catch(function (e) {
+    document.getElementById('kop').textContent = 'De voorspelling kon niet geladen worden.';
+    document.getElementById('intro').innerHTML = '<span class="fout">' + e.message + '</span>';
+  });
+})();
+</script>
+</body>
+</html>

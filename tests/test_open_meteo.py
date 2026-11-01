@@ -34,8 +34,9 @@ def _cfg(tmp_path) -> Config:
         weer_model="best_match", weer_variabelen=("wind_speed_100m",),
         forecast_dagen=7, lead_dagen=(2, 3),
         weerpunten=(Weerpunt("test", 52.0, 5.0, "land"),),
-        publicatie_uur_lokaal=13, horizon_dagen=(2, 3, 4, 5),
+        publicatie_uur_lokaal=13, horizon_dagen=(2, 3, 4, 5), backtest_horizon_dagen=(2, 3, 4, 5),
         kwantielen=(0.1, 0.5, 0.9), rolling_venster_dagen=180, recente_prijs_dagen=7,
+        profiel_dagen=28, hertrain_elke_dagen=7, kalibratie_venster_dagen=30, lightgbm_params={},
     )
 
 

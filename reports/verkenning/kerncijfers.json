@@ -1,0 +1,476 @@
+{
+ "periode": {
+  "van": "2022-11-01",
+  "tot": "2026-11-02",
+  "n_uren": 35111,
+  "dagen_23u": 5,
+  "dagen_25u": 4
+ },
+ "maand": {
+  "eerste_maand": "2022-11",
+  "laatste_maand": "2026-10",
+  "hoogste_maand": {
+   "maand": "2022-12",
+   "gem": 258.9
+  },
+  "laagste_maand": {
+   "maand": "2024-04",
+   "gem": 58.3
+  },
+  "per_jaar": {
+   "2022": {
+    "mean": 219.8,
+    "std": 129.2
+   },
+   "2023": {
+    "mean": 95.8,
+    "std": 49.0
+   },
+   "2024": {
+    "mean": 77.3,
+    "std": 49.5
+   },
+   "2025": {
+    "mean": 86.8,
+    "std": 49.8
+   },
+   "2026": {
+    "mean": 115.5,
+    "std": 69.4
+   }
+  },
+  "p10_p90_laatste12": {
+   "p10": 31.6,
+   "p90": 164.2,
+   "gem": 110.5
+  }
+ },
+ "zonnedip": {
+  "2023": {
+   "daggem": 88.3,
+   "middag_12_15": 41.4,
+   "dip_eur": 46.9,
+   "dip_pct": 53.0
+  },
+  "2024": {
+   "daggem": 68.7,
+   "middag_12_15": 15.7,
+   "dip_eur": 53.0,
+   "dip_pct": 77.0
+  },
+  "2025": {
+   "daggem": 74.4,
+   "middag_12_15": 9.9,
+   "dip_eur": 64.5,
+   "dip_pct": 87.0
+  },
+  "2026": {
+   "daggem": 112.1,
+   "middag_12_15": 26.1,
+   "dip_eur": 86.0,
+   "dip_pct": 77.0
+  }
+ },
+ "profiel_werkdag": {
+  "winter (dec-feb)": {
+   "duurste_uur": 17,
+   "duur": 165.0,
+   "goedkoopste_uur": 3,
+   "goedkoop": 83.0
+  },
+  "voorjaar (mrt-mei)": {
+   "duurste_uur": 20,
+   "duur": 139.0,
+   "goedkoopste_uur": 13,
+   "goedkoop": 35.0
+  },
+  "zomer (jun-aug)": {
+   "duurste_uur": 20,
+   "duur": 168.0,
+   "goedkoopste_uur": 14,
+   "goedkoop": 36.0
+  },
+  "najaar (sep-nov)": {
+   "duurste_uur": 19,
+   "duur": 185.0,
+   "goedkoopste_uur": 4,
+   "goedkoop": 85.0
+  }
+ },
+ "negatief": {
+  "pct_per_jaar": {
+   "2022": {
+    "neg": 0.7,
+    "laag": 3.2
+   },
+   "2023": {
+    "neg": 3.6,
+    "laag": 7.2
+   },
+   "2024": {
+    "neg": 5.2,
+    "laag": 10.1
+   },
+   "2025": {
+    "neg": 6.7,
+    "laag": 11.3
+   },
+   "2026": {
+    "neg": 5.5,
+    "laag": 9.0
+   }
+  },
+  "uren_per_jaar": {
+   "2022": {
+    "neg": 10,
+    "laag": 47
+   },
+   "2023": {
+    "neg": 316,
+    "laag": 633
+   },
+   "2024": {
+    "neg": 458,
+    "laag": 888
+   },
+   "2025": {
+    "neg": 584,
+    "laag": 986
+   },
+   "2026": {
+    "neg": 406,
+    "laag": 658
+   }
+  },
+  "dagen_met_negatief_per_jaar": {
+   "2022": 3,
+   "2023": 62,
+   "2024": 95,
+   "2025": 114,
+   "2026": 83
+  },
+  "neg_top3_maanden": {
+   "5": 339,
+   "4": 281,
+   "6": 266
+  },
+  "neg_aandeel_vrije_dag_pct": 62.0,
+  "neg_pct_per_uur": {
+   "0": 0.7,
+   "1": 1.4,
+   "2": 2.3,
+   "3": 2.4,
+   "4": 2.5,
+   "5": 1.9,
+   "6": 1.4,
+   "7": 1.0,
+   "8": 1.0,
+   "9": 2.1,
+   "10": 6.4,
+   "11": 12.3,
+   "12": 16.5,
+   "13": 20.4,
+   "14": 20.2,
+   "15": 15.9,
+   "16": 9.4,
+   "17": 2.8,
+   "18": 0.3,
+   "19": 0.1,
+   "20": 0.0,
+   "21": 0.1,
+   "22": 0.1,
+   "23": 0.2
+  },
+  "neg_uren_11_16_aandeel_pct": 78.0,
+  "laagste_prijs": {
+   "prijs": -500.0,
+   "tijd": "2023-07-02 13:00:00+02:00"
+  },
+  "hoogste_prijs": {
+   "prijs": 872.96,
+   "tijd": "2024-12-12 17:00:00+01:00"
+  }
+ },
+ "spreiding": {
+  "per_jaar": {
+   "2022": {
+    "spreiding_mediaan": 165.0,
+    "spreiding_gem": 177.6,
+    "winst_mediaan": 71.5,
+    "winst_gem": 77.4,
+    "winst_pct_mediaan": 35.3,
+    "daggem": 219.7
+   },
+   "2023": {
+    "spreiding_mediaan": 98.2,
+    "spreiding_gem": 107.6,
+    "winst_mediaan": 35.4,
+    "winst_gem": 45.7,
+    "winst_pct_mediaan": 36.9,
+    "daggem": 95.8
+   },
+   "2024": {
+    "spreiding_mediaan": 107.0,
+    "spreiding_gem": 113.0,
+    "winst_mediaan": 40.9,
+    "winst_gem": 45.0,
+    "winst_pct_mediaan": 53.9,
+    "daggem": 77.3
+   },
+   "2025": {
+    "spreiding_mediaan": 116.1,
+    "spreiding_gem": 123.2,
+    "winst_mediaan": 47.6,
+    "winst_gem": 51.8,
+    "winst_pct_mediaan": 55.9,
+    "daggem": 86.8
+   },
+   "2026": {
+    "spreiding_mediaan": 150.7,
+    "spreiding_gem": 156.4,
+    "winst_mediaan": 67.6,
+    "winst_gem": 70.9,
+    "winst_pct_mediaan": 64.3,
+    "daggem": 115.5
+   }
+  },
+  "per_seizoen": {
+   "winter (dec-feb)": {
+    "spreiding_mediaan": 79.4,
+    "winst_mediaan": 28.8,
+    "winst_pct_mediaan": 26.3
+   },
+   "voorjaar (mrt-mei)": {
+    "spreiding_mediaan": 123.8,
+    "winst_mediaan": 57.6,
+    "winst_pct_mediaan": 84.1
+   },
+   "zomer (jun-aug)": {
+    "spreiding_mediaan": 133.2,
+    "winst_mediaan": 61.9,
+    "winst_pct_mediaan": 82.8
+   },
+   "najaar (sep-nov)": {
+    "spreiding_mediaan": 123.2,
+    "winst_mediaan": 42.6,
+    "winst_pct_mediaan": 38.9
+   }
+  },
+  "totaal": {
+   "spreiding_mediaan": 115.3,
+   "winst_mediaan": 47.7,
+   "winst_pct_mediaan": 49.0,
+   "aandeel_dagen_winst_boven_30": 70.0,
+   "aandeel_dagen_spreiding_boven_100": 60.0
+  }
+ },
+ "dagdeel": {
+  "per_seizoen_alle_jaren": {
+   "winter (dec-feb)": {
+    "nacht (0-6)": 72.0,
+    "middag (12-18)": 15.0,
+    "avond (18-24)": 10.0,
+    "ochtend (6-12)": 3.0
+   },
+   "voorjaar (mrt-mei)": {
+    "middag (12-18)": 90.0,
+    "nacht (0-6)": 9.0,
+    "ochtend (6-12)": 1.0,
+    "avond (18-24)": 0.0
+   },
+   "zomer (jun-aug)": {
+    "middag (12-18)": 97.0,
+    "nacht (0-6)": 2.0,
+    "ochtend (6-12)": 1.0,
+    "avond (18-24)": 0.0
+   },
+   "najaar (sep-nov)": {
+    "middag (12-18)": 51.0,
+    "nacht (0-6)": 42.0,
+    "avond (18-24)": 5.0,
+    "ochtend (6-12)": 1.0
+   }
+  },
+  "laatste_12_maanden": {
+   "middag (12-18)": 67.0,
+   "nacht (0-6)": 28.0,
+   "avond (18-24)": 3.0,
+   "ochtend (6-12)": 1.0
+  },
+  "laatste_12_maanden_zomer": {
+   "middag (12-18)": 100.0,
+   "nacht (0-6)": 0.0,
+   "ochtend (6-12)": 0.0,
+   "avond (18-24)": 0.0
+  },
+  "laatste_12_maanden_winter": {
+   "nacht (0-6)": 78.0,
+   "middag (12-18)": 10.0,
+   "avond (18-24)": 9.0,
+   "ochtend (6-12)": 3.0
+  }
+ },
+ "weer_periode": {
+  "van": "2024-03-01",
+  "tot": "2026-11-02",
+  "n_uren": 23424
+ },
+ "weer_correlatie": {
+  "winter (dec-feb)": {
+   "wind_zee": -0.53,
+   "wind_land": -0.53,
+   "straling_alle_uren": 0.0,
+   "straling_9_17": -0.17
+  },
+  "voorjaar (mrt-mei)": {
+   "wind_zee": -0.22,
+   "wind_land": -0.17,
+   "straling_alle_uren": -0.58,
+   "straling_9_17": -0.53
+  },
+  "zomer (jun-aug)": {
+   "wind_zee": -0.21,
+   "wind_land": -0.21,
+   "straling_alle_uren": -0.5,
+   "straling_9_17": -0.32
+  },
+  "najaar (sep-nov)": {
+   "wind_zee": -0.43,
+   "wind_land": -0.43,
+   "straling_alle_uren": -0.25,
+   "straling_9_17": -0.39
+  },
+  "alle seizoenen": {
+   "wind_zee": -0.27,
+   "wind_land": -0.26,
+   "straling_alle_uren": -0.45,
+   "straling_9_17": -0.57
+  }
+ },
+ "weer_klassen": {
+  "wind_zee_onder_5": 113.0,
+  "wind_zee_boven_15": 54.0,
+  "straling_boven_500": 21.0,
+  "straling_0_dag_9_17": 123.0,
+  "wind_zee_boven_15_pct_negatief": 11.0
+ },
+ "kwartier": {
+  "n_uren": 9553,
+  "gem_abs_afwijking": 8.1,
+  "bereik_mediaan": 15.9,
+  "bereik_gem": 24.7,
+  "bereik_p90": 56.7,
+  "aandeel_uren_bereik_boven_20": 42.0,
+  "aandeel_uren_bereik_boven_50": 13.0,
+  "gem_afwijking_per_kwartier": {
+   "kw1": 1.2,
+   "kw2": -0.3,
+   "kw3": -0.3,
+   "kw4": -0.6
+  },
+  "kw1_duurder_dan_kw4_pct_uren": 60.0,
+  "bereik_mediaan_per_uur_top3": {
+   "17": 42.0,
+   "9": 37.0,
+   "16": 36.0
+  },
+  "bereik_mediaan_per_uur_laagste3": {
+   "3": 3.0,
+   "4": 5.0,
+   "2": 6.0
+  },
+  "afw_kw1_uur_ochtend_6_8": {
+   "6": -9.8,
+   "7": -0.2,
+   "8": 16.7
+  },
+  "afw_kw4_uur_ochtend_6_8": {
+   "6": 8.3,
+   "7": -2.9,
+   "8": -18.2
+  },
+  "afw_kw1_uur_avond_17_20": {
+   "17": -23.5,
+   "18": -16.2,
+   "19": -5.8,
+   "20": 4.2
+  },
+  "afw_kw4_uur_avond_17_20": {
+   "17": 24.0,
+   "18": 16.6,
+   "19": 8.0,
+   "20": -4.3
+  }
+ },
+ "naief": {
+  "sep 2024 t/m nu": {
+   "2": {
+    "laatst bekende dag": 27.8,
+    "zelfde uur vorige week": 35.1,
+    "4-weeks uurprofiel": 29.0
+   },
+   "3": {
+    "laatst bekende dag": 35.1,
+    "zelfde uur vorige week": 35.1,
+    "4-weeks uurprofiel": 29.5
+   },
+   "4": {
+    "laatst bekende dag": 37.1,
+    "zelfde uur vorige week": 35.1,
+    "4-weeks uurprofiel": 29.8
+   },
+   "5": {
+    "laatst bekende dag": 38.2,
+    "zelfde uur vorige week": 35.1,
+    "4-weeks uurprofiel": 30.1
+   },
+   "6": {
+    "laatst bekende dag": 38.2,
+    "zelfde uur vorige week": 35.1,
+    "4-weeks uurprofiel": 30.3
+   },
+   "7": {
+    "laatst bekende dag": 36.6,
+    "zelfde uur vorige week": 35.1,
+    "4-weeks uurprofiel": 30.4
+   }
+  },
+  "2023 t/m nu": {
+   "2": {
+    "laatst bekende dag": 26.7,
+    "zelfde uur vorige week": 32.7,
+    "4-weeks uurprofiel": 28.2
+   },
+   "3": {
+    "laatst bekende dag": 33.5,
+    "zelfde uur vorige week": 32.7,
+    "4-weeks uurprofiel": 28.7
+   },
+   "4": {
+    "laatst bekende dag": 35.0,
+    "zelfde uur vorige week": 32.7,
+    "4-weeks uurprofiel": 29.1
+   },
+   "5": {
+    "laatst bekende dag": 36.0,
+    "zelfde uur vorige week": 32.7,
+    "4-weeks uurprofiel": 29.5
+   },
+   "6": {
+    "laatst bekende dag": 36.6,
+    "zelfde uur vorige week": 32.7,
+    "4-weeks uurprofiel": 29.8
+   },
+   "7": {
+    "laatst bekende dag": 34.6,
+    "zelfde uur vorige week": 32.7,
+    "4-weeks uurprofiel": 30.1
+   }
+  }
+ },
+ "naief_referentie": {
+  "gem_prijs": 99.4,
+  "std_prijs": 60.9,
+  "mae_als_je_het_daggemiddelde_van_de_dag_zelf_wist": 32.5
+ }
+}

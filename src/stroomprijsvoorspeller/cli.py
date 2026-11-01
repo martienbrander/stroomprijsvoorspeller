@@ -53,6 +53,54 @@ def cmd_build(args) -> int:
     return 0
 
 
+def _datum(s: str | None):
+    return pd.Timestamp(s).date() if s else None
+
+
+def cmd_features(args) -> int:
+    from stroomprijsvoorspeller.evaluation import compare
+
+    cfg = load_config(args.config)
+    f = compare.bouw_en_bewaar_features(cfg, _datum(args.start), _datum(args.einde))
+    print(f"features: {len(f)} rijen, {f.shape[1]} kolommen, {f['origin'].min().date()} .. {f['origin'].max().date()}")
+    return 0
+
+
+def cmd_compare(args) -> int:
+    from stroomprijsvoorspeller.evaluation import compare
+
+    cfg = load_config(args.config)
+    methoden = args.methoden.split(",") if args.methoden else None
+    tabel = compare.vergelijk(cfg, methoden, _datum(args.start), _datum(args.einde), args.hertrain)
+    with pd.option_context("display.width", 200, "display.max_columns", 20):
+        print(tabel.round(3).to_string(index=False))
+    return 0
+
+
+def cmd_train(args) -> int:
+    from stroomprijsvoorspeller.model import operational
+
+    cfg = load_config(args.config)
+    pad = operational.train_en_bewaar(cfg, args.methode, _datum(args.origin))
+    print(f"model opgeslagen: {pad}")
+    return 0
+
+
+def cmd_predict(args) -> int:
+    from stroomprijsvoorspeller.model import operational
+
+    cfg = load_config(args.config)
+    v = operational.voorspel(cfg, args.methode, _datum(args.origin))
+    uit = args.uit or (cfg.processed_dir / "voorspelling_actueel.parquet")
+    v.to_parquet(uit, index=False)
+    kort = v[["time_utc", "horizon_dag", "p10_kal", "p50", "p90_kal"]].copy()
+    kort["tijd_lokaal"] = pd.DatetimeIndex(kort.pop("time_utc")).tz_convert(cfg.tijdzone).strftime("%a %d-%m %H:%M")
+    with pd.option_context("display.max_rows", 200, "display.width", 120):
+        print(kort.round(1).to_string(index=False))
+    print(f"-> {uit}")
+    return 0
+
+
 def cmd_status(args) -> int:
     cfg = load_config(args.config)
     ruw = energy_charts.lees_ruw(cfg.raw_dir)
@@ -88,6 +136,29 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("status", help="toon wat er aan data is")
     s.set_defaults(func=cmd_status)
+
+    fe = sub.add_parser("features", help="bouw de featurematrix (data/processed/features.parquet)")
+    fe.add_argument("--start", help="eerste voorspelmoment, YYYY-MM-DD (standaard: weer_start)")
+    fe.add_argument("--einde", help="laatste voorspelmoment (standaard: laatste dag met weerdata)")
+    fe.set_defaults(func=cmd_features)
+
+    c = sub.add_parser("compare", help="rolling-origin vergelijking van baselines en modellen")
+    c.add_argument("--methoden", help="kommagescheiden, bijv. laatste_dag,profiel_4w,lightgbm")
+    c.add_argument("--start", help="eerste voorspelmoment in de test, YYYY-MM-DD")
+    c.add_argument("--einde", help="laatste voorspelmoment in de test, YYYY-MM-DD")
+    c.add_argument("--hertrain", type=int, help="hertrainen elke N dagen (standaard uit config)")
+    c.set_defaults(func=cmd_compare)
+
+    t = sub.add_parser("train", help="train het operationele model op het rolling venster t/m vandaag")
+    t.add_argument("--methode", default="lightgbm", help="lightgbm | lightgbm_asinh | lineair | combinatie")
+    t.add_argument("--origin", help="voorspelmoment YYYY-MM-DD (standaard vandaag)")
+    t.set_defaults(func=cmd_train)
+
+    pr = sub.add_parser("predict", help="voorspel de komende dagen met het getrainde model")
+    pr.add_argument("--methode", default="lightgbm")
+    pr.add_argument("--origin", help="voorspelmoment YYYY-MM-DD (standaard vandaag)")
+    pr.add_argument("--uit", help="uitvoerbestand (parquet)")
+    pr.set_defaults(func=cmd_predict)
 
     args = p.parse_args(argv)
     _logging(args.verbose)

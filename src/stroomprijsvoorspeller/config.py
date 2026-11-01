@@ -35,9 +35,14 @@ class Config:
     weerpunten: tuple[Weerpunt, ...]
     publicatie_uur_lokaal: int
     horizon_dagen: tuple[int, ...]
+    backtest_horizon_dagen: tuple[int, ...]
     kwantielen: tuple[float, ...]
     rolling_venster_dagen: int
     recente_prijs_dagen: int
+    profiel_dagen: int
+    hertrain_elke_dagen: int
+    kalibratie_venster_dagen: int
+    lightgbm_params: dict
 
     def weerpunt(self, naam: str) -> Weerpunt:
         for p in self.weerpunten:
@@ -93,7 +98,13 @@ def load_config(path: Path | str | None = None) -> Config:
         weerpunten=punten,
         publicatie_uur_lokaal=int(voorspelling.get("publicatie_uur_lokaal", 13)),
         horizon_dagen=tuple(int(x) for x in voorspelling["horizon_dagen"]),
+        backtest_horizon_dagen=tuple(int(x) for x in voorspelling.get("backtest_horizon_dagen",
+                                                                       voorspelling["horizon_dagen"])),
         kwantielen=tuple(float(q) for q in model["kwantielen"]),
         rolling_venster_dagen=int(model.get("rolling_venster_dagen", 180)),
         recente_prijs_dagen=int(model.get("recente_prijs_dagen", 7)),
+        profiel_dagen=int(model.get("profiel_dagen", 28)),
+        hertrain_elke_dagen=int(model.get("hertrain_elke_dagen", 7)),
+        kalibratie_venster_dagen=int(model.get("kalibratie_venster_dagen", 30)),
+        lightgbm_params=dict(model.get("lightgbm", {})),
     )
