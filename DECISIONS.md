@@ -63,6 +63,7 @@ bevestigd) of **open** (keuze ligt bij opdrachtgever).
 | 43 | Diebold-Mariano | Toets op dagelijkse MAE per horizon, eenzijdig, Newey-West-correctie, referentie 4-weeks profiel. Model significant beter op elke horizon (p < 0,0001). "Laatst bekende dag" is op dag 2 niet significant anders dan het profiel (p = 0,11). | Literatuurmemo aanbeveling 7. | besloten |
 | 44 | Betrouwbaarheidsindicator, drempels | rMAE over de laatste 30 dagen: hoog < 0,80, redelijk < 0,88, anders laag; vage band (> 100% van het niveau) één stap omlaag. Op de backtest geeft dat per horizon: dag 2 76% hoog, dag 5 51% hoog / 27% redelijk, dag 7 50% laag. Drempels zijn vast in `reliability.py` en worden per kwartaal herbeoordeeld. | IJking in `reports/backtest.md`, sectie 9. | aanname |
 | 45 | Nog te onderzoeken | `dag_van_jaar` is de tweede belangrijkste feature (13% gain). Met een venster van 180 dagen kan dat als trendproxy werken en overfitten. Later testen: weglaten of vervangen door een seizoensfunctie (sin/cos). Daarnaast: horizongroepen en meerdere vensters (experimentenrun, sectie 7 van het rapport). | Feature-belang in het rapport. | open |
+| 46 | Ontwerpkeuze site | **Variant C** (kalender/tijdlijn per dag) wordt de site. In fase 4 gaat `site/ontwerpen/variant-c.html` met `gedeeld.js` één-op-één naar `site/`, gekoppeld aan de echte JSON van de pipeline. Varianten A en B blijven in `site/ontwerpen/` als referentie. | Keuze opdrachtgever 2026-11-02. | besloten |
 
 ## Open vragen voor opdrachtgever
 
