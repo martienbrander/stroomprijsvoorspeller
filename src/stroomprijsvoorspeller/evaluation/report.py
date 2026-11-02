@@ -35,12 +35,14 @@ KLEUR = {
     "lightgbm": "#2a78d6", "profiel_4w": "#eb6834", "laatste_dag": "#1baf7a", "vorige_week": "#eda100",
     "combinatie": "#e87ba4", "lineair": "#008300", "lightgbm_asinh": "#6250d6",
     "lightgbm_w90": "#1baf7a", "lightgbm_w365": "#eda100", "lightgbm_ens": "#e87ba4", "lightgbm_hg": "#6250d6",
+    "lightgbm_w730": "#e34948", "lightgbm_w365_hg": "#008300",
 }
 LABEL = {
     "lightgbm": "LightGBM", "profiel_4w": "4-weeks profiel", "laatste_dag": "laatst bekende dag",
     "vorige_week": "zelfde uur vorige week", "combinatie": "combinatie", "lineair": "lineair (asinh)",
     "lightgbm_asinh": "LightGBM asinh", "lightgbm_w90": "LightGBM venster 90 d", "lightgbm_w365": "LightGBM venster 365 d",
     "lightgbm_ens": "LightGBM ensemble 90/180/365", "lightgbm_hg": "LightGBM per horizongroep",
+    "lightgbm_w730": "LightGBM venster 730 d", "lightgbm_w365_hg": "LightGBM venster 365 d, per horizongroep",
 }
 GRIJS = "#52514e"
 LICHTGRIJS = "#e6e5e1"
@@ -337,8 +339,9 @@ def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = 0.02) 
     belang = fig_feature_belang(cfg, figdir / "feature_belang.png")
     fig_rmae_verdeling(verd, figdir / "rmae_verdeling.png")
 
-    # experimenten
-    exp = laad_voorspellingen(cfg, EXPERIMENTEN_BESTAND)
+    # experimenten: alle bestanden voorspellingen_experimenten*.parquet, zonder dubbele methoden
+    exp_delen = [laad_voorspellingen(cfg, p.name) for p in sorted(cfg.processed_dir.glob("voorspellingen_experimenten*.parquet"))]
+    exp = pd.concat(exp_delen, ignore_index=True).drop_duplicates(["methode", "origin", "time_utc"]) if exp_delen else None
     exp_tabel = None
     if exp is not None:
         exp_tabel = hoofdtabel(pd.concat([exp, v[v["methode"] == REFERENTIE]], ignore_index=True))
@@ -485,6 +488,18 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
                       "breedte_kal": "breedte kal.", "binnen_10pct": "blok binnen 10%", "meerkosten_gem": "meerkosten blok"}))
         beste = exp_tabel.loc[exp_tabel.groupby("horizon_dag")["mae"].idxmin()]
         L.append("\nBeste variant op MAE per horizon: " + "; ".join(f"dag {int(r.horizon_dag)}: {_label(r.methode)} ({r.mae:.2f})" for r in beste.itertuples()) + ".\n")
+        std = exp_tabel[exp_tabel["methode"] == "lightgbm"].set_index("horizon_dag")["mae"]
+        duiding = []
+        for naam in ("lightgbm_w90", "lightgbm_w365", "lightgbm_w730", "lightgbm_ens", "lightgbm_hg", "lightgbm_w365_hg"):
+            e = exp_tabel[exp_tabel["methode"] == naam].set_index("horizon_dag")["mae"]
+            if e.empty or std.empty:
+                continue
+            verschil = ((e - std) / std * 100).reindex(std.index)
+            duiding.append(f"- {_label(naam)}: {', '.join(f'dag {int(k)} {v:+.0f}%' for k, v in verschil.dropna().items())} t.o.v. venster 180 dagen.")
+        if duiding:
+            L.append("Verschil in MAE per variant (negatief = beter):\n")
+            L.extend(duiding)
+            L.append("")
     else:
         L.append("## 7. Experimenten\n\nNog niet beschikbaar (de experimentenrun is niet gevonden).\n")
 

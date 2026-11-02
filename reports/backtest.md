@@ -236,9 +236,44 @@ Dekking van het gekalibreerde interval per uur op dag 2: het laagst om 11 uur (7
 
 Voorspelling gemaakt op 2025-10-19 om 13:00 voor dag 2 t/m 7, met het gekalibreerde 80%-interval. Dit is een typische dag: het voorspelmoment waarvan de fout het dichtst bij de mediaan over alle voorspelmomenten ligt, niet een uitgezochte goede dag.
 
-## 7. Experimenten
+## 7. Experimenten: trainingsvensters en horizongroepen
 
-Nog niet beschikbaar (de experimentenrun is niet gevonden).
+Varianten van het hoofdmodel op dezelfde backtest: venster 90, 180 (standaard) en 365 dagen, het gemiddelde van die drie (ensemble, naar Hubicka e.a. 2018), en aparte modellen voor dag 2 en voor dag 3+ (horizongroepen). Let op: in de eerste maanden van de testperiode heeft het 365-dagenvenster nog geen vol jaar data.
+
+| methode | dag | MAE | rMAE | pinball P50 | dekking kal. | breedte kal. | blok binnen 10% | meerkosten blok |
+|---|---|---|---|---|---|---|---|---|
+| LightGBM per horizongroep | 2 | 17.63 | 0.622 | 8.82 | 0.793 | 56.8 | 0.903 | 3.20 |
+| LightGBM venster 365 d | 2 | 19.39 | 0.683 | 9.69 | 0.789 | 59.2 | 0.911 | 2.94 |
+| LightGBM ensemble 90/180/365 | 2 | 20.00 | 0.705 | 10.00 | 0.789 | 60.1 | 0.913 | 2.86 |
+| LightGBM | 2 | 20.71 | 0.730 | 10.36 | 0.790 | 62.8 | 0.888 | 3.57 |
+| LightGBM venster 90 d | 2 | 21.95 | 0.774 | 10.98 | 0.789 | 64.6 | 0.880 | 3.79 |
+| LightGBM venster 365 d | 3 | 20.52 | 0.710 | 10.26 | 0.791 | 63.0 | 0.891 | 3.42 |
+| LightGBM ensemble 90/180/365 | 3 | 21.09 | 0.730 | 10.55 | 0.790 | 63.9 | 0.896 | 3.26 |
+| LightGBM | 3 | 21.85 | 0.756 | 10.93 | 0.787 | 66.4 | 0.883 | 4.11 |
+| LightGBM per horizongroep | 3 | 22.07 | 0.764 | 11.04 | 0.790 | 68.5 | 0.891 | 3.67 |
+| LightGBM venster 90 d | 3 | 22.98 | 0.795 | 11.49 | 0.785 | 68.7 | 0.880 | 4.15 |
+| LightGBM venster 365 d | 4 | 21.55 | 0.737 | 10.77 | 0.793 | 66.1 | 0.874 | 3.87 |
+| LightGBM ensemble 90/180/365 | 4 | 21.96 | 0.751 | 10.98 | 0.787 | 66.6 | 0.882 | 3.71 |
+| LightGBM | 4 | 22.71 | 0.776 | 11.35 | 0.787 | 69.5 | 0.872 | 4.14 |
+| LightGBM per horizongroep | 4 | 22.86 | 0.782 | 11.43 | 0.785 | 71.2 | 0.866 | 4.18 |
+| LightGBM venster 90 d | 4 | 23.71 | 0.811 | 11.86 | 0.786 | 71.5 | 0.846 | 5.16 |
+| LightGBM venster 365 d | 5 | 22.72 | 0.768 | 11.36 | 0.787 | 69.3 | 0.872 | 4.12 |
+| LightGBM ensemble 90/180/365 | 5 | 23.21 | 0.785 | 11.60 | 0.785 | 69.9 | 0.866 | 4.21 |
+| LightGBM | 5 | 24.04 | 0.813 | 12.02 | 0.785 | 72.5 | 0.851 | 4.72 |
+| LightGBM per horizongroep | 5 | 24.08 | 0.814 | 12.04 | 0.784 | 73.8 | 0.865 | 4.61 |
+| LightGBM venster 90 d | 5 | 24.98 | 0.845 | 12.49 | 0.786 | 74.7 | 0.831 | 5.73 |
+| LightGBM venster 365 d | 6 | 24.82 | 0.830 | 12.41 | 0.786 | 74.1 | 0.851 | 4.66 |
+| LightGBM ensemble 90/180/365 | 6 | 25.12 | 0.840 | 12.56 | 0.783 | 74.7 | 0.875 | 4.47 |
+| LightGBM | 6 | 25.86 | 0.865 | 12.93 | 0.782 | 77.3 | 0.846 | 5.29 |
+| LightGBM per horizongroep | 6 | 25.93 | 0.867 | 12.97 | 0.783 | 78.5 | 0.855 | 4.92 |
+| LightGBM venster 90 d | 6 | 26.74 | 0.894 | 13.37 | 0.784 | 78.6 | 0.846 | 5.67 |
+| LightGBM venster 365 d | 7 | 25.86 | 0.857 | 12.93 | 0.784 | 76.2 | 0.836 | 4.99 |
+| LightGBM ensemble 90/180/365 | 7 | 26.23 | 0.870 | 13.11 | 0.776 | 76.4 | 0.836 | 5.34 |
+| LightGBM | 7 | 26.97 | 0.894 | 13.49 | 0.777 | 78.8 | 0.831 | 5.69 |
+| LightGBM per horizongroep | 7 | 27.06 | 0.897 | 13.53 | 0.781 | 79.9 | 0.847 | 5.26 |
+| LightGBM venster 90 d | 7 | 27.78 | 0.921 | 13.89 | 0.779 | 80.5 | 0.816 | 6.39 |
+
+Beste variant op MAE per horizon: dag 2: LightGBM per horizongroep (17.63); dag 3: LightGBM venster 365 d (20.52); dag 4: LightGBM venster 365 d (21.55); dag 5: LightGBM venster 365 d (22.72); dag 6: LightGBM venster 365 d (24.82); dag 7: LightGBM venster 365 d (25.86).
 
 ## 8. Wat het model gebruikt
 
