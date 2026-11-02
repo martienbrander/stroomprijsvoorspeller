@@ -39,7 +39,7 @@ experimenten die tot de modelkeuze leidden: [reports/backtest.md](reports/backte
 - Alleen biedzone Nederland, alleen de kale beursprijs. Belasting, btw en inkoopvergoeding rekent de site er zelf bij
   (drie prijsstanden: Marktprijs, Marktprijs+ en All-in); de leverancier bepaalt wat u echt betaalt.
 - De weersverwachting komt van één model (Open-Meteo `best_match`); er is geen ensemble van weermodellen.
-- Feestdagen en weekenden kent het model; schoolvakanties en brugdagen niet. De backtest splitst de fout uit per dagsoort en laat zien dat het model in schoolvakanties niet slechter is dan op werkdagen, dus daar is geen aparte vlag nodig. Feestdagen waren de afgelopen twee jaar gemiddeld ruim 20% goedkoper dan de werkdagen eromheen; de site meldt dat als er een feestdag aankomt.
+- Feestdagen en weekenden kent het model; schoolvakanties en brugdagen niet. De backtest splitst de fout uit per dagsoort en laat zien dat het model in schoolvakanties niet slechter is dan op werkdagen, dus daar is geen aparte vlag nodig. Feestdagen waren de afgelopen twee jaar gemiddeld ruim 20% goedkoper dan de werkdagen eromheen; de site noemt de feestdag bij de dag.
 
 ## Bronnen en licenties
 

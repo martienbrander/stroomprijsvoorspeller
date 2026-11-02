@@ -95,25 +95,6 @@
     const p = new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', hour12: false }).split(':').map(Number);
     return Math.max(1000, (86400 - (p[0] % 24) * 3600 - p[1] * 60 - p[2]) * 1000);
   }
-  // melding bij een feestdag in de getoonde dagen, met het prijseffect uit forecast.feestdag_effect
-  function feestdagTekst(model, forecast) {
-    const fd = model.dagen.filter(function (d) { return d.feestdag; });
-    if (!fd.length) return '';
-    let s;
-    if (fd.length === 1) s = dagNaam(fd[0], true) + ' is ' + fd[0].feestdag + '.';
-    else {
-      const namen = fd.map(function (d) { return dagNaam(d, true).toLowerCase() + ' (' + d.feestdag + ')'; });
-      s = namen.slice(0, -1).join(', ') + ' en ' + namen[namen.length - 1] + ' zijn feestdagen.';
-      s = s.charAt(0).toUpperCase() + s.slice(1);
-    }
-    const e = forecast.feestdag_effect;
-    if (e && typeof e.pct_tov_werkdag === 'number' && e.aantal_feestdagen >= 5) {
-      s += e.pct_tov_werkdag <= -1 ? ' Op feestdagen was de stroom de afgelopen twee jaar gemiddeld ' + Math.round(-e.pct_tov_werkdag) + '% goedkoper dan op een gewone werkdag.'
-        : ' Op feestdagen was de stroom de afgelopen twee jaar gemiddeld niet goedkoper dan op een gewone werkdag.';
-      s += ' De verwachting houdt daar al rekening mee.';
-    }
-    return s;
-  }
   function dagDatumKort(dag) { return WEEKDAGEN_KORT[dag.weekdag] + ' ' + dag.dagVdMaand + ' ' + MAANDEN[dag.maand]; }
 
   // ---------- tarief ----------
@@ -914,7 +895,7 @@
   }
 
   window.SP = {
-    DAGDELEN: DAGDELEN, STOPLICHT: STOPLICHT, fmt: fmt, fmtUur: fmtUur, dagNaam: dagNaam, dagDatumKort: dagDatumKort, datumTekst: datumTekst, vandaagLokaal: vandaagLokaal, msTotMiddernacht: msTotMiddernacht, feestdagTekst: feestdagTekst,
+    DAGDELEN: DAGDELEN, STOPLICHT: STOPLICHT, fmt: fmt, fmtUur: fmtUur, dagNaam: dagNaam, dagDatumKort: dagDatumKort, datumTekst: datumTekst, vandaagLokaal: vandaagLokaal, msTotMiddernacht: msTotMiddernacht,
     leesTarief: leesTarief, bewaarTarief: bewaarTarief, naarCt: naarCt, verwerk: verwerk, vaagheid: vaagheid, dekking: dekking,
     TARIEF_JAAR: TARIEF_JAAR, ENERGIEBELASTING_CT: ENERGIEBELASTING_CT, BTW_PCT: BTW_PCT, INKOOP_STANDAARD_CT: INKOOP_STANDAARD_CT,
     TARIEF_STANDEN: TARIEF_STANDEN, TARIEF_STANDAARD: TARIEF_STANDAARD, tariefFactor: tariefFactor, tariefLabel: tariefLabel, tariefUitlegTekst: tariefUitlegTekst,

@@ -196,7 +196,6 @@
   <p class="melding" id="melding" hidden></p>
   <h1 id="kop">Even laden…</h1>
   <p class="sub" id="sub"></p>
-  <p class="sub" id="feestdag-noot" hidden></p>
 
   <section class="kosten" aria-labelledby="kosten-kop">
     <h2 id="kosten-kop">Nu of later?</h2>
@@ -309,9 +308,6 @@
       : 'De prijzen voor ' + naam.toLowerCase() + ' zijn nog niet bekend, dus die dag is ook nog een verwachting. ') +
       'Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto raden we wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen lopen.';
     document.getElementById('kop').textContent = SP.dagNaam(morgen, true) + (morgen.bekend ? '' : ' (verwachting)') + ': goedkoopst tussen ' + SP.fmtUur(bl.start) + ' en ' + SP.fmtUur(bl.eind) + ' uur' + (bl.volgendeDag ? ' (tot ' + bl.eindDagNaam + ')' : '');
-    const fdTekst = SP.feestdagTekst(m, forecast);
-    const fdEl = document.getElementById('feestdag-noot');
-    fdEl.textContent = fdTekst; fdEl.hidden = !fdTekst;
     document.getElementById('sub').textContent = 'Dan ' + SP.fmt(bl.p50) + ' ct/kWh, ' + SP.fmt(bl.marge) + ' ct onder het daggemiddelde. Prijs in ' + m.eenheidLabel + '.';
 
     renderApparaten(m);

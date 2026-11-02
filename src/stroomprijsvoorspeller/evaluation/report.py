@@ -445,7 +445,7 @@ def dagsoort_sectie(tab: pd.DataFrame, effecten: dict | None) -> list[str]:
                                f"({e['aantal_dagen']} dagen, in {e['aandeel_goedkoper']*100:.0f}% van de gevallen goedkoper)")
         if stukken:
             L.append("Prijseffect, uit de werkelijke daggemiddelden van " + effecten["vanaf"] + " tot " + effecten["tot"] + ": "
-                     + "; ".join(stukken) + ". De site noemt dit effect bij een naderende feestdag.\n")
+                     + "; ".join(stukken) + ". De site noemt de feestdag bij de dag.\n")
     return L
 
 

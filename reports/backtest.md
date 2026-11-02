@@ -256,7 +256,7 @@ Op dag 2 is de MAE van het model op werkdagen 22.6 EUR/MWh (rMAE 0.78); schoolva
 
 Conclusie: op schoolvakantiedagen doet het model het niet slechter dan op werkdagen (rMAE 0.76 tegen 0.78); een eigen kenmerk is niet nodig; brugdagen zijn er te weinig (4) voor een oordeel.
 
-Prijseffect, uit de werkelijke daggemiddelden van 2024-08-31 tot 2026-10-25: Feestdagen waren gemiddeld 22% goedkoper dan de werkdagen eromheen (21 dagen, in 86% van de gevallen goedkoper); brugdagen waren gemiddeld 4% goedkoper dan de werkdagen eromheen (4 dagen, in 75% van de gevallen goedkoper); schoolvakantiedagen waren gemiddeld 7% goedkoper dan de werkdagen eromheen (115 dagen, in 63% van de gevallen goedkoper). De site noemt dit effect bij een naderende feestdag.
+Prijseffect, uit de werkelijke daggemiddelden van 2024-08-31 tot 2026-10-25: Feestdagen waren gemiddeld 22% goedkoper dan de werkdagen eromheen (21 dagen, in 86% van de gevallen goedkoper); brugdagen waren gemiddeld 4% goedkoper dan de werkdagen eromheen (4 dagen, in 75% van de gevallen goedkoper); schoolvakantiedagen waren gemiddeld 7% goedkoper dan de werkdagen eromheen (115 dagen, in 63% van de gevallen goedkoper). De site noemt de feestdag bij de dag.
 
 ## 6. Voorbeeld
 
