@@ -54,8 +54,8 @@ class Handler(SimpleHTTPRequestHandler):
     cfg: Config
 
     def end_headers(self):
-        if self.path.endswith(".json") or self.path.startswith("/api/local/"):
-            self.send_header("Cache-Control", "no-store")
+        # lokale server: nooit cachen, anders blijft de browser na een update het oude script of de oude JSON gebruiken
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def _json(self, obj: dict, status: int = 200) -> None:
