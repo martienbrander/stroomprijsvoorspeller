@@ -1,6 +1,7 @@
 """Commandoregel: `epv <commando>` of `python -m stroomprijsvoorspeller <commando>`.
 
-Fase 1: fetch, build, status. Latere fases voegen train, backtest, predict en daily toe.
+Fase 1: fetch, build, status. Fase 2/3: features, compare, backtest, train, predict.
+Fase 4: daily, refresh, site, serve, evalueer-verversingen.
 """
 
 from __future__ import annotations
@@ -114,6 +115,58 @@ def cmd_predict(args) -> int:
     return 0
 
 
+def cmd_daily(args) -> int:
+    from stroomprijsvoorspeller.pipeline import daily
+
+    cfg = load_config(args.config)
+    uit = daily.run(cfg, run_type=args.type, fetch=not args.geen_fetch)
+    print(f"run {uit['run_type']} klaar in {uit['duur_s']:.0f} s; voorspelmoment {uit['origin']}, "
+          f"model getraind op {uit['model_getraind']}, {len(uit['ingehaald'])} dagen ingehaald")
+    print(f"archief: {uit['archief']}")
+    print(f"site:    {uit['json']}")
+    return 0
+
+
+def cmd_refresh(args) -> int:
+    args.type = "verversing"
+    return cmd_daily(args)
+
+
+def cmd_site(args) -> int:
+    """Schrijft de JSON voor de site opnieuw uit de laatste gearchiveerde run (zonder te voorspellen)."""
+    from stroomprijsvoorspeller.pipeline import archive, daily, site_export
+
+    cfg = load_config(args.config)
+    runs = archive.lees_runs(cfg)
+    if runs.empty:
+        print("geen runs in het archief; draai eerst `epv daily`", file=sys.stderr)
+        return 2
+    laatste = runs[runs["run_utc"] == runs["run_utc"].max()]
+    prijzen = pd.read_parquet(cfg.processed_dir / "prijzen_nl_uur.parquet")
+    prijzen["time_utc"] = pd.to_datetime(prijzen["time_utc"], utc=True)
+    origin = laatste["origin"].iloc[0].date()
+    pad = site_export.schrijf_site(cfg, laatste, prijzen, origin, laatste["run_utc"].iloc[0], laatste["run_type"].iloc[0],
+                                   daily.laad_model(cfg))
+    print(f"site: {pad}")
+    return 0
+
+
+def cmd_serve(args) -> int:
+    from stroomprijsvoorspeller.pipeline import serve
+
+    cfg = load_config(args.config)
+    serve.serve(cfg, poort=args.poort, open_browser=args.open)
+    return 0
+
+
+def cmd_evalueer_verversingen(args) -> int:
+    from stroomprijsvoorspeller.evaluation import refresh
+
+    cfg = load_config(args.config)
+    print(f"rapport: {refresh.evalueer(cfg)}")
+    return 0
+
+
 def cmd_status(args) -> int:
     cfg = load_config(args.config)
     ruw = energy_charts.lees_ruw(cfg.raw_dir)
@@ -177,6 +230,27 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--origin", help="voorspelmoment YYYY-MM-DD (standaard vandaag)")
     pr.add_argument("--uit", help="uitvoerbestand (parquet)")
     pr.set_defaults(func=cmd_predict)
+
+    d = sub.add_parser("daily", help="dagelijkse run: ophalen, inhalen, (her)trainen, voorspellen, archiveren, JSON voor de site")
+    d.add_argument("--type", choices=["auto", "hoofd", "verversing"], default="auto",
+                   help="auto = hoofdrun als die er vandaag nog niet is, anders verversing")
+    d.add_argument("--geen-fetch", action="store_true", help="niets ophalen, alleen met de data die er is")
+    d.set_defaults(func=cmd_daily)
+
+    r = sub.add_parser("refresh", help="lichte verversing: nieuw weer, opnieuw voorspellen met het bestaande model")
+    r.add_argument("--geen-fetch", action="store_true")
+    r.set_defaults(func=cmd_refresh)
+
+    si = sub.add_parser("site", help="schrijf site/data/forecast.json opnieuw uit de laatste run")
+    si.set_defaults(func=cmd_site)
+
+    sv = sub.add_parser("serve", help="lokale server voor de site, met ververs-knop")
+    sv.add_argument("--poort", type=int, default=8766)
+    sv.add_argument("--open", action="store_true", help="open de site in de browser")
+    sv.set_defaults(func=cmd_serve)
+
+    ev = sub.add_parser("evalueer-verversingen", help="rapport over de waarde van de verversingsruns -> reports/verversingen.md")
+    ev.set_defaults(func=cmd_evalueer_verversingen)
 
     args = p.parse_args(argv)
     _logging(args.verbose)

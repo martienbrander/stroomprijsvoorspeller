@@ -15,8 +15,8 @@ gratis hosting (GitHub Actions + GitHub Pages).
 | 1 | Data ophalen en verwerken | `data/raw/*.parquet`, `data/processed/*.parquet`, `python -m stroomprijsvoorspeller fetch` werkt incrementeel, tests |
 | 2 | Features, baselines, kwantielmodellen (lineair asinh, LightGBM), conformal-kalibratie, methodenvergelijking op rolling-origin | `epv features`, `epv compare` -> `reports/methodenvergelijking.md`, `epv train`, `epv predict` |
 | 3 | Backtest met dagelijkse 13:00-simulatie | `reports/backtest.md` + png's, tests op lekkage |
-| 4 | Dagelijkse run + statische site | `site/` leest `site/data/forecast.json` |
-| 5 | README + lokale planner; later GitHub Actions + Pages | eerst alles lokaal op deze pc, pas daarna online |
+| 4 | Dagelijkse run (hoofd, verversing, inhaal), runarchief, JSON, site op variant C, lokale server met ververs-knop | `epv daily`, `epv serve`, `ververs.bat`, `site/` leest `site/data/forecast.json` |
+| 5 | README, API-documentatie; later GitHub Actions + Pages | eerst alles lokaal op deze pc, pas daarna online |
 
 Na elke fase: korte samenvatting, commit, wachten op akkoord.
 
@@ -56,9 +56,9 @@ stroomprijsvoorspeller/
 │   │   ├── rolling.py         rolling-origin loop: trainset zonder toekomst, hertrainen elke N dagen
 │   │   ├── metrics.py         MAE, RMSE, pinball, dekking, breedte (fase 3: 3-uursblok, DM-toets)
 │   │   └── compare.py         features bouwen/bewaren, methodenvergelijking, rapport
-│   └── publish/               fase 4: forecast.json en scores.json voor de site
+│   └── pipeline/              fase 4: daily.py (hoofd/verversing/inhaal), archive.py (data/runs), site_export.py (JSON), serve.py
 │
-├── scripts/                   fase 4/5: daily.py, weekly_backtest.py, Windows Taakplanner-registratie
+├── ververs.bat, site.bat      fase 4: handmatig starten van de run en van de lokale site (besluit 49)
 ├── tests/                     pytest: tijd, prijzen, kalender, bronnen (zonder netwerk), config
 │
 ├── data/                      niet in git
@@ -158,6 +158,13 @@ Na minstens 6 weken (ongeveer 40 dagen met volledige paren):
   als het advies in minstens 10% van de dagen verschuift naar een blok dat achteraf goedkoper was.
 - Anders gaat het slot eruit. Hoofdrun om 13:15 blijft altijd.
 - Uitkomst en cijfers komen in `DECISIONS.md` (besluit 33 wordt dan "besloten") en in de README onder beperkingen.
+
+### Inhaalruns (besluit 50)
+
+Wordt er een dag niet gedraaid, dan rekent de eerstvolgende hoofdrun de gemiste voorspelmomenten alsnog uit met de
+weersverwachting zoals die toen was (previous runs), precies zoals de backtest, en archiveert die als `inhaal`. De
+historie voor kalibratie en scores heeft daardoor geen gaten. Inhaalruns hebben geen verversingen en tellen in deze
+evaluatie niet mee.
 
 ### Wat de site toont
 

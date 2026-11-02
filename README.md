@@ -3,8 +3,8 @@
 Open, gratis voorspeller van de Nederlandse day-ahead stroomprijs (EPEX, biedzone NL), tot 7 dagen vooruit, met een
 onzekerheidsmarge. Voor huishoudens met een dynamisch contract die willen weten wanneer laden of wassen goedkoop is.
 
-Status: in opbouw. Fase 1 (data), 2 (modellen) en 3 (backtest) zijn klaar. Zie [PLAN.md](PLAN.md) voor de fasen en
-[DECISIONS.md](DECISIONS.md) voor alle keuzes.
+Status: in opbouw. Fase 1 (data), 2 (modellen), 3 (backtest) en 4 (dagelijkse run en site) zijn klaar; de site draait
+lokaal. Zie [PLAN.md](PLAN.md) voor de fasen en [DECISIONS.md](DECISIONS.md) voor alle keuzes.
 
 Resultaat (rolling-origin backtest, 786 dagen, aug 2024 t/m okt 2026): het gekozen LightGBM-kwantielmodel (venster 365
 dagen, apart model voor dag 2) zit op dag 2 gemiddeld 17,0 EUR/MWh (1,7 ct/kWh) naast de werkelijke uurprijs, op dag 7
@@ -32,8 +32,25 @@ epv compare    # rolling-origin vergelijking van baselines en modellen -> report
 epv backtest   # volledig rapport met grafieken -> reports/backtest.md
 epv train      # traint het operationele model (config: lightgbm_d2, venster 365 dagen)
 epv predict    # voorspelt dag 2 t/m 7 met de actuele weersverwachting
+epv daily      # de dagelijkse run: ophalen, gemiste dagen inhalen, zo nodig hertrainen, voorspellen, archiveren, site-JSON
+epv refresh    # lichte verversing: nieuw weer, opnieuw voorspellen met het bestaande model
+epv serve      # lokale server voor de site (http://localhost:8766) met een ververs-knop die `epv daily` start
+epv evalueer-verversingen   # wekelijks: wat leveren de verversingen op? -> reports/verversingen.md
 pytest
 ```
+
+## Dagelijks gebruik op deze pc
+
+Twee bestanden in de projectmap (geen taakplanner, zie besluit 49):
+
+- `ververs.bat`: maakt een nieuwe voorspelling. Haalt prijzen en weer op, haalt gemiste dagen in, traint het model opnieuw
+  als het ouder is dan een week, voorspelt 7 dagen vooruit en schrijft `site/data/forecast.json`. Duurt een paar minuten.
+- `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde als
+  `ververs.bat` en laadt de pagina daarna opnieuw.
+
+De prijzen voor morgen komen rond 13:00 binnen; daarvoor verversen geeft één dag minder vooruit. Elke run komt in
+`data/runs/` terecht (hoofdrun, verversing of inhaalrun), zodat de kalibratie en de scores op de site doorlopen, ook na
+een paar dagen niet draaien.
 
 Alle instellingen staan in `config.yaml`: weerpunten, horizon, kwantielen, rolling venster, LightGBM-parameters.
 
