@@ -43,7 +43,8 @@ eenheid of betekenis. Een wijziging die dat wel doet krijgt `/api/v2/`.
 | `eenheid` | prijzen in EUR/MWh, kale beursprijs zonder btw, belasting of inkoopvergoeding; delen door 10 geeft ct/kWh |
 | `uren[]` | per uur, lokale tijd met offset (zomertijd-dagen hebben 23 of 25 uren). `p50` is de verwachting, `p10` en `p90` de gekalibreerde onder- en bovengrens van het 80%-interval. Bij `bekend: true` zijn alle drie de echte prijs |
 | `kwartieren[]` | alleen voor bekende dagen: de kwartierprijzen van de beurs |
-| `dagen[]` | per dag: `horizon_dag` (0 = vandaag), `betrouwbaarheid` (`bekend`, `hoog`, `redelijk`, `laag`) en `verwachte_afwijking_ct`, de gemiddelde afwijking van het model op die horizon over de laatste 30 dagen, in ct/kWh |
+| `dagen[]` | per dag: `horizon_dag` (0 = de dag van het voorspelmoment), `betrouwbaarheid` (`bekend`, `hoog`, `redelijk`, `laag`), `verwachte_afwijking_ct` (de gemiddelde afwijking van het model op die horizon over de laatste 30 dagen, in ct/kWh), `dagsoort` (`werkdag`, `schoolvakantie`, `brugdag`, `weekend`, `feestdag`) en `feestdag` (naam van de feestdag, anders `null`) |
+| `feestdag_effect` | hoeveel procent de daggemiddelde beursprijs op feestdagen afweek van de werkdagen eromheen, over de laatste twee jaar: `pct_tov_werkdag` (negatief = goedkoper), `aantal_feestdagen`, `vanaf`, `tot` |
 | `scores` | per horizon over de laatste 30 voorspelmomenten met bekende uitkomst: `mae_dagK` (EUR/MWh), `dekking80_dagK` (aandeel uren binnen het interval, doel 0,80) en `n_dagen_dagK` |
 
 De betrouwbaarheid is relatief: `hoog` betekent dat het model de laatste 30 dagen duidelijk beter was dan een naïef

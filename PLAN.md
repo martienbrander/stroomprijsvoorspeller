@@ -46,7 +46,8 @@ stroomprijsvoorspeller/
 │   ├── processing/
 │   │   ├── prices.py          kwartier -> uurgemiddelde, kwartierreeks apart, gaten
 │   │   ├── dataset.py         bouwt data/processed uit data/raw
-│   │   └── features.py        featurematrix per (voorspelmoment, doeluur); prijzen alleen < bekend_tot(D)
+│   │   ├── features.py        featurematrix per (voorspelmoment, doeluur); prijzen alleen < bekend_tot(D)
+│   │   └── dagsoort.py        dagsoorten voor de evaluatie en de site (besluit 53)
 │   ├── model/
 │   │   ├── baselines.py       laatste bekende dag, vorige week, 4-weeks profiel
 │   │   ├── quantile_models.py LineairKwantiel (asinh), LightGBMKwantiel, Combinatie; één interface fit/predict

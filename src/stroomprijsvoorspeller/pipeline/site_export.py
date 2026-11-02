@@ -21,6 +21,7 @@ from stroomprijsvoorspeller.evaluation.metrics import mae
 from stroomprijsvoorspeller.model.calibration import dekking
 from stroomprijsvoorspeller.pipeline import archive
 from stroomprijsvoorspeller.processing import dataset
+from stroomprijsvoorspeller.processing.dagsoort import Dagsoorten, dag_effecten
 from stroomprijsvoorspeller.processing.features import DOEL, PRIJS
 from stroomprijsvoorspeller.timeutil import TZ, local_date
 
@@ -67,22 +68,33 @@ def scores_per_horizon(cfg: Config, prijzen: pd.DataFrame, origin: date) -> dict
     return uit
 
 
-def dagen_lijst(alles: pd.DataFrame, origin: date, scores: dict) -> list[dict]:
+def dagen_lijst(alles: pd.DataFrame, origin: date, scores: dict, ds: Dagsoorten | None = None) -> list[dict]:
     uit = []
     dag = local_date(pd.DatetimeIndex(alles["time_utc"]))
     for d in sorted(pd.unique(dag)):
         g = alles[dag == d]
         k = (d - origin).days
+        extra = {"dagsoort": ds.soort(d), "feestdag": ds.feestdag(d)} if ds else {}
         if g["bekend"].astype(bool).all():
-            uit.append({"datum": str(d), "horizon_dag": k, "betrouwbaarheid": "bekend", "verwachte_afwijking_ct": 0.0})
+            uit.append({"datum": str(d), "horizon_dag": k, "betrouwbaarheid": "bekend", "verwachte_afwijking_ct": 0.0, **extra})
             continue
         band = float((g["p90_kal"] - g["p10_kal"]).mean())
         niveau = float(g["p50"].abs().mean())
         code = reliability.betrouwbaarheid(scores["rmae"].get(k), band, niveau)
         m = scores["mae"].get(k)
         uit.append({"datum": str(d), "horizon_dag": k, "betrouwbaarheid": code,
-                    "verwachte_afwijking_ct": _num(m / 10, 2) if m is not None else None})
+                    "verwachte_afwijking_ct": _num(m / 10, 2) if m is not None else None, **extra})
     return uit
+
+
+def feestdag_effect(cfg: Config, prijzen: pd.DataFrame, origin: date, dagen: int = 730) -> dict:
+    """Prijseffect van feestdagen over de laatste `dagen` dagen, voor de melding op de site."""
+    p = prijzen[prijzen["time_utc"] >= pd.Timestamp(origin - timedelta(days=dagen), tz="UTC")]
+    if p.empty:
+        return {"pct_tov_werkdag": None, "aantal_feestdagen": 0, "vanaf": None, "tot": None}
+    e = dag_effecten(p, cfg.root, PRIJS)
+    return {"pct_tov_werkdag": e["feestdag"]["pct_tov_werkdag"], "aantal_feestdagen": e["feestdag"]["aantal_dagen"],
+            "vanaf": e["vanaf"], "tot": e["tot"]}
 
 
 def kwartieren_lijst(cfg: Config, bekende_dagen: list[date]) -> list[dict]:
@@ -99,7 +111,7 @@ def kwartieren_lijst(cfg: Config, bekende_dagen: list[date]) -> list[dict]:
 def maak_forecast_json(cfg: Config, alles: pd.DataFrame, prijzen: pd.DataFrame, origin: date, nu: pd.Timestamp,
                        run_type: str, bundel: dict | None) -> dict:
     scores = scores_per_horizon(cfg, prijzen, origin)
-    dagen = dagen_lijst(alles, origin, scores)
+    dagen = dagen_lijst(alles, origin, scores, Dagsoorten(cfg.root))
     bekende_dagen = [date.fromisoformat(d["datum"]) for d in dagen if d["betrouwbaarheid"] == "bekend"]
     uren = [{"tijd": _iso_lokaal(r.time_utc), "p10": _num(r.p10_kal), "p50": _num(r.p50), "p90": _num(r.p90_kal),
              "bekend": bool(r.bekend)} for r in alles.sort_values("time_utc").itertuples()]
@@ -121,6 +133,7 @@ def maak_forecast_json(cfg: Config, alles: pd.DataFrame, prijzen: pd.DataFrame, 
         "uren": uren,
         "kwartieren": kwartieren_lijst(cfg, bekende_dagen),
         "dagen": dagen,
+        "feestdag_effect": feestdag_effect(cfg, prijzen, origin),
         "scores": sc,
         "bronnen": "Prijzen: Energy-Charts (Fraunhofer ISE), data Bundesnetzagentur | SMARD.de, CC BY 4.0. Weer: Open-Meteo, CC BY 4.0.",
     }

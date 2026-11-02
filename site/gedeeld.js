@@ -89,6 +89,31 @@
     const naam = wd + ' ' + dag.dagVdMaand + ' ' + MAANDEN[dag.maand];
     return lang ? naam.charAt(0).toUpperCase() + naam.slice(1) : naam;
   }
+  function vandaagLokaal() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' }); }
+  // milliseconden tot de volgende middernacht (Nederlandse tijd), voor de dagwissel op de pagina
+  function msTotMiddernacht() {
+    const p = new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', hour12: false }).split(':').map(Number);
+    return Math.max(1000, (86400 - (p[0] % 24) * 3600 - p[1] * 60 - p[2]) * 1000);
+  }
+  // melding bij een feestdag in de getoonde dagen, met het prijseffect uit forecast.feestdag_effect
+  function feestdagTekst(model, forecast) {
+    const fd = model.dagen.filter(function (d) { return d.feestdag; });
+    if (!fd.length) return '';
+    let s;
+    if (fd.length === 1) s = dagNaam(fd[0], true) + ' is ' + fd[0].feestdag + '.';
+    else {
+      const namen = fd.map(function (d) { return dagNaam(d, true).toLowerCase() + ' (' + d.feestdag + ')'; });
+      s = namen.slice(0, -1).join(', ') + ' en ' + namen[namen.length - 1] + ' zijn feestdagen.';
+      s = s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    const e = forecast.feestdag_effect;
+    if (e && typeof e.pct_tov_werkdag === 'number' && e.aantal_feestdagen >= 5) {
+      s += e.pct_tov_werkdag <= -1 ? ' Op feestdagen was de stroom de afgelopen twee jaar gemiddeld ' + Math.round(-e.pct_tov_werkdag) + '% goedkoper dan op een gewone werkdag.'
+        : ' Op feestdagen was de stroom de afgelopen twee jaar gemiddeld niet goedkoper dan op een gewone werkdag.';
+      s += ' De verwachting houdt daar al rekening mee.';
+    }
+    return s;
+  }
   function dagDatumKort(dag) { return WEEKDAGEN_KORT[dag.weekdag] + ' ' + dag.dagVdMaand + ' ' + MAANDEN[dag.maand]; }
 
   // ---------- tarief ----------
@@ -143,7 +168,13 @@
       if (!perDag.has(t.datum)) perDag.set(t.datum, { datum: t.datum, weekdag: t.weekdag, dagVdMaand: t.dagVdMaand, maand: t.maand, uren: [], kwartieren: [] });
       return perDag.get(t.datum);
     }
-    forecast.uren.forEach(function (u) {
+    // voorbije dagen verdwijnen: na middernacht toont de pagina de dag van gisteren niet meer. Is alles voorbij
+    // (verouderde voorspelling), dan blijft alles staan, met de melding erboven.
+    const vanaf = vandaagLokaal();
+    let urenBron = forecast.uren.filter(function (u) { return u.tijd.slice(0, 10) >= vanaf; });
+    if (!urenBron.length) urenBron = forecast.uren;
+    const kwartierenBron = (forecast.kwartieren || []).filter(function (q) { return q.tijd.slice(0, 10) >= urenBron[0].tijd.slice(0, 10); });
+    urenBron.forEach(function (u) {
       const t = parseTijd(u.tijd);
       dagVan(t).uren.push({
         tijd: u.tijd, uur: t.uur, duur: 1, bekend: !!u.bekend,
@@ -153,7 +184,7 @@
       });
     });
     // kwartierprijzen: alleen voor bekende dagen (de verwachting is per uur)
-    (forecast.kwartieren || []).forEach(function (q) {
+    kwartierenBron.forEach(function (q) {
       const t = parseTijd(q.tijd);
       const minuut = parseInt(q.tijd.slice(14, 16), 10) || 0;
       const p = naarCt(q.prijs, tarief);
@@ -171,6 +202,8 @@
     (forecast.dagen || []).forEach(function (x) { dagInfo[x.datum] = x; });
     dagen.forEach(function (d, i) {
       d.index = i;
+      d.dagsoort = (dagInfo[d.datum] || {}).dagsoort || null;
+      d.feestdag = (dagInfo[d.datum] || {}).feestdag || null;
       d.bekend = d.uren.every(function (u) { return u.bekend; });
       d.betrouwbaarheid = betrouwbaarheidVan(dagInfo[d.datum], d, forecast.scores || {}, factor);
       d.perUur = i < DETAIL_PER_UUR_TOT;
@@ -468,7 +501,7 @@
     const frag = document.createDocumentFragment();
     model.dagen.forEach(function (d) {
       const h = document.createElement('h4');
-      h.textContent = dagNaam(d, true) + ' (' + betrouwbaarheidTekst(d, true) + ')';
+      h.textContent = dagNaam(d, true) + (d.feestdag ? ', ' + d.feestdag : '') + ' (' + betrouwbaarheidTekst(d, true) + ')';
       frag.appendChild(h);
       const t = document.createElement('table');
       t.className = 'sp-tabel';
@@ -881,7 +914,7 @@
   }
 
   window.SP = {
-    DAGDELEN: DAGDELEN, STOPLICHT: STOPLICHT, fmt: fmt, fmtUur: fmtUur, dagNaam: dagNaam, dagDatumKort: dagDatumKort, datumTekst: datumTekst,
+    DAGDELEN: DAGDELEN, STOPLICHT: STOPLICHT, fmt: fmt, fmtUur: fmtUur, dagNaam: dagNaam, dagDatumKort: dagDatumKort, datumTekst: datumTekst, vandaagLokaal: vandaagLokaal, msTotMiddernacht: msTotMiddernacht, feestdagTekst: feestdagTekst,
     leesTarief: leesTarief, bewaarTarief: bewaarTarief, naarCt: naarCt, verwerk: verwerk, vaagheid: vaagheid, dekking: dekking,
     TARIEF_JAAR: TARIEF_JAAR, ENERGIEBELASTING_CT: ENERGIEBELASTING_CT, BTW_PCT: BTW_PCT, INKOOP_STANDAARD_CT: INKOOP_STANDAARD_CT,
     TARIEF_STANDEN: TARIEF_STANDEN, TARIEF_STANDAARD: TARIEF_STANDAARD, tariefFactor: tariefFactor, tariefLabel: tariefLabel, tariefUitlegTekst: tariefUitlegTekst,

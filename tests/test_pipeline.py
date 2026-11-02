@@ -1,5 +1,6 @@
 """Tests voor de operationele pipeline (fase 4): voorspelmoment, bekende uren, blokken, runarchief, JSON, verversingen."""
 
+import json
 from datetime import date, timedelta
 
 import numpy as np
@@ -208,3 +209,27 @@ def test_historie_export_is_compact_en_wordt_gevonden(tmp_path):
     bt = archive.backtest_historie(cfg, "lightgbm_d2")
     assert bt.groupby(["methode", "origin", "time_utc"]).size().max() == 1
     assert set(bt["methode"]) == {"lightgbm_d2", "profiel_4w"}
+
+
+def test_forecast_json_dagsoort_en_feestdag(tmp_path):
+    cfg = maak_config(tmp_path)
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "leveranciers.yaml").write_text("peildatum_lijst: 2026-11-01\nleveranciers: []\n", encoding="utf-8")
+    vandaag = date(2026, 5, 12)   # dag 2 = donderdag 14 mei 2026, Hemelvaartsdag; dag 3 = brugdag
+    prijzen = _prijzen(vandaag + timedelta(days=1), vanaf=date(2026, 3, 1))
+    bekend = daily.bekende_uren(prijzen, vandaag, vandaag)
+    delen = [bekend]
+    for k in (2, 3):
+        uren = local_hour_range(vandaag + timedelta(days=k))
+        p50 = np.full(len(uren), 90.0)
+        delen.append(pd.DataFrame({"origin": pd.Timestamp(vandaag), "time_utc": uren, "horizon_dag": k, "horizon_uren": 40.0,
+                                   "p10": p50 - 10, "p50": p50, "p90": p50 + 10, "p10_kal": p50 - 15, "p90_kal": p50 + 15,
+                                   "conformal_q": 5.0, "alpha_aci": 0.2, "profiel_p50": 95.0, DOEL: np.nan, "bekend": False}))
+    alles = pd.concat(delen, ignore_index=True)
+    f = site_export.maak_forecast_json(cfg, alles, prijzen, vandaag, pd.Timestamp("2026-05-12T12:30Z"), "hoofd", None)
+    per_datum = {d["datum"]: d for d in f["dagen"]}
+    assert per_datum["2026-05-14"]["dagsoort"] == "feestdag" and per_datum["2026-05-14"]["feestdag"] == "Hemelvaartsdag"
+    assert per_datum["2026-05-15"]["dagsoort"] == "brugdag" and per_datum["2026-05-15"]["feestdag"] is None
+    assert per_datum["2026-05-12"]["dagsoort"] == "werkdag"
+    assert set(f["feestdag_effect"]) == {"pct_tov_werkdag", "aantal_feestdagen", "vanaf", "tot"}
+    json.dumps(f, default=str)

@@ -23,6 +23,7 @@ from stroomprijsvoorspeller.evaluation import blocks, reliability, stats
 from stroomprijsvoorspeller.evaluation.compare import VOORSPELLINGEN_BESTAND
 from stroomprijsvoorspeller.evaluation.metrics import breedte, dekking, mae, pinball, rmse
 from stroomprijsvoorspeller.model.calibration import pas_aci_toe
+from stroomprijsvoorspeller.processing.dagsoort import DAGSOORTEN, Dagsoorten, dag_effecten
 
 log = logging.getLogger(__name__)
 
@@ -141,9 +142,14 @@ def periode_tabel(v: pd.DataFrame, groep: str, horizons=(2, 5, 7)) -> pd.DataFra
     return pd.DataFrame(rijen)
 
 
-def verrijk(v: pd.DataFrame) -> pd.DataFrame:
+def verrijk(v: pd.DataFrame, cfg: Config | None = None) -> pd.DataFrame:
     v = v.dropna(subset=["doel"]).copy()
     lok = v["time_utc"].dt.tz_convert(TZ)
+    if cfg is not None:
+        ds = Dagsoorten(cfg.root)
+        datums = lok.dt.date
+        soorten = {d: ds.soort(d) for d in set(datums)}
+        v["dagsoort"] = datums.map(soorten)
     v["kwartaal"] = lok.dt.year.astype(str) + "Q" + lok.dt.quarter.astype(str)
     v["maand"] = lok.dt.strftime("%Y-%m")
     v["uur"] = lok.dt.hour
@@ -349,13 +355,17 @@ def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = 0.02) 
     v = v.merge(aci[["origin", "time_utc", "methode", "p10_aci", "p90_aci", "alpha_aci"]], on=["origin", "time_utc", "methode"], how="left")
 
     t = hoofdtabel(v)
-    vr = verrijk(v)
+    vr = verrijk(v, cfg)
     dm = stats.dm_tabel(v, REFERENTIE)
     sc = blocks.blok_scores(v[v["methode"].isin(kern)])
     sam = blocks.blok_samenvatting(sc)
     kwart = periode_tabel(vr, "kwartaal", (2, 5))
     seiz = periode_tabel(vr, "seizoen")
     kwartier = periode_tabel(vr, "periode_kwartier")
+    dagsoort_tab = periode_tabel(vr, "dagsoort", (2, 4, 7))
+    # prijseffect van bijzondere dagen uit de werkelijke prijzen in de backtestperiode (dag 2 dekt elke dag precies één keer)
+    werkelijk = vr[(vr["methode"] == HOOFDMODEL) & (vr["horizon_dag"] == 2)][["time_utc", "doel"]].rename(columns={"doel": "prijs_eur_mwh"})
+    effecten = dag_effecten(werkelijk, cfg.root) if not werkelijk.empty else None
     verd = reliability.verdeling_niveaus(v, HOOFDMODEL, REFERENTIE)
 
     fig_mae_per_horizon(t, figdir / "mae_per_horizon.png", methoden)
@@ -380,11 +390,63 @@ def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = 0.02) 
         exp_tabel = exp_tabel.merge(exp_sc[["methode", "horizon_dag", "binnen_10pct", "meerkosten_gem"]], on=["methode", "horizon_dag"], how="left")
 
     tekst = schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin,
-                             exp_dm)
+                             exp_dm, dagsoort_tab=dagsoort_tab, effecten=effecten)
     uit.parent.mkdir(parents=True, exist_ok=True)
     uit.write_text(tekst, encoding="utf-8")
     log.info("rapport -> %s", uit)
     return uit
+
+
+def dagsoort_sectie(tab: pd.DataFrame, effecten: dict | None) -> list[str]:
+    """Tekst en tabel voor de uitsplitsing per dagsoort (besluit 53)."""
+    L = ["### Per dagsoort\n",
+         ("Werkdag, schoolvakantie (werkdag in een schoolvakantie van minstens één regio, `data/schoolvakanties.yaml`), brugdag "
+         "(werkdag tussen een feestdag en een weekend), weekend en feestdag. Het model kent alleen feestdag en weekend als kenmerk; "
+         "schoolvakantie en brugdag zijn geen feature. Dag 2, 4 en 7 vooruit.\n")]
+    volgorde = {s: i for i, s in enumerate(DAGSOORTEN)}
+    g = tab.copy()
+    g["_v"] = g["dagsoort"].map(volgorde)
+    g = g.sort_values(["dag", "_v"]).drop(columns="_v")
+    L.append(_md(g[["dagsoort", "dag", "dagen", "mae_model", "mae_profiel", "rmae", "dekking_kal", "gem_prijs"]],
+                 {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
+                 {"mae_model": "MAE model", "mae_profiel": "MAE profiel", "rmae": "rMAE", "dekking_kal": "dekking", "gem_prijs": "gem. prijs"}))
+    L.append("")
+    d2 = tab[tab["dag"] == 2].set_index("dagsoort")
+    if "werkdag" in d2.index:
+        w = d2.loc["werkdag"]
+        delen = []
+        for soort in ("schoolvakantie", "brugdag", "feestdag", "weekend"):
+            if soort in d2.index:
+                r = d2.loc[soort]
+                delen.append(f"{soort} {r['mae_model']:.1f} (rMAE {r['rmae']:.2f}, {int(r['dagen'])} dagen)")
+        L.append(f"Op dag 2 is de MAE van het model op werkdagen {w['mae_model']:.1f} EUR/MWh (rMAE {w['rmae']:.2f}); "
+                 + ", ".join(delen) + ".\n")
+        oordeel = []
+        for soort in ("schoolvakantie", "brugdag"):
+            if soort in d2.index and d2.loc[soort, "dagen"] >= 10:
+                r = d2.loc[soort]
+                naam = {"schoolvakantie": "schoolvakantiedagen", "brugdag": "brugdagen"}[soort]
+                if r["rmae"] > w["rmae"] * 1.10 and r["mae_model"] > w["mae_model"]:
+                    oordeel.append(f"op {naam} is het model duidelijk minder goed dan op werkdagen (rMAE {r['rmae']:.2f} tegen "
+                                   f"{w['rmae']:.2f}); een eigen kenmerk is het proberen waard")
+                else:
+                    oordeel.append(f"op {naam} doet het model het niet slechter dan op werkdagen (rMAE {r['rmae']:.2f} tegen "
+                                   f"{w['rmae']:.2f}); een eigen kenmerk is niet nodig")
+            elif soort in d2.index:
+                oordeel.append(f"{soort}en zijn er te weinig ({int(d2.loc[soort, 'dagen'])}) voor een oordeel")
+        if oordeel:
+            L.append("Conclusie: " + "; ".join(oordeel) + ".\n")
+    if effecten:
+        stukken = []
+        for soort, label in (("feestdag", "Feestdagen"), ("brugdag", "brugdagen"), ("schoolvakantie", "schoolvakantiedagen")):
+            e = effecten.get(soort) or {}
+            if e.get("pct_tov_werkdag") is not None:
+                stukken.append(f"{label} waren gemiddeld {-e['pct_tov_werkdag']:.0f}% goedkoper dan de werkdagen eromheen "
+                               f"({e['aantal_dagen']} dagen, in {e['aandeel_goedkoper']*100:.0f}% van de gevallen goedkoper)")
+        if stukken:
+            L.append("Prijseffect, uit de werkelijke daggemiddelden van " + effecten["vanaf"] + " tot " + effecten["tot"] + ": "
+                     + "; ".join(stukken) + ". De site noemt dit effect bij een naderende feestdag.\n")
+    return L
 
 
 def _f(x, n=1):
@@ -392,7 +454,7 @@ def _f(x, n=1):
 
 
 def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin,
-                     exp_dm=None) -> str:
+                     exp_dm=None, dagsoort_tab=None, effecten=None) -> str:
     lg = t[t["methode"] == HOOFDMODEL].set_index("horizon_dag")
     pf = t[t["methode"] == REFERENTIE].set_index("horizon_dag")
     horizons = sorted(lg.index)
@@ -483,7 +545,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
                  f"(conformal) en {dekking(okt['doel'], okt['p10_aci'], okt['p90_aci'])*100:.0f}% (ACI, gamma {0.02}). "
                  "ACI helpt dus iets, maar lost een regimewissel niet op.\n")
 
-    L.append("## 5. Fout per uur, per maand, per seizoen en per periode\n")
+    L.append("## 5. Fout per uur, per maand, per seizoen, per periode en per dagsoort\n")
     L.append("![MAE per uur](figures/mae_per_uur.png)\n")
     slecht = dek_uur.sort_values().head(3)
     L.append(f"Dekking van het gekalibreerde interval per uur op dag {d2}: het laagst om {', '.join(f'{int(u)} uur ({d*100:.0f}%)' for u, d in slecht.items())}; "
@@ -500,6 +562,8 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
     L.append(_md(kwartier, {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
                  {"periode_kwartier": "periode", "mae_model": "MAE model", "mae_profiel": "MAE profiel", "rmae": "rMAE", "dekking_kal": "dekking", "gem_prijs": "gem. prijs"}))
     L.append("")
+    if dagsoort_tab is not None and not dagsoort_tab.empty:
+        L.extend(dagsoort_sectie(dagsoort_tab, effecten))
 
     L.append("## 6. Voorbeeld\n")
     L.append("![Voorbeeld](figures/voorbeeld_voorspelling.png)\n")

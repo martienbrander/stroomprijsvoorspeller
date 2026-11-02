@@ -1,0 +1,27 @@
+# Schoolvakanties Nederland per regio (noord, midden, zuid), eerste en laatste dag (zaterdag t/m zondag, inclusief).
+# Bron: Ministerie van OCW. Schooljaar 2026-2027 van rijksoverheid.nl
+# (https://www.rijksoverheid.nl/onderwerpen/schoolvakanties/overzicht-schoolvakanties-per-schooljaar/overzicht-schoolvakanties-2026-2027);
+# eerdere schooljaren staan daar niet meer en zijn overgenomen van schoolvakanties-nederland.nl (bron: OCW).
+# advies: true = adviesdatum (scholen mogen afwijken; herfst- en voorjaarsvakantie), false = vastgesteld.
+# Herfstvakantie 2023 ontbreekt (valt voor het begin van de prijshistorie).
+peildatum: 2026-11-02
+vakanties:
+  - {schooljaar: 2023-2024, naam: kerstvakantie,      advies: false, noord: [2023-12-23, 2024-01-07], midden: [2023-12-23, 2024-01-07], zuid: [2023-12-23, 2024-01-07]}
+  - {schooljaar: 2023-2024, naam: voorjaarsvakantie,  advies: true,  noord: [2024-02-17, 2024-02-25], midden: [2024-02-17, 2024-02-25], zuid: [2024-02-10, 2024-02-18]}
+  - {schooljaar: 2023-2024, naam: meivakantie,        advies: false, noord: [2024-04-27, 2024-05-05], midden: [2024-04-27, 2024-05-05], zuid: [2024-04-27, 2024-05-05]}
+  - {schooljaar: 2023-2024, naam: zomervakantie,      advies: false, noord: [2024-07-20, 2024-09-01], midden: [2024-07-13, 2024-08-25], zuid: [2024-07-06, 2024-08-18]}
+  - {schooljaar: 2024-2025, naam: herfstvakantie,     advies: true,  noord: [2024-10-26, 2024-11-03], midden: [2024-10-26, 2024-11-03], zuid: [2024-10-19, 2024-10-27]}
+  - {schooljaar: 2024-2025, naam: kerstvakantie,      advies: false, noord: [2024-12-21, 2025-01-05], midden: [2024-12-21, 2025-01-05], zuid: [2024-12-21, 2025-01-05]}
+  - {schooljaar: 2024-2025, naam: voorjaarsvakantie,  advies: true,  noord: [2025-02-15, 2025-02-23], midden: [2025-02-22, 2025-03-02], zuid: [2025-02-22, 2025-03-02]}
+  - {schooljaar: 2024-2025, naam: meivakantie,        advies: false, noord: [2025-04-26, 2025-05-04], midden: [2025-04-26, 2025-05-04], zuid: [2025-04-26, 2025-05-04]}
+  - {schooljaar: 2024-2025, naam: zomervakantie,      advies: false, noord: [2025-07-12, 2025-08-24], midden: [2025-07-19, 2025-08-31], zuid: [2025-07-05, 2025-08-17]}
+  - {schooljaar: 2025-2026, naam: herfstvakantie,     advies: true,  noord: [2025-10-18, 2025-10-26], midden: [2025-10-18, 2025-10-26], zuid: [2025-10-11, 2025-10-19]}
+  - {schooljaar: 2025-2026, naam: kerstvakantie,      advies: false, noord: [2025-12-20, 2026-01-04], midden: [2025-12-20, 2026-01-04], zuid: [2025-12-20, 2026-01-04]}
+  - {schooljaar: 2025-2026, naam: voorjaarsvakantie,  advies: true,  noord: [2026-02-21, 2026-03-01], midden: [2026-02-14, 2026-02-22], zuid: [2026-02-14, 2026-02-22]}
+  - {schooljaar: 2025-2026, naam: meivakantie,        advies: false, noord: [2026-04-25, 2026-05-03], midden: [2026-04-25, 2026-05-03], zuid: [2026-04-25, 2026-05-03]}
+  - {schooljaar: 2025-2026, naam: zomervakantie,      advies: false, noord: [2026-07-04, 2026-08-16], midden: [2026-07-18, 2026-08-30], zuid: [2026-07-11, 2026-08-23]}
+  - {schooljaar: 2026-2027, naam: herfstvakantie,     advies: true,  noord: [2026-10-10, 2026-10-18], midden: [2026-10-17, 2026-10-25], zuid: [2026-10-17, 2026-10-25]}
+  - {schooljaar: 2026-2027, naam: kerstvakantie,      advies: false, noord: [2026-12-19, 2027-01-03], midden: [2026-12-19, 2027-01-03], zuid: [2026-12-19, 2027-01-03]}
+  - {schooljaar: 2026-2027, naam: voorjaarsvakantie,  advies: true,  noord: [2027-02-20, 2027-02-28], midden: [2027-02-20, 2027-02-28], zuid: [2027-02-13, 2027-02-21]}
+  - {schooljaar: 2026-2027, naam: meivakantie,        advies: false, noord: [2027-04-24, 2027-05-02], midden: [2027-04-24, 2027-05-02], zuid: [2027-04-24, 2027-05-02]}
+  - {schooljaar: 2026-2027, naam: zomervakantie,      advies: false, noord: [2027-07-10, 2027-08-22], midden: [2027-07-17, 2027-08-29], zuid: [2027-07-24, 2027-09-05]}

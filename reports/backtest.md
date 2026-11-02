@@ -179,7 +179,7 @@ Per dag kiest elke methode het blok van 3 aaneengesloten uren met de laagste voo
 
 De eigen kwantielen van LightGBM zijn te smal. De conformal-correctie op 30 dagen herstelt de dekking, maar loopt achter bij een plotselinge niveausprong: in oktober 2026 (gemiddelde prijs 157 EUR/MWh) dekte het interval 57% (conformal) en 62% (ACI, gamma 0.02). ACI helpt dus iets, maar lost een regimewissel niet op.
 
-## 5. Fout per uur, per maand, per seizoen en per periode
+## 5. Fout per uur, per maand, per seizoen, per periode en per dagsoort
 
 ![MAE per uur](figures/mae_per_uur.png)
 
@@ -229,6 +229,34 @@ Dekking van het gekalibreerde interval per uur op dag 2: het laagst om 11 uur (7
 | voor 1 okt 2025 | 2 | 396 | 20.15 | 27.05 | 0.745 | 0.797 | 90 |
 | voor 1 okt 2025 | 5 | 393 | 22.80 | 28.05 | 0.813 | 0.798 | 90 |
 | voor 1 okt 2025 | 7 | 391 | 24.82 | 28.31 | 0.877 | 0.791 | 89 |
+
+### Per dagsoort
+
+Werkdag, schoolvakantie (werkdag in een schoolvakantie van minstens één regio, `data/schoolvakanties.yaml`), brugdag (werkdag tussen een feestdag en een weekend), weekend en feestdag. Het model kent alleen feestdag en weekend als kenmerk; schoolvakantie en brugdag zijn geen feature. Dag 2, 4 en 7 vooruit.
+
+| dagsoort | dag | dagen | MAE model | MAE profiel | rMAE | dekking | gem. prijs |
+|---|---|---|---|---|---|---|---|
+| werkdag | 2 | 389 | 22.59 | 29.02 | 0.779 | 0.781 | 107 |
+| schoolvakantie | 2 | 151 | 18.98 | 24.96 | 0.760 | 0.777 | 106 |
+| brugdag | 2 | 4 | 23.96 | 22.21 | 1.079 | 0.865 | 84 |
+| weekend | 2 | 221 | 18.54 | 29.63 | 0.626 | 0.809 | 80 |
+| feestdag | 2 | 21 | 20.61 | 28.64 | 0.720 | 0.821 | 70 |
+| werkdag | 4 | 391 | 23.90 | 29.95 | 0.798 | 0.786 | 107 |
+| schoolvakantie | 4 | 151 | 20.29 | 26.01 | 0.780 | 0.787 | 106 |
+| brugdag | 4 | 4 | 22.61 | 22.98 | 0.984 | 0.927 | 84 |
+| weekend | 4 | 219 | 22.33 | 30.33 | 0.736 | 0.778 | 80 |
+| feestdag | 4 | 21 | 21.88 | 29.27 | 0.748 | 0.863 | 70 |
+| werkdag | 7 | 391 | 27.84 | 30.98 | 0.899 | 0.775 | 108 |
+| schoolvakantie | 7 | 151 | 26.28 | 27.32 | 0.962 | 0.779 | 106 |
+| brugdag | 7 | 4 | 23.67 | 23.41 | 1.011 | 0.740 | 84 |
+| weekend | 7 | 219 | 26.05 | 30.84 | 0.845 | 0.775 | 80 |
+| feestdag | 7 | 21 | 26.10 | 29.43 | 0.887 | 0.841 | 70 |
+
+Op dag 2 is de MAE van het model op werkdagen 22.6 EUR/MWh (rMAE 0.78); schoolvakantie 19.0 (rMAE 0.76, 151 dagen), brugdag 24.0 (rMAE 1.08, 4 dagen), feestdag 20.6 (rMAE 0.72, 21 dagen), weekend 18.5 (rMAE 0.63, 221 dagen).
+
+Conclusie: op schoolvakantiedagen doet het model het niet slechter dan op werkdagen (rMAE 0.76 tegen 0.78); een eigen kenmerk is niet nodig; brugdagen zijn er te weinig (4) voor een oordeel.
+
+Prijseffect, uit de werkelijke daggemiddelden van 2024-08-31 tot 2026-10-25: Feestdagen waren gemiddeld 22% goedkoper dan de werkdagen eromheen (21 dagen, in 86% van de gevallen goedkoper); brugdagen waren gemiddeld 4% goedkoper dan de werkdagen eromheen (4 dagen, in 75% van de gevallen goedkoper); schoolvakantiedagen waren gemiddeld 7% goedkoper dan de werkdagen eromheen (115 dagen, in 63% van de gevallen goedkoper). De site noemt dit effect bij een naderende feestdag.
 
 ## 6. Voorbeeld
 

@@ -39,6 +39,7 @@ experimenten die tot de modelkeuze leidden: [reports/backtest.md](reports/backte
 - Alleen biedzone Nederland, alleen de kale beursprijs. Belasting, btw en inkoopvergoeding rekent de site er zelf bij
   (drie prijsstanden: Marktprijs, Marktprijs+ en All-in); de leverancier bepaalt wat u echt betaalt.
 - De weersverwachting komt van één model (Open-Meteo `best_match`); er is geen ensemble van weermodellen.
+- Feestdagen en weekenden kent het model; schoolvakanties en brugdagen niet. De backtest splitst de fout uit per dagsoort en laat zien dat het model in schoolvakanties niet slechter is dan op werkdagen, dus daar is geen aparte vlag nodig. Feestdagen waren de afgelopen twee jaar gemiddeld ruim 20% goedkoper dan de werkdagen eromheen; de site meldt dat als er een feestdag aankomt.
 
 ## Bronnen en licenties
 
@@ -94,7 +95,7 @@ Twee bestanden in de projectmap (geen taakplanner, besluit 49):
 - `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde
   als `ververs.bat` en laadt de pagina daarna opnieuw.
 
-De prijzen voor de volgende dag komen rond 13:00 binnen; eerder verversen geeft één dag minder vooruit. Elke run komt in
+De prijzen voor de volgende dag komen rond 13:00 binnen; eerder verversen geeft één dag minder vooruit. De pagina noemt dagen altijd bij weekdag en datum en laat een voorbije dag na middernacht vanzelf vallen, ook als ze open blijft staan. Elke run komt in
 `data/runs/` terecht (hoofdrun, verversing of inhaalrun). Een paar dagen niet draaien is geen probleem: de volgende
 run rekent de gemiste dagen alsnog uit, zodat de kalibratie en de scores doorlopen (besluit 50).
 
