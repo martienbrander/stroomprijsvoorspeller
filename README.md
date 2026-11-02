@@ -1,63 +1,134 @@
 # stroomprijsvoorspeller
 
 Open, gratis voorspeller van de Nederlandse day-ahead stroomprijs (EPEX, biedzone NL), tot 7 dagen vooruit, met een
-onzekerheidsmarge. Voor huishoudens met een dynamisch contract die willen weten wanneer laden of wassen goedkoop is.
+onzekerheidsmarge en per dag een betrouwbaarheidslabel. Voor huishoudens met een dynamisch contract die willen weten
+wanneer de auto laden of de was draaien goedkoop is.
 
-Status: in opbouw. Fase 1 (data), 2 (modellen), 3 (backtest) en 4 (dagelijkse run en site) zijn klaar; de site draait
-lokaal. Zie [PLAN.md](PLAN.md) voor de fasen en [DECISIONS.md](DECISIONS.md) voor alle keuzes.
+Vandaag en morgen staan vast (die prijzen komen van de beurs). Vanaf overmorgen is het een verwachting op basis van
+de weersverwachting (wind op zee en land, zon, temperatuur) en de prijzen van de afgelopen dagen. Bij elke verwachting
+hoort een onder- en bovengrens; hoe verder vooruit, hoe breder die band en hoe minder detail de site laat zien.
 
-Resultaat (rolling-origin backtest, 786 dagen, aug 2024 t/m okt 2026): het gekozen LightGBM-kwantielmodel (venster 365
-dagen, apart model voor dag 2) zit op dag 2 gemiddeld 17,0 EUR/MWh (1,7 ct/kWh) naast de werkelijke uurprijs, op dag 7
-25,9. Het naïeve 4-weeks uurprofiel zit op 28 tot 30. Het 80%-interval dekt na kalibratie 79% van de werkelijke prijzen. Volledige backtest met tabellen, grafieken en eerlijke kanttekeningen in
-[reports/backtest.md](reports/backtest.md); de methodenvergelijking in [reports/methodenvergelijking.md](reports/methodenvergelijking.md).
+Status: fase 1 tot en met 5 klaar (data, modellen, backtest, dagelijkse run met site, publicatie). De site draait
+lokaal; online zetten kan met de meegeleverde workflows. Zie [PLAN.md](PLAN.md) voor de fasen en
+[DECISIONS.md](DECISIONS.md) voor alle 52 keuzes en aannames.
 
-## Bronnen
+## Hoe goed is het?
 
-- Prijzen: [Energy-Charts](https://energy-charts.info) van Fraunhofer ISE (data: Bundesnetzagentur | SMARD.de, CC BY 4.0).
-  Optionele fallback: ENTSO-E Transparency Platform (gratis token nodig).
+Getest als in de econometrie: elke dag om 13:00 opnieuw voorspellen met alleen wat toen bekend was, 786 dagen lang
+(augustus 2024 tot en met oktober 2026), en vergelijken met drie naïeve regels. Gemiddelde afwijking per uur, in
+EUR/MWh (delen door 10 geeft ct/kWh):
+
+| | dag 2 (overmorgen) | dag 4 | dag 7 |
+|---|---|---|---|
+| dit model (LightGBM, venster 365 dagen, apart model voor dag 2) | 17,0 | 21,6 | 25,9 |
+| naïef: gemiddeld uurprofiel van de laatste 4 weken | 28,4 | 29,1 | 30,2 |
+
+Het verschil is op elke horizon statistisch hard (Diebold-Mariano, p < 0,0001). Het 80%-interval dekt na kalibratie
+79% van de werkelijke prijzen. Eerlijke kanttekening: voor het kiezen van het goedkoopste blok van drie uur is het
+model maar iets beter dan de naïeve regel (89% tegen 88% binnen 10% van het beste blok op dag 2). De winst zit in
+hoeveel het kost en hoe zeker dat is, niet zozeer in wanneer. Volledige backtest met tabellen, grafieken en de
+experimenten die tot de modelkeuze leidden: [reports/backtest.md](reports/backtest.md).
+
+## Beperkingen
+
+- Een plotselinge sprong in het prijsniveau (zoals in oktober 2026) zit niet in de weersverwachting; het model loopt
+  dan een paar weken achter en de band is te smal. De scores op de site ("afgelopen 30 dagen") laten dat zien.
+- De middaguren zijn structureel het moeilijkst: daar bepalen zon en de mate van afschakelen de prijs.
+- Dag 6 en 7 geven alleen een richting; de site toont ze als dagdelen en noemt ze "onzeker".
+- De betrouwbaarheid per dag is relatief ten opzichte van de naïeve regel, niet absoluut.
+- Alleen biedzone Nederland, alleen de kale beursprijs. Belasting, btw en inkoopvergoeding rekent de site er zelf bij
+  (drie prijsstanden: Marktprijs, Marktprijs+ en All-in); de leverancier bepaalt wat u echt betaalt.
+- De weersverwachting komt van één model (Open-Meteo `best_match`); er is geen ensemble van weermodellen.
+
+## Bronnen en licenties
+
+- Prijzen: [Energy-Charts](https://energy-charts.info) van Fraunhofer ISE (data: Bundesnetzagentur | SMARD.de,
+  CC BY 4.0). Optionele fallback: ENTSO-E Transparency Platform (gratis token nodig, `ENTSOE_TOKEN` in `.env`).
 - Weer: [Open-Meteo](https://open-meteo.com) (CC BY 4.0). Forecast API voor de komende dagen, Previous Runs API voor
-  historische verwachtingen zoals die destijds waren.
+  historische verwachtingen zoals die destijds waren, zodat de backtest geen kennis van later gebruikt.
 - Kalender: Nederlandse feestdagen via het Python-package `holidays`.
+- Leveranciers: met de hand bijgehouden lijst in `data/leveranciers.yaml`, nagelopen tegen het ACM-register;
+  zie [reports/leveranciers-inventarisatie.md](reports/leveranciers-inventarisatie.md).
+
+Code: MIT, zie [LICENSE](LICENSE). De gepubliceerde cijfers (JSON) zijn afgeleid van CC BY 4.0-bronnen en worden
+onder dezelfde licentie doorgegeven met bronvermelding. Geen cookies, geen tracking, geen persoonsgegevens.
 
 ## Zelf draaien
 
+Python 3.11 of hoger. Alles wordt bestuurd door één configbestand, `config.yaml` (weerpunten, horizon, kwantielen,
+trainingsvenster, LightGBM-parameters).
+
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install -e ".[dev]"
-epv fetch      # haalt prijzen (vanaf nov 2022) en weer (vanaf maart 2024) op, incrementeel
-epv build      # bouwt data/processed
-epv status     # toont wat er aan data is
-epv features   # bouwt de featurematrix per voorspelmoment en doeluur
-epv compare    # rolling-origin vergelijking van baselines en modellen -> reports/methodenvergelijking.md (duurt ~2 uur)
-epv backtest   # volledig rapport met grafieken -> reports/backtest.md
-epv train      # traint het operationele model (config: lightgbm_d2, venster 365 dagen)
-epv predict    # voorspelt dag 2 t/m 7 met de actuele weersverwachting
-epv daily      # de dagelijkse run: ophalen, gemiste dagen inhalen, zo nodig hertrainen, voorspellen, archiveren, site-JSON
-epv refresh    # lichte verversing: nieuw weer, opnieuw voorspellen met het bestaande model
-epv serve      # lokale server voor de site (http://localhost:8766) met een ververs-knop die `epv daily` start
-epv evalueer-verversingen   # wekelijks: wat leveren de verversingen op? -> reports/verversingen.md
+.venv\Scripts\pip install -e ".[model,dev]"
+epv daily      # alles in één keer: ophalen, gemiste dagen inhalen, trainen, voorspellen, archiveren, site-JSON
+epv serve      # lokale server voor de site (http://localhost:8766) met een ververs-knop
 pytest
+```
+
+De eerste `epv daily` haalt drie jaar prijzen en de weerhistorie vanaf maart 2024 op (enkele minuten), bouwt de
+featurematrix en traint het model. Daarna is een run één tot twee minuten, een verversing een halve minuut.
+
+De losse stappen, voor wie wil kijken of meten:
+
+```bash
+epv fetch      # prijzen en weer ophalen, incrementeel
+epv build      # data/processed opbouwen
+epv status     # wat er aan data is
+epv features   # featurematrix per voorspelmoment en doeluur
+epv compare    # rolling-origin vergelijking van baselines en modellen -> reports/methodenvergelijking.md (ca. 2 uur)
+epv backtest   # volledig rapport met grafieken -> reports/backtest.md
+epv train      # operationeel model trainen (config: lightgbm_d2, venster 365 dagen)
+epv predict    # voorspellen met de actuele weersverwachting
+epv refresh    # lichte verversing: nieuw weer, opnieuw voorspellen met het bestaande model
+epv evalueer-verversingen   # wat leveren de verversingen op? -> reports/verversingen.md
+epv historie-export         # compacte backtest-historie voor online gebruik
 ```
 
 ## Dagelijks gebruik op deze pc
 
-Twee bestanden in de projectmap (geen taakplanner, zie besluit 49):
+Twee bestanden in de projectmap (geen taakplanner, besluit 49):
 
-- `ververs.bat`: maakt een nieuwe voorspelling. Haalt prijzen en weer op, haalt gemiste dagen in, traint het model opnieuw
-  als het ouder is dan een week, voorspelt 7 dagen vooruit en schrijft `site/data/forecast.json`. Duurt een paar minuten.
-- `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde als
-  `ververs.bat` en laadt de pagina daarna opnieuw.
+- `ververs.bat`: maakt een nieuwe voorspelling. Haalt prijzen en weer op, haalt gemiste dagen in, traint het model
+  opnieuw als het ouder is dan een week, voorspelt 7 dagen vooruit en schrijft `site/data/forecast.json`.
+- `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde
+  als `ververs.bat` en laadt de pagina daarna opnieuw.
 
-De prijzen voor morgen komen rond 13:00 binnen; daarvoor verversen geeft één dag minder vooruit. Elke run komt in
-`data/runs/` terecht (hoofdrun, verversing of inhaalrun), zodat de kalibratie en de scores op de site doorlopen, ook na
-een paar dagen niet draaien.
+De prijzen voor morgen komen rond 13:00 binnen; eerder verversen geeft één dag minder vooruit. Elke run komt in
+`data/runs/` terecht (hoofdrun, verversing of inhaalrun). Een paar dagen niet draaien is geen probleem: de volgende
+run rekent de gemiste dagen alsnog uit, zodat de kalibratie en de scores doorlopen (besluit 50).
 
-Alle instellingen staan in `config.yaml`: weerpunten, horizon, kwantielen, rolling venster, LightGBM-parameters.
+## API
+
+De cijfers staan als JSON naast de site: `/api/v1/voorspelling.json` en `/data/leveranciers.json`. Velden, eenheden en
+voorwaarden in [API.md](API.md).
+
+## Online zetten
+
+De workflows in `.github/workflows/` doen online hetzelfde als `ververs.bat` lokaal (besluit 47):
+
+1. Maak een GitHub-repository en push `main`.
+2. Zet in de instellingen van de repository GitHub Pages op "GitHub Actions".
+3. Start de workflow "dagelijkse run" één keer met de hand; die haalt alles op en zet de site live. Daarna draait hij
+   op het rooster: drie pogingen rond de day-ahead publicatie en drie verversingen per dag.
+4. De werkdata (`data/`, `models/`) staan na elke run op de branch `data`, in één commit zonder geschiedenis. Wil je de
+   lokale historie meenemen, draai dan eerst `epv historie-export` en push `data/`, `models/` en dat exportbestand
+   naar die branch.
+
+De wekelijkse workflow schrijft `reports/verversingen.md` bij.
+
+## Onderhoud en kosten
+
+Hosting op GitHub Pages is gratis, een domeinnaam kost ongeveer tien euro per jaar; het werk zit in het bijhouden van
+de leverancierstabel, het controleren van de scores en het meegroeien met de bronnen. Er komen geen advertenties en
+geen affiliate-links, omdat die de onafhankelijkheid van de leverancierstabel zouden aantasten. Hoe het onderhoud op
+termijn betaald wordt (donaties, een subsidie voor uitbreidingen) is nog open; zie besluit 38.
+
+## Bijdragen
+
+Fouten melden, een leverancier aanvullen (`data/leveranciers.yaml`, met bron en peildatum) of een idee aandragen kan
+via een issue of pull request. Voor codewijzigingen: `ruff check src tests` en `pytest` moeten slagen, en elke aanname
+krijgt een regel in `DECISIONS.md`.
 
 Verdere rapporten: [dataverkenning](reports/verkenning/data-verkenning.md), [literatuurmemo over
-schattingsmethoden](reports/literatuur-schattingsmethoden.md), [inventarisatie van leveranciers met een dynamisch
-contract](reports/leveranciers-inventarisatie.md). Ontwerpvarianten van de site: `site/ontwerpen/`.
-
-## Licentie
-
-MIT. Zie [LICENSE](LICENSE).
+schattingsmethoden](reports/literatuur-schattingsmethoden.md). Ontwerpvarianten van de site: `site/ontwerpen/`.

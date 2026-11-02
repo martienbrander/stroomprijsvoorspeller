@@ -151,6 +151,14 @@ def cmd_site(args) -> int:
     return 0
 
 
+def cmd_historie_export(args) -> int:
+    from stroomprijsvoorspeller.pipeline import archive
+
+    cfg = load_config(args.config)
+    print(f"historie: {archive.exporteer_historie(cfg, cfg.operationele_methode, args.dagen)}")
+    return 0
+
+
 def cmd_serve(args) -> int:
     from stroomprijsvoorspeller.pipeline import serve
 
@@ -248,6 +256,10 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--poort", type=int, default=8766)
     sv.add_argument("--open", action="store_true", help="open de site in de browser")
     sv.set_defaults(func=cmd_serve)
+
+    he = sub.add_parser("historie-export", help="compacte backtest-historie voor online gebruik -> data/processed/voorspellingen_historie.parquet")
+    he.add_argument("--dagen", type=int, default=150)
+    he.set_defaults(func=cmd_historie_export)
 
     ev = sub.add_parser("evalueer-verversingen", help="rapport over de waarde van de verversingsruns -> reports/verversingen.md")
     ev.set_defaults(func=cmd_evalueer_verversingen)

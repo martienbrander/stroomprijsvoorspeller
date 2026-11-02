@@ -112,6 +112,23 @@ def backtest_historie(cfg: Config, methode: str) -> pd.DataFrame:
     return v[["methode", "origin", "time_utc", "horizon_dag", "p10", "p50", "p90", "p10_kal", "p90_kal", DOEL]]
 
 
+HISTORIE_BESTAND = "voorspellingen_historie.parquet"
+
+
+def exporteer_historie(cfg: Config, methode: str, dagen: int = 150) -> Path:
+    """Schrijft een compacte versie van de backtest-historie (alleen de operationele methode en het profiel, laatste
+    `dagen` voorspelmomenten) voor gebruik online, waar de grote backtest-bestanden niet mee hoeven (besluit 47)."""
+    bt = backtest_historie(cfg, methode)
+    if bt.empty:
+        raise RuntimeError("geen backtest-voorspellingen gevonden")
+    bt = bt[bt["origin"] >= bt["origin"].max() - pd.Timedelta(days=dagen)].copy()
+    bt["methode"] = bt["methode"].where(bt["methode"] == "profiel_4w", parse_spec(methode).canoniek(cfg.rolling_venster_dagen))
+    pad = cfg.processed_dir / HISTORIE_BESTAND
+    bt.to_parquet(pad, index=False)
+    log.info("historie: %d rijen, %s .. %s -> %s", len(bt), bt["origin"].min().date(), bt["origin"].max().date(), pad)
+    return pad
+
+
 def historie(cfg: Config, methode: str, prijzen: pd.DataFrame, dagen: int = 120, tot: date | None = None) -> pd.DataFrame:
     """Lang frame (methode, origin, time_utc, horizon_dag, p10, p50, p90, p10_kal, p90_kal, doel) van de laatste `dagen`
     voorspelmomenten vóór `tot`: archiefruns waar die er zijn, anders de backtest. Alleen voorspelde uren (niet `bekend`)."""

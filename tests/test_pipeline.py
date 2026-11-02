@@ -187,3 +187,24 @@ def test_kies_type(tmp_path, run_type):
     if run_type == "verversing":
         archive.schrijf_run(cfg, _run_rijen(D, "hoofd", "2026-11-01T12:20:00Z", 0, 3), pd.Timestamp("2026-11-01T12:20:00Z"), "hoofd")
     assert daily.kies_type(cfg, D) == run_type
+
+
+def test_historie_export_is_compact_en_wordt_gevonden(tmp_path):
+    cfg = maak_config(tmp_path, rolling_venster_dagen=365, operationele_methode="lightgbm_d2")
+    cfg.processed_dir.mkdir(parents=True)
+    rijen = []
+    for i in range(200):
+        D = pd.Timestamp("2026-01-01") + pd.Timedelta(days=i)
+        uren = local_hour_range(D.date() + timedelta(days=2))[:3]
+        for m in ("lightgbm_w365_d2", "profiel_4w", "lightgbm_w90"):
+            rijen.append(pd.DataFrame({"origin": D, "time_utc": uren, "horizon_dag": 2, "methode": m, "p10": 1.0, "p50": 2.0,
+                                       "p90": 3.0, DOEL: 2.5, "p10_kal": 0.5, "p90_kal": 3.5, "conformal_q": 0.5}))
+    pd.concat(rijen).to_parquet(cfg.processed_dir / "voorspellingen_experimenten.parquet", index=False)
+    pad = archive.exporteer_historie(cfg, "lightgbm_d2", dagen=150)
+    h = pd.read_parquet(pad)
+    assert set(h["methode"]) == {"lightgbm_w365_d2", "profiel_4w"}
+    assert h["origin"].nunique() == 151
+    # het exportbestand telt zelf mee als historie, zonder dubbele rijen
+    bt = archive.backtest_historie(cfg, "lightgbm_d2")
+    assert bt.groupby(["methode", "origin", "time_utc"]).size().max() == 1
+    assert set(bt["methode"]) == {"lightgbm_d2", "profiel_4w"}

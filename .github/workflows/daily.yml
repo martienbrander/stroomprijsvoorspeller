@@ -1,0 +1,83 @@
+# Dagelijkse run online (besluit 47): dezelfde `epv daily` als lokaal, data bewaard op de branch `data`, site naar GitHub Pages.
+#
+# Tijden in UTC. De hoofdrun probeert drie keer rond de day-ahead publicatie (13:00 lokaal, zomer- en wintertijd);
+# `epv daily --type auto` kiest zelf: hoofdrun zodra de prijzen voor morgen binnen zijn, anders verversing.
+# Verversingen rond 19:00, 01:00 en 07:00 lokaal (besluit 33).
+name: dagelijkse run
+
+on:
+  schedule:
+    - cron: "20 11 * * *"   # 12:20 / 13:20 lokaal
+    - cron: "20 12 * * *"   # 13:20 / 14:20 lokaal
+    - cron: "20 13 * * *"   # 14:20 / 15:20 lokaal (herkansing)
+    - cron: "5 18 * * *"    # verversing avond
+    - cron: "5 0 * * *"     # verversing nacht
+    - cron: "5 6 * * *"     # verversing ochtend
+  workflow_dispatch:
+    inputs:
+      type:
+        description: "auto, hoofd of verversing"
+        default: auto
+
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TZ: Europe/Amsterdam
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Data van de vorige run ophalen (branch data)
+        run: |
+          git fetch origin data:refs/remotes/origin/data || echo "nog geen data-branch; eerste run haalt alles op"
+          if git show-ref --verify --quiet refs/remotes/origin/data; then
+            git restore --source=origin/data --worktree -- data models || true
+            git reset -q
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installeren
+        run: pip install -e ".[model]"
+
+      - name: Run
+        run: epv daily --type "${{ github.event.inputs.type || 'auto' }}"
+
+      - name: Data bewaren op branch data (één commit, geen geschiedenis)
+        run: |
+          git config user.name "stroomprijsvoorspeller-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git checkout -q --orphan data-nieuw
+          git rm -rfq --cached .
+          git add -f data/raw data/processed/features.parquet data/processed/voorspellingen_historie.parquet data/runs models || true
+          git add -f data/processed/*.parquet || true
+          git commit -qm "data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -f origin data-nieuw:data
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: run
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
