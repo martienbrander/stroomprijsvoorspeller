@@ -83,9 +83,8 @@
     return { datum: d, uur: uur, weekdag: dt.getDay(), dagVdMaand: parseInt(d.slice(8, 10), 10), maand: parseInt(d.slice(5, 7), 10) - 1 };
   }
 
+  // Altijd weekdag + datum, nooit 'vandaag' of 'morgen': een pagina kan een dag later nog openstaan.
   function dagNaam(dag, lang) {
-    if (dag.index === 0) return 'Vandaag';
-    if (dag.index === 1) return 'Morgen';
     const wd = lang ? WEEKDAGEN[dag.weekdag] : WEEKDAGEN_KORT[dag.weekdag];
     const naam = wd + ' ' + dag.dagVdMaand + ' ' + MAANDEN[dag.maand];
     return lang ? naam.charAt(0).toUpperCase() + naam.slice(1) : naam;
@@ -338,7 +337,7 @@
     s += fmtEuro(k.vsDuurste) + ' minder dan op het duurste moment, ';
     s += k.vsGem > 0.005 ? fmtEuro(k.vsGem) + ' minder dan gemiddeld.' : k.vsGem < -0.005 ? fmtEuro(-k.vsGem) + ' meer dan gemiddeld.' : 'gelijk aan gemiddeld.';
     if (!blok.bekend) s += ' Onzeker: plus of min ' + fmtEuro(k.onzeker) + '.';
-    if (blok.onzekereDag) s += ' Nog onzeker, kijk morgen opnieuw.';
+    if (blok.onzekereDag) s += ' Nog onzeker, kijk een dag later opnieuw.';
     return s;
   }
   function wasZin(blok) {
@@ -625,7 +624,7 @@
         }
         // daglabel
         ctx.fillStyle = k.tekst; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        const lbl = compact ? (d.index === 0 ? 'Vandaag' : d.index === 1 ? 'Morgen' : WEEKDAGEN_KORT[d.weekdag] + ' ' + d.dagVdMaand) : dagNaam(d, false);
+        const lbl = compact ? WEEKDAGEN_KORT[d.weekdag] + ' ' + d.dagVdMaand : dagNaam(d, false);
         if (xb - xa > ctx.measureText(lbl).width + 6 || !compact) {
           ctx.fillText(lbl, xa + 4, hoog - pad.b + 16);
         } else {
@@ -754,7 +753,7 @@
       duurste: { blok: mb.duurste, euro: euro(mb.duurste.p50) },
       beste: beste ? { dag: beste, blok: bb, euro: euro(bb.p50), euroLaag: euro(bb.p10), euroHoog: euro(bb.p90) } : null,
     };
-    const naam = SPdagNaam(morgen);
+    const naam = dagNaam(morgen, true);
     if (!beste) {
       r.soort = 'nu'; r.winst = 0;
       r.advies = 'Geen verwachting verder vooruit. ' + naam + ' ' + blokTijd(mb) + ' is het goedkoopste moment dat zeker is.';
@@ -779,10 +778,9 @@
       r.soort = 'nu';
       r.advies = naam + ' is goedkoper dan de rest van de week: ' + fmtEuro(-r.winst) + ' minder dan ' + dagL + '. Goed moment om het te doen.';
     }
-    if (r.soort !== 'nu' && beste.betrouwbaarheid.code === 'laag') r.advies += ' Nog onzeker, kijk morgen opnieuw.';
+    if (r.soort !== 'nu' && beste.betrouwbaarheid.code === 'laag') r.advies += ' Nog onzeker, kijk een dag later opnieuw.';
     return r;
   }
-  function SPdagNaam(d) { return d.index === 0 ? 'Vandaag' : d.index === 1 ? 'Morgen' : dagNaam(d, true); }
 
   // ---------- laden ----------
   function laadForecast(url) {
@@ -883,7 +881,7 @@
   }
 
   window.SP = {
-    DAGDELEN: DAGDELEN, STOPLICHT: STOPLICHT, fmt: fmt, fmtUur: fmtUur, dagNaam: dagNaam, dagDatumKort: dagDatumKort,
+    DAGDELEN: DAGDELEN, STOPLICHT: STOPLICHT, fmt: fmt, fmtUur: fmtUur, dagNaam: dagNaam, dagDatumKort: dagDatumKort, datumTekst: datumTekst,
     leesTarief: leesTarief, bewaarTarief: bewaarTarief, naarCt: naarCt, verwerk: verwerk, vaagheid: vaagheid, dekking: dekking,
     TARIEF_JAAR: TARIEF_JAAR, ENERGIEBELASTING_CT: ENERGIEBELASTING_CT, BTW_PCT: BTW_PCT, INKOOP_STANDAARD_CT: INKOOP_STANDAARD_CT,
     TARIEF_STANDEN: TARIEF_STANDEN, TARIEF_STANDAARD: TARIEF_STANDAARD, tariefFactor: tariefFactor, tariefLabel: tariefLabel, tariefUitlegTekst: tariefUitlegTekst,

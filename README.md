@@ -4,7 +4,7 @@ Open, gratis voorspeller van de Nederlandse day-ahead stroomprijs (EPEX, biedzon
 onzekerheidsmarge en per dag een betrouwbaarheidslabel. Voor huishoudens met een dynamisch contract die willen weten
 wanneer de auto laden of de was draaien goedkoop is.
 
-Vandaag en morgen staan vast (die prijzen komen van de beurs). Vanaf overmorgen is het een verwachting op basis van
+De dag van de voorspelling en de dag erna staan vast (die prijzen komen van de beurs). De dagen daarna zijn een verwachting op basis van
 de weersverwachting (wind op zee en land, zon, temperatuur) en de prijzen van de afgelopen dagen. Bij elke verwachting
 hoort een onder- en bovengrens; hoe verder vooruit, hoe breder die band en hoe minder detail de site laat zien.
 
@@ -94,7 +94,7 @@ Twee bestanden in de projectmap (geen taakplanner, besluit 49):
 - `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde
   als `ververs.bat` en laadt de pagina daarna opnieuw.
 
-De prijzen voor morgen komen rond 13:00 binnen; eerder verversen geeft één dag minder vooruit. Elke run komt in
+De prijzen voor de volgende dag komen rond 13:00 binnen; eerder verversen geeft één dag minder vooruit. Elke run komt in
 `data/runs/` terecht (hoofdrun, verversing of inhaalrun). Een paar dagen niet draaien is geen probleem: de volgende
 run rekent de gemiste dagen alsnog uit, zodat de kalibratie en de scores doorlopen (besluit 50).
 

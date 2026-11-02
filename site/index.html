@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stroomprijsvoorspeller</title>
-<meta name="description" content="Stroomprijs per dag op een tijdlijn: zie in één oogopslag welke uren goedkoop zijn, vandaag en de komende dagen.">
+<meta name="description" content="Stroomprijs per dag op een tijdlijn: zie in één oogopslag welke uren goedkoop zijn, de komende dagen.">
 <style>
   :root {
     --achtergrond: #fbfbfa; --vlak: #f1f1ee; --tekst: #1c1c1a; --zacht: #63635e; --rand: #e2e2dd;
@@ -199,9 +199,9 @@
 
   <section class="kosten" aria-labelledby="kosten-kop">
     <h2 id="kosten-kop">Nu of later?</h2>
-    <p class="intro">Wat een klus morgen kost en of wachten loont. In euro, met uw eigen instellingen.</p>
+    <p class="intro" id="kosten-intro">Wat een klus kost en of wachten loont. In euro, met uw eigen instellingen.</p>
     <div id="apparaten"></div>
-    <p class="voet" id="kosten-voet">Morgen is zeker, de dagen erna zijn een verwachting. Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto raden we wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen lopen.</p>
+    <p class="voet" id="kosten-voet">Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto raden we wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen lopen.</p>
   </section>
 
   <section aria-label="Overzicht">
@@ -234,7 +234,7 @@
         <button type="button" data-resolutie="uur" aria-pressed="true">Per uur</button>
         <button type="button" data-resolutie="kwartier" aria-pressed="false">Per kwartier</button>
       </div>
-      <span class="noot">kwartier alleen voor vandaag en morgen; de verwachting is per uur</span>
+      <span class="noot">kwartier alleen voor dagen met bekende prijzen; de verwachting is per uur</span>
     </div>
 
     <ul class="legenda">
@@ -258,8 +258,8 @@
 
   <div class="kader">
     <h2 style="margin-top:0">Hoe zeker is dit?</h2>
-    <p><b>Vandaag en morgen</b> staan vast: die prijzen komen van de stroombeurs en veranderen niet meer.</p>
-    <p><b>Vanaf overmorgen</b> is het een verwachting op basis van de weersverwachting en de prijzen van de afgelopen dagen. Bij elke verwachting hoort een ondergrens en een bovengrens. In ongeveer 8 van de 10 gevallen valt de echte prijs daartussen.</p>
+    <p><b>Dagen met bekende prijzen</b> (op de tijdlijn "zeker") staan vast: die prijzen komen van de stroombeurs en veranderen niet meer. Meestal zijn dat de dag van de voorspelling en de dag erna.</p>
+    <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen dagen. Bij elke verwachting hoort een ondergrens en een bovengrens. In ongeveer 8 van de 10 gevallen valt de echte prijs daartussen.</p>
     <p><b>Dag 4 en verder</b> zijn grof: alleen dagdelen, geen losse uren. Een goedkoop dagdeel blijft meestal goedkoop, het exacte uur kan schuiven.</p>
     <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Het label bij elke dag zegt hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
     <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen. Daarom is "gratis stroom" op de rekening niet gratis. Marktprijs toont de kale beursprijs zonder btw, Marktprijs+ de beursprijs plus de inkoopvergoeding met btw, All-in alles zoals op de rekening.</p>
@@ -302,8 +302,10 @@
     toonMelding(forecast);
     const morgen = m.dagen[1] || m.dagen[0];
     const bl = morgen.laden;
-    document.getElementById('kosten-voet').textContent = (morgen.bekend ? 'Morgen is zeker, de dagen erna zijn een verwachting. '
-      : 'De prijzen voor morgen zijn nog niet bekend, dus ook morgen is nog een verwachting. ') +
+    const naam = SP.dagNaam(morgen, true);
+    document.getElementById('kosten-intro').textContent = 'Wat een klus op ' + naam.toLowerCase() + ' kost en of wachten loont. In euro, met uw eigen instellingen.';
+    document.getElementById('kosten-voet').textContent = (morgen.bekend ? naam + ' is zeker, de dagen erna zijn een verwachting. '
+      : 'De prijzen voor ' + naam.toLowerCase() + ' zijn nog niet bekend, dus die dag is ook nog een verwachting. ') +
       'Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto raden we wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen lopen.';
     document.getElementById('kop').textContent = SP.dagNaam(morgen, true) + (morgen.bekend ? '' : ' (verwachting)') + ': goedkoopst tussen ' + SP.fmtUur(bl.start) + ' en ' + SP.fmtUur(bl.eind) + ' uur' + (bl.volgendeDag ? ' (tot ' + bl.eindDagNaam + ')' : '');
     document.getElementById('sub').textContent = 'Dan ' + SP.fmt(bl.p50) + ' ct/kWh, ' + SP.fmt(bl.marge) + ' ct onder het daggemiddelde. Prijs in ' + m.eenheidLabel + '.';
@@ -350,8 +352,8 @@
     const vandaag = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
     const morgen = new Date(Date.now() + 864e5).toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
     if (f.prijzen_bekend_tot && f.prijzen_bekend_tot < morgen) {
-      el.textContent = (f.prijzen_bekend_tot < vandaag ? 'De prijzen van vandaag zijn nog niet bekend; de voorspelling is verouderd. '
-        : 'De prijzen voor morgen zijn nog niet bekend; die komen meestal rond 13:00. ') + 'Klik na die tijd op Ververs.';
+      el.textContent = (f.prijzen_bekend_tot < vandaag ? 'Deze voorspelling is verouderd: de prijzen zijn bekend tot en met ' + SP.datumTekst(f.prijzen_bekend_tot) + '. Klik op Ververs.'
+        : 'De prijzen voor ' + SP.datumTekst(morgen) + ' zijn nog niet bekend; die komen meestal rond 13:00. Klik na die tijd op Ververs.');
       el.hidden = false;
     } else el.hidden = true;
   }
@@ -400,8 +402,8 @@
       return '<div class="apparaat">' + icoon +
         '<div class="naam">' + a.naam + ' ' + inst + '</div>' +
         '<div class="bedragen">' +
-        '<div class="bedrag"><span class="l">Morgen, goedkoopst</span><span class="e">' + SP.fmtEuro(r.zeker.euro) + '</span><span class="w">' + SP.blokTijd(r.zeker.blok) + (r.zeker.blok.bekend ? ', zeker' : ', deels verwacht') + '</span></div>' +
-        '<div class="bedrag"><span class="l">Morgen, duurst</span><span class="e">' + SP.fmtEuro(r.duurste.euro) + '</span><span class="w">' + SP.blokTijd(r.duurste.blok) + (r.duurste.blok.bekend ? ', zeker' : ', deels verwacht') + '</span></div>' +
+        '<div class="bedrag"><span class="l">' + SP.dagNaam(r.morgen, false) + ', goedkoopst</span><span class="e">' + SP.fmtEuro(r.zeker.euro) + '</span><span class="w">' + SP.blokTijd(r.zeker.blok) + (r.zeker.blok.bekend ? ', zeker' : ', deels verwacht') + '</span></div>' +
+        '<div class="bedrag"><span class="l">' + SP.dagNaam(r.morgen, false) + ', duurst</span><span class="e">' + SP.fmtEuro(r.duurste.euro) + '</span><span class="w">' + SP.blokTijd(r.duurste.blok) + (r.duurste.blok.bekend ? ', zeker' : ', deels verwacht') + '</span></div>' +
         beste + '</div>' +
         '<div class="advies ' + r.soort + '"><span class="ic" aria-hidden="true">' + ADVIES_ICOON[r.soort] + '</span><span>' + r.advies + '</span></div>' +
         '</div>';
