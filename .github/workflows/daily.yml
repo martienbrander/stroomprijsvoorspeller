@@ -1,22 +1,32 @@
 # Dagelijkse run online (besluit 47): dezelfde `epv daily` als lokaal, data bewaard op de branch `data`, site naar GitHub Pages.
 #
-# Tijden in UTC. De hoofdrun probeert drie keer rond de day-ahead publicatie (13:00 lokaal, zomer- en wintertijd);
-# `epv daily --type auto` kiest zelf: hoofdrun zodra de prijzen voor morgen binnen zijn, anders verversing.
-# Verversingen rond 19:00, 01:00 en 07:00 lokaal (besluit 33).
+# Tijden in UTC (GitHub kent geen zomertijd). De day-ahead prijzen komen rond 13:00-14:00 Nederlandse tijd bij
+# Energy-Charts binnen. Daarom vijf pogingen met `--type middag` (besluit 54): alleen de eerste poging waarin de prijzen
+# voor morgen binnen zijn doet een hoofdrun, de andere stoppen meteen. Verversingen (`--type auto`) rond 19:00, 01:00 en
+# 07:00 lokaal (besluit 33).
+#
+#   UTC    winter  zomer
+#   11:20  12:20   13:20
+#   11:40  12:40   13:40
+#   12:20  13:20   14:20
+#   12:40  13:40   14:40
+#   13:20  14:20   15:20  (laatste herkansing)
 name: dagelijkse run
 
 on:
   schedule:
-    - cron: "20 11 * * *"   # 12:20 / 13:20 lokaal
-    - cron: "20 12 * * *"   # 13:20 / 14:20 lokaal
-    - cron: "20 13 * * *"   # 14:20 / 15:20 lokaal (herkansing)
+    - cron: "20 11 * * *"
+    - cron: "40 11 * * *"
+    - cron: "20 12 * * *"
+    - cron: "40 12 * * *"
+    - cron: "20 13 * * *"
     - cron: "5 18 * * *"    # verversing avond
     - cron: "5 0 * * *"     # verversing nacht
     - cron: "5 6 * * *"     # verversing ochtend
   workflow_dispatch:
     inputs:
       type:
-        description: "auto, hoofd of verversing"
+        description: "auto, hoofd, verversing of middag"
         default: auto
 
 concurrency:
@@ -34,6 +44,8 @@ jobs:
     timeout-minutes: 90
     env:
       TZ: Europe/Amsterdam
+    outputs:
+      overgeslagen: ${{ steps.run.outputs.overgeslagen }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,9 +66,21 @@ jobs:
         run: pip install -e ".[model]"
 
       - name: Run
-        run: epv daily --type "${{ github.event.inputs.type || 'auto' }}"
+        id: run
+        run: |
+          TYPE="${{ github.event.inputs.type }}"
+          if [ -z "$TYPE" ]; then
+            case "${{ github.event.schedule }}" in
+              "5 "*) TYPE=auto ;;      # verversingen
+              *)     TYPE=middag ;;    # pogingen rond de day-ahead publicatie
+            esac
+          fi
+          echo "type: $TYPE"
+          epv daily --type "$TYPE" | tee run.log
+          if grep -q "^run overgeslagen" run.log; then echo "overgeslagen=true" >> "$GITHUB_OUTPUT"; fi
 
       - name: Data bewaren op branch data (één commit, geen geschiedenis)
+        if: steps.run.outputs.overgeslagen != 'true'
         run: |
           git config user.name "stroomprijsvoorspeller-bot"
           git config user.email "bot@users.noreply.github.com"
@@ -68,12 +92,15 @@ jobs:
           git push -f origin data-nieuw:data
 
       - uses: actions/configure-pages@v5
+        if: steps.run.outputs.overgeslagen != 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.run.outputs.overgeslagen != 'true'
         with:
           path: site
 
   deploy:
     needs: run
+    if: needs.run.outputs.overgeslagen != 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

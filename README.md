@@ -95,7 +95,7 @@ Twee bestanden in de projectmap (geen taakplanner, besluit 49):
 - `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde
   als `ververs.bat` en laadt de pagina daarna opnieuw.
 
-De prijzen voor de volgende dag komen rond 13:00 binnen; eerder verversen geeft één dag minder vooruit. De pagina noemt dagen altijd bij weekdag en datum en laat een voorbije dag na middernacht vanzelf vallen, ook als ze open blijft staan. Elke run komt in
+De prijzen voor de volgende dag komen tussen 13:00 en 14:00 binnen; eerder verversen geeft één dag minder vooruit. De pagina noemt dagen altijd bij weekdag en datum en laat een voorbije dag na middernacht vanzelf vallen, ook als ze open blijft staan. Elke run komt in
 `data/runs/` terecht (hoofdrun, verversing of inhaalrun). Een paar dagen niet draaien is geen probleem: de volgende
 run rekent de gemiste dagen alsnog uit, zodat de kalibratie en de scores doorlopen (besluit 50).
 
@@ -111,7 +111,8 @@ De workflows in `.github/workflows/` doen online hetzelfde als `ververs.bat` lok
 1. Maak een GitHub-repository en push `main`.
 2. Zet in de instellingen van de repository GitHub Pages op "GitHub Actions".
 3. Start de workflow "dagelijkse run" één keer met de hand; die haalt alles op en zet de site live. Daarna draait hij
-   op het rooster: drie pogingen rond de day-ahead publicatie en drie verversingen per dag.
+   op het rooster: vijf pogingen tussen 12:20 en 15:20 (alleen de eerste poging waarin de prijzen voor morgen binnen
+   zijn doet echt iets; GitHub rekent in UTC, vandaar de ruime marge voor zomer- en wintertijd) en drie verversingen per dag.
 4. De werkdata (`data/`, `models/`) staan na elke run op de branch `data`, in één commit zonder geschiedenis. Wil je de
    lokale historie meenemen, draai dan eerst `epv historie-export` en push `data/`, `models/` en dat exportbestand
    naar die branch.

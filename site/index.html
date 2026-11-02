@@ -353,7 +353,7 @@
     const morgen = new Date(Date.now() + 864e5).toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
     if (f.prijzen_bekend_tot && f.prijzen_bekend_tot < morgen) {
       el.textContent = (f.prijzen_bekend_tot < vandaag ? 'Deze voorspelling is verouderd: de prijzen zijn bekend tot en met ' + SP.datumTekst(f.prijzen_bekend_tot) + '. Klik op Ververs.'
-        : 'De prijzen voor ' + SP.datumTekst(morgen) + ' zijn nog niet bekend; die komen meestal rond 13:00. Klik na die tijd op Ververs.');
+        : 'De prijzen voor ' + SP.datumTekst(morgen) + ' zijn nog niet bekend; die komen meestal tussen 13:00 en 14:00. Klik daarna op Ververs.');
       el.hidden = false;
     } else el.hidden = true;
   }

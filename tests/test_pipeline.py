@@ -233,3 +233,26 @@ def test_forecast_json_dagsoort_en_feestdag(tmp_path):
     assert per_datum["2026-05-12"]["dagsoort"] == "werkdag"
     assert set(f["feestdag_effect"]) == {"pct_tov_werkdag", "aantal_feestdagen", "vanaf", "tot"}
     json.dumps(f, default=str)
+
+
+def test_middag_beslissing(tmp_path):
+    cfg = maak_config(tmp_path)
+    vandaag = date(2026, 11, 2)
+    # prijzen voor morgen nog niet binnen: voorspelmoment is gisteren -> overslaan
+    assert daily.middag_beslissing(cfg, vandaag - timedelta(days=1), vandaag) == "overgeslagen"
+    # prijzen binnen en nog geen hoofdrun -> hoofdrun
+    assert daily.middag_beslissing(cfg, vandaag, vandaag) == "hoofd"
+    archive.schrijf_run(cfg, _run_rijen(vandaag, "hoofd", "2026-11-02T12:25:00Z", 0, 3), pd.Timestamp("2026-11-02T12:25:00Z"), "hoofd")
+    # tweede poging dezelfde dag -> overslaan
+    assert daily.middag_beslissing(cfg, vandaag, vandaag) == "overgeslagen"
+
+
+def test_overgeslagen_runs_tellen_niet_als_mislukt(tmp_path):
+    cfg = maak_config(tmp_path)
+    archive.log_run(cfg, pd.Timestamp("2026-11-02T11:20:00Z"), "overgeslagen", date(2026, 11, 1), 12.0, "overgeslagen", "prijzen voor morgen nog niet binnen")
+    archive.log_run(cfg, pd.Timestamp("2026-11-02T12:20:00Z"), "hoofd", date(2026, 11, 2), 90.0, "ok")
+    archive.log_run(cfg, pd.Timestamp("2026-11-02T18:05:00Z"), "verversing", date(2026, 11, 2), 20.0, "fout", "weer niet bereikbaar")
+    t = refresh.betrouwbaarheid_runs(cfg).set_index("slot")
+    assert t.loc["hoofd", "runs"] == 1 and t.loc["hoofd", "gelukt"] == 1
+    assert t.loc["19:00", "gelukt"] == 0
+    assert t.loc["middag overgeslagen", "runs"] == 1

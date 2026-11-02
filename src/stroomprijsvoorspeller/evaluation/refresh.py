@@ -116,9 +116,16 @@ def betrouwbaarheid_runs(cfg: Config) -> pd.DataFrame:
     lg = pd.read_csv(pad)
     lg["run_utc"] = pd.to_datetime(lg["run_utc"], utc=True)
     lg["slot"] = np.where(lg["run_type"] == "verversing", lg["run_utc"].map(lambda t: f"{slot_van(t):02d}:00"), lg["run_type"])
-    g = lg.groupby("slot")
-    return pd.DataFrame({"runs": g.size(), "gelukt": g["status"].apply(lambda s: (s == "ok").sum()),
-                         "duur_gem_s": g["duur_s"].mean()}).reset_index()
+    # middagpogingen zonder nieuwe prijzen (status overgeslagen) zijn geen mislukte runs
+    echt = lg[lg["status"] != "overgeslagen"]
+    g = echt.groupby("slot")
+    uit = pd.DataFrame({"runs": g.size(), "gelukt": g["status"].apply(lambda s: (s == "ok").sum()),
+                        "duur_gem_s": g["duur_s"].mean()}).reset_index()
+    n_over = int((lg["status"] == "overgeslagen").sum())
+    if n_over:
+        uit = pd.concat([uit, pd.DataFrame([{"slot": "middag overgeslagen", "runs": n_over, "gelukt": n_over, "duur_gem_s": lg[lg["status"] == "overgeslagen"]["duur_s"].mean()}])],
+                        ignore_index=True)
+    return uit
 
 
 def _md(df: pd.DataFrame, fmt: dict[str, str] | None = None) -> str:

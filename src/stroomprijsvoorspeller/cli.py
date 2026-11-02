@@ -120,6 +120,9 @@ def cmd_daily(args) -> int:
 
     cfg = load_config(args.config)
     uit = daily.run(cfg, run_type=args.type, fetch=not args.geen_fetch)
+    if uit["run_type"] == "overgeslagen":
+        print(f"run overgeslagen: {uit['reden']} (voorspelmoment {uit['origin']})")
+        return 0
     print(f"run {uit['run_type']} klaar in {uit['duur_s']:.0f} s; voorspelmoment {uit['origin']}, "
           f"model getraind op {uit['model_getraind']}, {len(uit['ingehaald'])} dagen ingehaald")
     print(f"archief: {uit['archief']}")
@@ -240,8 +243,9 @@ def main(argv: list[str] | None = None) -> int:
     pr.set_defaults(func=cmd_predict)
 
     d = sub.add_parser("daily", help="dagelijkse run: ophalen, inhalen, (her)trainen, voorspellen, archiveren, JSON voor de site")
-    d.add_argument("--type", choices=["auto", "hoofd", "verversing"], default="auto",
-                   help="auto = hoofdrun als die er vandaag nog niet is, anders verversing")
+    d.add_argument("--type", choices=["auto", "hoofd", "verversing", "middag"], default="auto",
+                   help="auto = hoofdrun als die er vandaag nog niet is, anders verversing; middag = hoofdrun zodra de prijzen "
+                        "voor morgen binnen zijn, anders niets doen (rooster online)")
     d.add_argument("--geen-fetch", action="store_true", help="niets ophalen, alleen met de data die er is")
     d.set_defaults(func=cmd_daily)
 

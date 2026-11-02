@@ -206,8 +206,17 @@ def kies_type(cfg: Config, origin: date) -> str:
     return "verversing"
 
 
+def middag_beslissing(cfg: Config, origin: date, vandaag: date) -> str:
+    """Rooster rond de day-ahead publicatie (besluit 54): de hoofdrun draait alleen in de eerste poging waarin de prijzen
+    voor morgen binnen zijn (voorspelmoment = vandaag) en er voor dat moment nog geen hoofdrun is. Anders: overgeslagen."""
+    if origin < vandaag:
+        return "overgeslagen"
+    return "hoofd" if kies_type(cfg, origin) == "hoofd" else "overgeslagen"
+
+
 def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fetch: bool = True) -> dict:
-    """Voert een run uit en geeft een korte samenvatting terug."""
+    """Voert een run uit en geeft een korte samenvatting terug. Bij type `middag` kan de uitkomst `overgeslagen` zijn:
+    dan is er niets gearchiveerd en niets voor de site geschreven."""
     t0 = time.time()
     nu = nu or utc_now()
     vandaag = nu.tz_convert(TZ).date()
@@ -220,6 +229,14 @@ def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fet
     origin = bepaal_origin(uur, vandaag)
     if run_type == "auto":
         run_type = kies_type(cfg, origin)
+    elif run_type == "middag":
+        run_type = middag_beslissing(cfg, origin, vandaag)
+        if run_type == "overgeslagen":
+            reden = "prijzen voor morgen nog niet binnen" if origin < vandaag else "hoofdrun voor vandaag bestaat al"
+            log.info("middagrun overgeslagen: %s (voorspelmoment %s)", reden, origin)
+            archive.log_run(cfg, nu, "overgeslagen", origin, time.time() - t0, "overgeslagen", reden)
+            return {"run_type": "overgeslagen", "origin": origin, "archief": None, "json": None, "ingehaald": [],
+                    "duur_s": time.time() - t0, "model_getraind": None, "reden": reden}
     log.info("run %s, voorspelmoment %s (vandaag %s)", run_type, origin, vandaag)
 
     bundel = laad_model(cfg)
