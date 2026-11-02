@@ -8,7 +8,9 @@ Methodenamen:
 - baselines: laatste_dag, vorige_week, profiel_4w
 - modellen: lineair, lineair_ruw, lightgbm, lightgbm_asinh
 - varianten: `<model>_w<N>` traint op een venster van N dagen (bijv. lightgbm_w90, lightgbm_w365);
-             `<model>_hg` traint aparte modellen per horizongroep (dag 2 apart, dag 3+ samen)
+             `<model>_hg` traint aparte modellen per horizongroep (dag 2 apart, dag 3+ samen);
+             `<model>_d2` traint een apart model voor dag 2 en gebruikt voor dag 3+ het model op alle horizonten
+             (operationele keuze, besluit 48)
 - afgeleid:  combinatie = gemiddelde van lineair en lightgbm; lightgbm_ens = gemiddelde van lightgbm_w90,
              lightgbm en lightgbm_w365 (middelen over trainingsvensters, zoals Hubicka e.a. aanbevelen)
 """
@@ -38,7 +40,7 @@ AFGELEID = {
     "combinatie": ("lineair", "lightgbm"),
     "lightgbm_ens": ("lightgbm_w90", "lightgbm", "lightgbm_w365"),
 }
-_SPEC = re.compile(r"^(lineair_ruw|lineair|lightgbm_asinh|lightgbm)(?:_w(\d+))?(_hg)?$")
+_SPEC = re.compile(r"^(lineair_ruw|lineair|lightgbm_asinh|lightgbm)(?:_w(\d+))?(?:_(hg|d2))?$")
 
 
 @dataclass(frozen=True)
@@ -46,14 +48,19 @@ class Spec:
     naam: str
     basis: str
     venster: int | None          # None = venster uit config
-    horizongroepen: bool = False
+    groepering: str | None = None   # None | "hg" | "d2"
+
+    def canoniek(self, standaard_venster: int) -> str:
+        """Naam met het venster expliciet, zodat `lightgbm_d2` bij venster 365 gelijk is aan `lightgbm_w365_d2`."""
+        naam = f"{self.basis}_w{self.venster or standaard_venster}"
+        return f"{naam}_{self.groepering}" if self.groepering else naam
 
 
 def parse_spec(naam: str) -> Spec:
     m = _SPEC.match(naam)
     if not m:
         raise KeyError(f"onbekende methode: {naam}")
-    return Spec(naam, m.group(1), int(m.group(2)) if m.group(2) else None, bool(m.group(3)))
+    return Spec(naam, m.group(1), int(m.group(2)) if m.group(2) else None, m.group(3))
 
 
 def trainset(features: pd.DataFrame, origin: date, venster_dagen: int) -> pd.DataFrame:
@@ -77,26 +84,53 @@ def _te_schatten(methoden: list[str]) -> list[Spec]:
     return [parse_spec(n) for n in namen]
 
 
-class _Geschat:
-    """Een geschat model: één model, of één per horizongroep."""
+def trainingsdelen(spec: Spec, train: pd.DataFrame) -> list[tuple[tuple[int, ...] | None, pd.DataFrame]]:
+    """Per deelmodel: de horizonten die het bedient (None = alle overige) en de trainingsrijen."""
+    h = train["horizon_dag"]
+    if spec.groepering is None:
+        return [(None, train)]
+    if spec.groepering == "hg":
+        return [(groep, train[h.isin(groep)]) for groep in HORIZONGROEPEN]
+    if spec.groepering == "d2":
+        return [((2,), train[h == 2]), (None, train)]
+    raise KeyError(spec.groepering)
+
+
+class Geschat:
+    """Een geschat model: één model, of één per horizongroep (zie `trainingsdelen`)."""
 
     def __init__(self, spec: Spec, cfg: Config, train: pd.DataFrame, kolommen: list[str]):
         self.spec = spec
-        self.delen = {}
-        groepen = HORIZONGROEPEN if spec.horizongroepen else (None,)
-        for groep in groepen:
-            deel = train if groep is None else train[train["horizon_dag"].isin(groep)]
-            self.delen[groep] = maak_model(spec.basis, cfg.kwantielen, cfg.lightgbm_params).fit(deel[kolommen], deel[DOEL])
+        self.delen: list[tuple[tuple[int, ...] | None, object]] = []
+        self.n_train: dict[tuple[int, ...] | None, int] = {}
+        for groep, deel in trainingsdelen(spec, train):
+            model = maak_model(spec.basis, cfg.kwantielen, cfg.lightgbm_params).fit(deel[kolommen], deel[DOEL])
+            self.delen.append((groep, model))
+            self.n_train[groep] = len(deel)
+
+    def _masker(self, test: pd.DataFrame, groep: tuple[int, ...] | None) -> pd.Series:
+        if groep is not None:
+            return test["horizon_dag"].isin(groep)
+        gedekt = {k for g, _ in self.delen if g is not None for k in g}
+        return ~test["horizon_dag"].isin(gedekt)
 
     def predict(self, test: pd.DataFrame, kolommen: list[str]) -> pd.DataFrame:
-        if None in self.delen:
-            return self.delen[None].predict(test[kolommen])
+        if len(self.delen) == 1:
+            return self.delen[0][1].predict(test[kolommen])
         delen = []
-        for groep, model in self.delen.items():
-            rijen = test[test["horizon_dag"].isin(groep)]
+        for groep, model in self.delen:
+            rijen = test[self._masker(test, groep)]
             if len(rijen):
                 delen.append(model.predict(rijen[kolommen]))
         return pd.concat(delen).reindex(test.index)
+
+    def belang(self):
+        """Feature-belang van het model voor dag 3+ (of het enige model), als het dat kan geven."""
+        model = self.delen[-1][1]
+        return model.belang() if hasattr(model, "belang") else None
+
+
+_Geschat = Geschat
 
 
 def run_rolling(features: pd.DataFrame, cfg: Config, methoden: list[str], origins: list[date],
@@ -106,7 +140,7 @@ def run_rolling(features: pd.DataFrame, cfg: Config, methoden: list[str], origin
     standaard_venster = venster_dagen or cfg.rolling_venster_dagen
     kolommen = feature_kolommen(features)
     specs = _te_schatten(methoden)
-    modellen: dict[str, _Geschat | None] = {s.naam: None for s in specs}
+    modellen: dict[str, Geschat | None] = {s.naam: None for s in specs}
     laatste_fit: pd.Timestamp | None = None
     uit = []
     t0 = time.time()
@@ -129,7 +163,7 @@ def run_rolling(features: pd.DataFrame, cfg: Config, methoden: list[str], origin
                 log.info("%s: te weinig trainingsdata, overgeslagen", origin)
                 continue
             for spec in specs:
-                modellen[spec.naam] = _Geschat(spec, cfg, trainsets[spec.venster or standaard_venster], kolommen)
+                modellen[spec.naam] = Geschat(spec, cfg, trainsets[spec.venster or standaard_venster], kolommen)
             laatste_fit = D
             log.info("%s: hertraind (%s), %.0fs verstreken", origin,
                      ", ".join(f"{v}d: {len(t)} rijen" for v, t in sorted(trainsets.items())), time.time() - t0)

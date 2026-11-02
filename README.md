@@ -6,9 +6,9 @@ onzekerheidsmarge. Voor huishoudens met een dynamisch contract die willen weten 
 Status: in opbouw. Fase 1 (data), 2 (modellen) en 3 (backtest) zijn klaar. Zie [PLAN.md](PLAN.md) voor de fasen en
 [DECISIONS.md](DECISIONS.md) voor alle keuzes.
 
-Eerste resultaat (rolling-origin backtest, 786 dagen, aug 2024 t/m okt 2026): het LightGBM-kwantielmodel zit op dag 2
-gemiddeld 20,7 EUR/MWh (2,1 ct/kWh) naast de werkelijke uurprijs, op dag 7 27,0. Het naïeve 4-weeks uurprofiel zit op
-28 tot 30. Het 80%-interval dekt na kalibratie 79% van de werkelijke prijzen. Volledige backtest met tabellen, grafieken en eerlijke kanttekeningen in
+Resultaat (rolling-origin backtest, 786 dagen, aug 2024 t/m okt 2026): het gekozen LightGBM-kwantielmodel (venster 365
+dagen, apart model voor dag 2) zit op dag 2 gemiddeld 17,0 EUR/MWh (1,7 ct/kWh) naast de werkelijke uurprijs, op dag 7
+25,9. Het naïeve 4-weeks uurprofiel zit op 28 tot 30. Het 80%-interval dekt na kalibratie 79% van de werkelijke prijzen. Volledige backtest met tabellen, grafieken en eerlijke kanttekeningen in
 [reports/backtest.md](reports/backtest.md); de methodenvergelijking in [reports/methodenvergelijking.md](reports/methodenvergelijking.md).
 
 ## Bronnen
@@ -30,7 +30,7 @@ epv status     # toont wat er aan data is
 epv features   # bouwt de featurematrix per voorspelmoment en doeluur
 epv compare    # rolling-origin vergelijking van baselines en modellen -> reports/methodenvergelijking.md (duurt ~2 uur)
 epv backtest   # volledig rapport met grafieken -> reports/backtest.md
-epv train      # traint het operationele model op de laatste 180 dagen
+epv train      # traint het operationele model (config: lightgbm_d2, venster 365 dagen)
 epv predict    # voorspelt dag 2 t/m 7 met de actuele weersverwachting
 pytest
 ```

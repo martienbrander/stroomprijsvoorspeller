@@ -168,12 +168,12 @@ def main(argv: list[str] | None = None) -> int:
     bt.set_defaults(func=cmd_backtest)
 
     t = sub.add_parser("train", help="train het operationele model op het rolling venster t/m vandaag")
-    t.add_argument("--methode", default="lightgbm", help="lightgbm | lightgbm_asinh | lineair | combinatie")
+    t.add_argument("--methode", help="bijv. lightgbm, lightgbm_d2, lightgbm_w365_hg, lineair (standaard uit config)")
     t.add_argument("--origin", help="voorspelmoment YYYY-MM-DD (standaard vandaag)")
     t.set_defaults(func=cmd_train)
 
     pr = sub.add_parser("predict", help="voorspel de komende dagen met het getrainde model")
-    pr.add_argument("--methode", default="lightgbm")
+    pr.add_argument("--methode", help="zelfde naam als bij train (standaard uit config)")
     pr.add_argument("--origin", help="voorspelmoment YYYY-MM-DD (standaard vandaag)")
     pr.add_argument("--uit", help="uitvoerbestand (parquet)")
     pr.set_defaults(func=cmd_predict)

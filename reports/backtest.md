@@ -1,6 +1,6 @@
 # Backtest stroomprijsvoorspeller
 
-Gegenereerd door `epv backtest`. Voorspelmomenten: 2024-08-29 t/m 2026-10-23 (786 dagen), elke dag om 13:00 lokaal, waarop de day-ahead prijzen tot en met morgen bekend zijn. Voorspeld: dag 2 t/m 7 vooruit, alle uren. Trainingsvenster 180 dagen, hertrainen elke 7 dagen, conformal-kalibratie op 30 dagen bekende uitkomsten. Fouten in EUR/MWh (10 EUR/MWh = 1 ct/kWh).
+Gegenereerd door `epv backtest`. Voorspelmomenten: 2024-08-29 t/m 2026-10-23 (786 dagen), elke dag om 13:00 lokaal, waarop de day-ahead prijzen tot en met morgen bekend zijn. Voorspeld: dag 2 t/m 7 vooruit, alle uren. Trainingsvenster 365 dagen, hertrainen elke 7 dagen, conformal-kalibratie op 30 dagen bekende uitkomsten. Fouten in EUR/MWh (10 EUR/MWh = 1 ct/kWh).
 
 ## Samenvatting
 
@@ -238,48 +238,100 @@ Voorspelling gemaakt op 2025-10-19 om 13:00 voor dag 2 t/m 7, met het gekalibree
 
 ## 7. Experimenten: trainingsvensters en horizongroepen
 
-Varianten van het hoofdmodel op dezelfde backtest: venster 90, 180 (standaard) en 365 dagen, het gemiddelde van die drie (ensemble, naar Hubicka e.a. 2018), en aparte modellen voor dag 2 en voor dag 3+ (horizongroepen). Let op: in de eerste maanden van de testperiode heeft het 365-dagenvenster nog geen vol jaar data.
+Varianten van het hoofdmodel op dezelfde backtest: venster 90, 180 (standaard) en 365 dagen, het gemiddelde van die drie (ensemble, naar Hubicka e.a. 2018), venster 730 dagen, aparte modellen voor dag 2 en voor dag 3+ (horizongroepen), en de gekozen combinatie: een apart model voor dag 2 en het model op alle horizonten voor dag 3+ (`_d2`). Let op: in de eerste maanden van de testperiode heeft het 365-dagenvenster nog geen vol jaar data, en het 730-dagenvenster is pas vanaf maart 2026 langer dan alle beschikbare data.
 
 | methode | dag | MAE | rMAE | pinball P50 | dekking kal. | breedte kal. | blok binnen 10% | meerkosten blok |
 |---|---|---|---|---|---|---|---|---|
+| LightGBM venster 365 d, dag 2 apart (gekozen) | 2 | 17.00 | 0.599 | 8.50 | 0.793 | 54.4 | 0.915 | 2.85 |
+| LightGBM venster 365 d, per horizongroep | 2 | 17.00 | 0.599 | 8.50 | 0.793 | 54.4 | 0.915 | 2.85 |
 | LightGBM per horizongroep | 2 | 17.63 | 0.622 | 8.82 | 0.793 | 56.8 | 0.903 | 3.20 |
+| LightGBM venster 730 d | 2 | 19.24 | 0.678 | 9.62 | 0.792 | 60.0 | 0.907 | 2.93 |
 | LightGBM venster 365 d | 2 | 19.39 | 0.683 | 9.69 | 0.789 | 59.2 | 0.911 | 2.94 |
 | LightGBM ensemble 90/180/365 | 2 | 20.00 | 0.705 | 10.00 | 0.789 | 60.1 | 0.913 | 2.86 |
 | LightGBM | 2 | 20.71 | 0.730 | 10.36 | 0.790 | 62.8 | 0.888 | 3.57 |
 | LightGBM venster 90 d | 2 | 21.95 | 0.774 | 10.98 | 0.789 | 64.6 | 0.880 | 3.79 |
+| LightGBM venster 730 d | 3 | 20.43 | 0.707 | 10.22 | 0.791 | 63.4 | 0.897 | 3.16 |
 | LightGBM venster 365 d | 3 | 20.52 | 0.710 | 10.26 | 0.791 | 63.0 | 0.891 | 3.42 |
+| LightGBM venster 365 d, dag 2 apart (gekozen) | 3 | 20.52 | 0.710 | 10.26 | 0.791 | 63.0 | 0.891 | 3.42 |
+| LightGBM venster 365 d, per horizongroep | 3 | 21.07 | 0.729 | 10.53 | 0.793 | 65.1 | 0.910 | 3.24 |
 | LightGBM ensemble 90/180/365 | 3 | 21.09 | 0.730 | 10.55 | 0.790 | 63.9 | 0.896 | 3.26 |
 | LightGBM | 3 | 21.85 | 0.756 | 10.93 | 0.787 | 66.4 | 0.883 | 4.11 |
 | LightGBM per horizongroep | 3 | 22.07 | 0.764 | 11.04 | 0.790 | 68.5 | 0.891 | 3.67 |
 | LightGBM venster 90 d | 3 | 22.98 | 0.795 | 11.49 | 0.785 | 68.7 | 0.880 | 4.15 |
+| LightGBM venster 730 d | 4 | 21.38 | 0.731 | 10.69 | 0.791 | 66.2 | 0.883 | 3.61 |
 | LightGBM venster 365 d | 4 | 21.55 | 0.737 | 10.77 | 0.793 | 66.1 | 0.874 | 3.87 |
+| LightGBM venster 365 d, dag 2 apart (gekozen) | 4 | 21.55 | 0.737 | 10.77 | 0.793 | 66.1 | 0.874 | 3.87 |
+| LightGBM venster 365 d, per horizongroep | 4 | 21.95 | 0.750 | 10.97 | 0.790 | 67.9 | 0.877 | 3.83 |
 | LightGBM ensemble 90/180/365 | 4 | 21.96 | 0.751 | 10.98 | 0.787 | 66.6 | 0.882 | 3.71 |
 | LightGBM | 4 | 22.71 | 0.776 | 11.35 | 0.787 | 69.5 | 0.872 | 4.14 |
 | LightGBM per horizongroep | 4 | 22.86 | 0.782 | 11.43 | 0.785 | 71.2 | 0.866 | 4.18 |
 | LightGBM venster 90 d | 4 | 23.71 | 0.811 | 11.86 | 0.786 | 71.5 | 0.846 | 5.16 |
+| LightGBM venster 730 d | 5 | 22.65 | 0.766 | 11.33 | 0.790 | 69.6 | 0.870 | 4.13 |
 | LightGBM venster 365 d | 5 | 22.72 | 0.768 | 11.36 | 0.787 | 69.3 | 0.872 | 4.12 |
+| LightGBM venster 365 d, dag 2 apart (gekozen) | 5 | 22.72 | 0.768 | 11.36 | 0.787 | 69.3 | 0.872 | 4.12 |
+| LightGBM venster 365 d, per horizongroep | 5 | 23.02 | 0.778 | 11.51 | 0.791 | 70.9 | 0.859 | 4.36 |
 | LightGBM ensemble 90/180/365 | 5 | 23.21 | 0.785 | 11.60 | 0.785 | 69.9 | 0.866 | 4.21 |
 | LightGBM | 5 | 24.04 | 0.813 | 12.02 | 0.785 | 72.5 | 0.851 | 4.72 |
 | LightGBM per horizongroep | 5 | 24.08 | 0.814 | 12.04 | 0.784 | 73.8 | 0.865 | 4.61 |
 | LightGBM venster 90 d | 5 | 24.98 | 0.845 | 12.49 | 0.786 | 74.7 | 0.831 | 5.73 |
+| LightGBM venster 730 d | 6 | 24.68 | 0.825 | 12.34 | 0.786 | 74.0 | 0.851 | 4.69 |
 | LightGBM venster 365 d | 6 | 24.82 | 0.830 | 12.41 | 0.786 | 74.1 | 0.851 | 4.66 |
+| LightGBM venster 365 d, dag 2 apart (gekozen) | 6 | 24.82 | 0.830 | 12.41 | 0.786 | 74.1 | 0.851 | 4.66 |
+| LightGBM venster 365 d, per horizongroep | 6 | 24.94 | 0.834 | 12.47 | 0.782 | 75.3 | 0.856 | 4.70 |
 | LightGBM ensemble 90/180/365 | 6 | 25.12 | 0.840 | 12.56 | 0.783 | 74.7 | 0.875 | 4.47 |
 | LightGBM | 6 | 25.86 | 0.865 | 12.93 | 0.782 | 77.3 | 0.846 | 5.29 |
 | LightGBM per horizongroep | 6 | 25.93 | 0.867 | 12.97 | 0.783 | 78.5 | 0.855 | 4.92 |
 | LightGBM venster 90 d | 6 | 26.74 | 0.894 | 13.37 | 0.784 | 78.6 | 0.846 | 5.67 |
+| LightGBM venster 730 d | 7 | 25.69 | 0.852 | 12.85 | 0.782 | 76.8 | 0.842 | 5.25 |
 | LightGBM venster 365 d | 7 | 25.86 | 0.857 | 12.93 | 0.784 | 76.2 | 0.836 | 4.99 |
+| LightGBM venster 365 d, dag 2 apart (gekozen) | 7 | 25.86 | 0.857 | 12.93 | 0.784 | 76.2 | 0.836 | 4.99 |
+| LightGBM venster 365 d, per horizongroep | 7 | 26.02 | 0.863 | 13.01 | 0.781 | 77.7 | 0.849 | 5.06 |
 | LightGBM ensemble 90/180/365 | 7 | 26.23 | 0.870 | 13.11 | 0.776 | 76.4 | 0.836 | 5.34 |
 | LightGBM | 7 | 26.97 | 0.894 | 13.49 | 0.777 | 78.8 | 0.831 | 5.69 |
 | LightGBM per horizongroep | 7 | 27.06 | 0.897 | 13.53 | 0.781 | 79.9 | 0.847 | 5.26 |
 | LightGBM venster 90 d | 7 | 27.78 | 0.921 | 13.89 | 0.779 | 80.5 | 0.816 | 6.39 |
 
-Beste variant op MAE per horizon: dag 2: LightGBM per horizongroep (17.63); dag 3: LightGBM venster 365 d (20.52); dag 4: LightGBM venster 365 d (21.55); dag 5: LightGBM venster 365 d (22.72); dag 6: LightGBM venster 365 d (24.82); dag 7: LightGBM venster 365 d (25.86).
+Beste variant op MAE per horizon: dag 2: LightGBM venster 365 d, dag 2 apart (gekozen) (17.00); dag 3: LightGBM venster 730 d (20.43); dag 4: LightGBM venster 730 d (21.38); dag 5: LightGBM venster 730 d (22.65); dag 6: LightGBM venster 730 d (24.68); dag 7: LightGBM venster 730 d (25.69).
+
+Verschil in MAE per variant (negatief = beter):
+
+- LightGBM venster 90 d: dag 2 +6%, dag 3 +5%, dag 4 +4%, dag 5 +4%, dag 6 +3%, dag 7 +3% t.o.v. venster 180 dagen.
+- LightGBM venster 365 d: dag 2 -6%, dag 3 -6%, dag 4 -5%, dag 5 -5%, dag 6 -4%, dag 7 -4% t.o.v. venster 180 dagen.
+- LightGBM venster 730 d: dag 2 -7%, dag 3 -7%, dag 4 -6%, dag 5 -6%, dag 6 -5%, dag 7 -5% t.o.v. venster 180 dagen.
+- LightGBM ensemble 90/180/365: dag 2 -3%, dag 3 -3%, dag 4 -3%, dag 5 -3%, dag 6 -3%, dag 7 -3% t.o.v. venster 180 dagen.
+- LightGBM per horizongroep: dag 2 -15%, dag 3 +1%, dag 4 +1%, dag 5 +0%, dag 6 +0%, dag 7 +0% t.o.v. venster 180 dagen.
+- LightGBM venster 365 d, per horizongroep: dag 2 -18%, dag 3 -4%, dag 4 -3%, dag 5 -4%, dag 6 -4%, dag 7 -4% t.o.v. venster 180 dagen.
+- LightGBM venster 365 d, dag 2 apart (gekozen): dag 2 -18%, dag 3 -6%, dag 4 -5%, dag 5 -5%, dag 6 -4%, dag 7 -4% t.o.v. venster 180 dagen.
+
+Is het verschil tussen varianten statistisch hard? Diebold-Mariano op de dagelijkse MAE, eenzijdig (variant beter dan referentie), Newey-West-correctie. Een p-waarde boven 0,10 betekent: niet aangetoond.
+
+| variant | referentie | dag | MAE variant | MAE referentie | DM | p |
+|---|---|---|---|---|---|---|
+| LightGBM venster 365 d | LightGBM | 2 | 19.39 | 20.71 | -4.15 | 0.0000 |
+| LightGBM venster 365 d | LightGBM | 3 | 20.52 | 21.85 | -3.89 | 0.0001 |
+| LightGBM venster 365 d | LightGBM | 4 | 21.55 | 22.70 | -3.39 | 0.0003 |
+| LightGBM venster 365 d | LightGBM | 5 | 22.72 | 24.03 | -3.85 | 0.0001 |
+| LightGBM venster 365 d | LightGBM | 6 | 24.82 | 25.86 | -2.75 | 0.0030 |
+| LightGBM venster 365 d | LightGBM | 7 | 25.86 | 26.97 | -2.92 | 0.0018 |
+| LightGBM venster 730 d | LightGBM venster 365 d | 2 | 19.24 | 19.39 | -1.17 | 0.1216 |
+| LightGBM venster 730 d | LightGBM venster 365 d | 3 | 20.43 | 20.52 | -0.71 | 0.2394 |
+| LightGBM venster 730 d | LightGBM venster 365 d | 4 | 21.38 | 21.55 | -1.23 | 0.1102 |
+| LightGBM venster 730 d | LightGBM venster 365 d | 5 | 22.65 | 22.72 | -0.52 | 0.2999 |
+| LightGBM venster 730 d | LightGBM venster 365 d | 6 | 24.67 | 24.82 | -1.10 | 0.1358 |
+| LightGBM venster 730 d | LightGBM venster 365 d | 7 | 25.69 | 25.86 | -1.23 | 0.1092 |
+| LightGBM venster 365 d, per horizongroep | LightGBM venster 365 d | 2 | 17.01 | 19.39 | -4.69 | 0.0000 |
+| LightGBM venster 365 d, per horizongroep | LightGBM venster 365 d | 3 | 21.07 | 20.52 | 4.17 | 1.0000 |
+| LightGBM venster 365 d, per horizongroep | LightGBM venster 365 d | 4 | 21.95 | 21.55 | 3.14 | 0.9991 |
+| LightGBM venster 365 d, per horizongroep | LightGBM venster 365 d | 5 | 23.02 | 22.72 | 2.37 | 0.9911 |
+| LightGBM venster 365 d, per horizongroep | LightGBM venster 365 d | 6 | 24.94 | 24.82 | 1.02 | 0.8451 |
+| LightGBM venster 365 d, per horizongroep | LightGBM venster 365 d | 7 | 26.02 | 25.86 | 1.59 | 0.9437 |
+| LightGBM venster 365 d, dag 2 apart (gekozen) | LightGBM venster 365 d | 2 | 17.01 | 19.39 | -4.69 | 0.0000 |
 
 ## 8. Wat het model gebruikt
 
 ![Feature-belang](figures/feature_belang.png)
 
-Top 10 (aandeel in gain van het P50-model, laatst getrainde operationele model): prijs_profiel_uur_gem (24.6%), dag_van_jaar (12.9%), zon_vrije_dag (4.9%), uur_lokaal (4.0%), prijs_vorige_week_uur (3.7%), wind_vrije_dag (3.2%), wind_land_gem_dag (2.9%), weekdag (2.9%), straling_gem_dag (2.4%), wind_buitenland_gem_dag (2.2%).
+Top 10 (aandeel in gain van het P50-model, laatst getrainde operationele model): prijs_profiel_uur_gem (22.2%), dag_van_jaar (9.1%), prijs_recent_uur_gem (8.4%), uur_lokaal (3.8%), wind_land_gem_dag (3.6%), zon_vrije_dag (3.4%), prijs_recent_std (3.3%), weekdag (2.7%), prijs_laatste_dag_uur (2.6%), wind_vrije_dag (2.4%).
 
 ## 9. IJking van de betrouwbaarheidsindicator
 
@@ -299,3 +351,5 @@ Per voorspelmoment (wekelijkse steekproef) is de rMAE van de 30 dagen ervoor ber
 ## 10. Conclusie
 
 Het model is op alle horizonten beter dan de drie naïeve regels, en dat verschil is statistisch hard. De winst is het grootst op dag 2 (27% lagere fout dan het profiel) en krimpt naar 11% op dag 7. Voor het praktische doel, het kiezen van het goedkoopste blok, is de winst klein: het model zit op dag 2 op 89% en het profiel op 88%; vanaf dag 5 kiest het profiel even vaak of vaker het exacte blok. Wie alleen wil weten *wanneer* het goedkoop is, heeft aan het profiel bijna genoeg; wie wil weten *hoeveel* het kost en hoe zeker dat is, heeft het model en het interval nodig. Het interval klopt gemiddeld (79%), maar faalt bij plotselinge niveausprongen; daar is geen van de geteste kalibraties tegen bestand. De middaguren zijn structureel het moeilijkst.
+
+De experimenten (sectie 7) leiden tot het operationele model: trainingsvenster 365 dagen, een apart model voor dag 2 en het model op alle horizonten voor dag 3 tot 7. Dat haalt een MAE van 17.0 op dag 2 (tegen 20.7 voor de standaardinstelling van deze backtest) en 25.9 op dag 7 (tegen 27.0).

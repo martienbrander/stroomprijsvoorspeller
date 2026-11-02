@@ -37,6 +37,7 @@ class Config:
     horizon_dagen: tuple[int, ...]
     backtest_horizon_dagen: tuple[int, ...]
     kwantielen: tuple[float, ...]
+    operationele_methode: str
     rolling_venster_dagen: int
     recente_prijs_dagen: int
     profiel_dagen: int
@@ -101,7 +102,8 @@ def load_config(path: Path | str | None = None) -> Config:
         backtest_horizon_dagen=tuple(int(x) for x in voorspelling.get("backtest_horizon_dagen",
                                                                        voorspelling["horizon_dagen"])),
         kwantielen=tuple(float(q) for q in model["kwantielen"]),
-        rolling_venster_dagen=int(model.get("rolling_venster_dagen", 180)),
+        operationele_methode=str(model.get("methode", "lightgbm")),
+        rolling_venster_dagen=int(model.get("rolling_venster_dagen", 365)),
         recente_prijs_dagen=int(model.get("recente_prijs_dagen", 7)),
         profiel_dagen=int(model.get("profiel_dagen", 28)),
         hertrain_elke_dagen=int(model.get("hertrain_elke_dagen", 7)),

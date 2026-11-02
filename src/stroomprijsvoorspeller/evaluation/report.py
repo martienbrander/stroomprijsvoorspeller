@@ -35,7 +35,7 @@ KLEUR = {
     "lightgbm": "#2a78d6", "profiel_4w": "#eb6834", "laatste_dag": "#1baf7a", "vorige_week": "#eda100",
     "combinatie": "#e87ba4", "lineair": "#008300", "lightgbm_asinh": "#6250d6",
     "lightgbm_w90": "#1baf7a", "lightgbm_w365": "#eda100", "lightgbm_ens": "#e87ba4", "lightgbm_hg": "#6250d6",
-    "lightgbm_w730": "#e34948", "lightgbm_w365_hg": "#008300",
+    "lightgbm_w730": "#e34948", "lightgbm_w365_hg": "#008300", "lightgbm_w365_d2": "#1d1d1b",
 }
 LABEL = {
     "lightgbm": "LightGBM", "profiel_4w": "4-weeks profiel", "laatste_dag": "laatst bekende dag",
@@ -43,6 +43,7 @@ LABEL = {
     "lightgbm_asinh": "LightGBM asinh", "lightgbm_w90": "LightGBM venster 90 d", "lightgbm_w365": "LightGBM venster 365 d",
     "lightgbm_ens": "LightGBM ensemble 90/180/365", "lightgbm_hg": "LightGBM per horizongroep",
     "lightgbm_w730": "LightGBM venster 730 d", "lightgbm_w365_hg": "LightGBM venster 365 d, per horizongroep",
+    "lightgbm_w365_d2": "LightGBM venster 365 d, dag 2 apart (gekozen)",
 }
 GRIJS = "#52514e"
 LICHTGRIJS = "#e6e5e1"
@@ -264,15 +265,42 @@ def fig_voorbeeld(v: pd.DataFrame, pad: Path, origin: pd.Timestamp | None = None
     return origin
 
 
+DM_VARIANTEN = (
+    ("lightgbm_w365", "lightgbm"), ("lightgbm_w730", "lightgbm_w365"),
+    ("lightgbm_w365_hg", "lightgbm_w365"), ("lightgbm_w365_d2", "lightgbm_w365"),
+)
+
+
+def dm_varianten(exp: pd.DataFrame, paren=DM_VARIANTEN) -> pd.DataFrame:
+    """Diebold-Mariano per horizon tussen varianten (eenzijdig: variant beter dan referentie), op dagelijkse MAE."""
+    dl = stats.dagelijks_verlies(exp)
+    aanwezig = set(dl["methode"])
+    rijen = []
+    for variant, referentie in paren:
+        if variant not in aanwezig or referentie not in aanwezig:
+            continue
+        for k in sorted(dl["horizon_dag"].unique()):
+            a = dl[(dl["methode"] == variant) & (dl["horizon_dag"] == k)].set_index("origin")["fout"]
+            b = dl[(dl["methode"] == referentie) & (dl["horizon_dag"] == k)].set_index("origin")["fout"]
+            a, b = a.align(b, join="inner")
+            if len(a) < 30 or np.allclose(a.to_numpy(), b.to_numpy()):
+                continue   # identieke voorspellingen (bijv. dag 3+ van de d2-variant): niets te toetsen
+            dm, p = stats.diebold_mariano(a.to_numpy(), b.to_numpy())
+            rijen.append({"variant": variant, "referentie": referentie, "horizon_dag": int(k),
+                          "mae_variant": a.mean(), "mae_referentie": b.mean(), "dm": dm, "p": p})
+    return pd.DataFrame(rijen)
+
+
 def fig_feature_belang(cfg: Config, pad: Path) -> pd.Series | None:
-    model_pad = cfg.root / "models" / "model_lightgbm.joblib"
-    if not model_pad.exists():
+    kandidaten = [cfg.root / "models" / f"model_{cfg.operationele_methode}.joblib", cfg.root / "models" / "model_lightgbm.joblib"]
+    model_pad = next((p for p in kandidaten if p.exists()), None)
+    if model_pad is None:
         return None
     bundel = joblib.load(model_pad)
     model = bundel["model"]
-    if not hasattr(model, "belang"):
+    b = model.belang() if hasattr(model, "belang") else None
+    if b is None:
         return None
-    b = model.belang()
     b = b / b.sum()
     top = b.head(20).iloc[::-1]
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -343,13 +371,16 @@ def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = 0.02) 
     exp_delen = [laad_voorspellingen(cfg, p.name) for p in sorted(cfg.processed_dir.glob("voorspellingen_experimenten*.parquet"))]
     exp = pd.concat(exp_delen, ignore_index=True).drop_duplicates(["methode", "origin", "time_utc"]) if exp_delen else None
     exp_tabel = None
+    exp_dm = None
     if exp is not None:
+        exp_dm = dm_varianten(exp)
         exp_tabel = hoofdtabel(pd.concat([exp, v[v["methode"] == REFERENTIE]], ignore_index=True))
         exp_tabel = exp_tabel[exp_tabel["methode"] != REFERENTIE]
         exp_sc = blocks.blok_samenvatting(blocks.blok_scores(exp))
         exp_tabel = exp_tabel.merge(exp_sc[["methode", "horizon_dag", "binnen_10pct", "meerkosten_gem"]], on=["methode", "horizon_dag"], how="left")
 
-    tekst = schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin)
+    tekst = schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin,
+                             exp_dm)
     uit.parent.mkdir(parents=True, exist_ok=True)
     uit.write_text(tekst, encoding="utf-8")
     log.info("rapport -> %s", uit)
@@ -360,7 +391,8 @@ def _f(x, n=1):
     return f"{x:.{n}f}"
 
 
-def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin) -> str:
+def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin,
+                     exp_dm=None) -> str:
     lg = t[t["methode"] == HOOFDMODEL].set_index("horizon_dag")
     pf = t[t["methode"] == REFERENTIE].set_index("horizon_dag")
     horizons = sorted(lg.index)
@@ -478,8 +510,10 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
     if exp_tabel is not None and not exp_tabel.empty:
         L.append("## 7. Experimenten: trainingsvensters en horizongroepen\n")
         L.append("Varianten van het hoofdmodel op dezelfde backtest: venster 90, 180 (standaard) en 365 dagen, het gemiddelde van die drie "
-                 "(ensemble, naar Hubicka e.a. 2018), en aparte modellen voor dag 2 en voor dag 3+ (horizongroepen). Let op: in de eerste "
-                 "maanden van de testperiode heeft het 365-dagenvenster nog geen vol jaar data.\n")
+                 "(ensemble, naar Hubicka e.a. 2018), venster 730 dagen, aparte modellen voor dag 2 en voor dag 3+ (horizongroepen), en de "
+                 "gekozen combinatie: een apart model voor dag 2 en het model op alle horizonten voor dag 3+ (`_d2`). Let op: in de eerste "
+                 "maanden van de testperiode heeft het 365-dagenvenster nog geen vol jaar data, en het 730-dagenvenster is pas vanaf maart 2026 "
+                 "langer dan alle beschikbare data.\n")
         g = exp_tabel.copy()
         g["methode"] = g["methode"].map(_label)
         L.append(_md(g[["methode", "horizon_dag", "mae", "rmae", "pinball_p50", "dekking_kal", "breedte_kal", "binnen_10pct", "meerkosten_gem"]],
@@ -490,7 +524,8 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
         L.append("\nBeste variant op MAE per horizon: " + "; ".join(f"dag {int(r.horizon_dag)}: {_label(r.methode)} ({r.mae:.2f})" for r in beste.itertuples()) + ".\n")
         std = exp_tabel[exp_tabel["methode"] == "lightgbm"].set_index("horizon_dag")["mae"]
         duiding = []
-        for naam in ("lightgbm_w90", "lightgbm_w365", "lightgbm_w730", "lightgbm_ens", "lightgbm_hg", "lightgbm_w365_hg"):
+        for naam in ("lightgbm_w90", "lightgbm_w365", "lightgbm_w730", "lightgbm_ens", "lightgbm_hg", "lightgbm_w365_hg",
+                     "lightgbm_w365_d2"):
             e = exp_tabel[exp_tabel["methode"] == naam].set_index("horizon_dag")["mae"]
             if e.empty or std.empty:
                 continue
@@ -499,6 +534,16 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
         if duiding:
             L.append("Verschil in MAE per variant (negatief = beter):\n")
             L.extend(duiding)
+            L.append("")
+        if exp_dm is not None and not exp_dm.empty:
+            L.append("Is het verschil tussen varianten statistisch hard? Diebold-Mariano op de dagelijkse MAE, eenzijdig (variant beter dan "
+                     "referentie), Newey-West-correctie. Een p-waarde boven 0,10 betekent: niet aangetoond.\n")
+            g = exp_dm.copy()
+            g["variant"] = g["variant"].map(_label)
+            g["referentie"] = g["referentie"].map(_label)
+            L.append(_md(g[["variant", "referentie", "horizon_dag", "mae_variant", "mae_referentie", "dm", "p"]],
+                         {"p": "{:.4f}"},
+                         {"horizon_dag": "dag", "mae_variant": "MAE variant", "mae_referentie": "MAE referentie", "dm": "DM", "p": "p"}))
             L.append("")
     else:
         L.append("## 7. Experimenten\n\nNog niet beschikbaar (de experimentenrun is niet gevonden).\n")
@@ -533,4 +578,10 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
              f"wie wil weten *hoeveel* het kost en hoe zeker dat is, heeft het model en het interval nodig. "
              f"Het interval klopt gemiddeld (79%), maar faalt bij plotselinge niveausprongen; daar is geen van de geteste kalibraties tegen "
              f"bestand. De middaguren zijn structureel het moeilijkst.\n")
+    if exp_tabel is not None and "lightgbm_w365_d2" in set(exp_tabel["methode"]):
+        e = exp_tabel.set_index(["methode", "horizon_dag"])["mae"]
+        L.append(f"De experimenten (sectie 7) leiden tot het operationele model: trainingsvenster 365 dagen, een apart model voor dag 2 "
+                 f"en het model op alle horizonten voor dag 3 tot 7. Dat haalt een MAE van {e[('lightgbm_w365_d2', d2)]:.1f} op dag {d2} "
+                 f"(tegen {e[('lightgbm', d2)]:.1f} voor de standaardinstelling van deze backtest) en {e[('lightgbm_w365_d2', dmax)]:.1f} "
+                 f"op dag {dmax} (tegen {e[('lightgbm', dmax)]:.1f}).\n")
     return "\n".join(L)

@@ -7,7 +7,13 @@ import pandas as pd
 import pytest
 
 from stroomprijsvoorspeller.evaluation import metrics
-from stroomprijsvoorspeller.evaluation.rolling import run_rolling, trainset
+from stroomprijsvoorspeller.evaluation.rolling import (
+    Geschat,
+    parse_spec,
+    run_rolling,
+    trainingsdelen,
+    trainset,
+)
 from stroomprijsvoorspeller.model import calibration as cal
 from stroomprijsvoorspeller.model.baselines import baseline_voorspelling
 from stroomprijsvoorspeller.model.quantile_models import (
@@ -158,3 +164,42 @@ def test_baseline_voorspelling_kopieert_feature():
     f = _features_voor_rolling(cfg, [date(2025, 2, 10)])
     p = baseline_voorspelling(f, "vorige_week")
     assert (p["p10"] == f["prijs_vorige_week_uur"]).all() and (p["p90"] == p["p50"]).all()
+
+
+def test_parse_spec_en_canonieke_naam():
+    s = parse_spec("lightgbm")
+    assert (s.basis, s.venster, s.groepering) == ("lightgbm", None, None)
+    assert s.canoniek(365) == "lightgbm_w365"
+    s = parse_spec("lightgbm_d2")
+    assert (s.basis, s.venster, s.groepering) == ("lightgbm", None, "d2")
+    assert s.canoniek(365) == "lightgbm_w365_d2"
+    s = parse_spec("lineair_ruw_w90_hg")
+    assert (s.basis, s.venster, s.groepering) == ("lineair_ruw", 90, "hg")
+    with pytest.raises(KeyError):
+        parse_spec("lightgbm_x")
+
+
+def test_trainingsdelen_d2_gebruikt_alle_rijen_voor_dag_3_plus():
+    cfg = maak_config()
+    origins = [date(2025, 1, 10) + timedelta(days=i) for i in range(40)]
+    f = _features_voor_rolling(cfg, origins)
+    tr = trainset(f, date(2025, 2, 10), venster_dagen=30)
+    d2 = dict(trainingsdelen(parse_spec("lightgbm_d2"), tr))
+    assert len(d2[(2,)]) == (tr["horizon_dag"] == 2).sum()
+    assert len(d2[None]) == len(tr)                     # dag 3+ komt uit het model op alle horizonten
+    hg = dict(trainingsdelen(parse_spec("lightgbm_hg"), tr))
+    assert len(hg[(2,)]) + len(hg[(3, 4, 5, 6, 7)]) == len(tr)   # horizongroepen verdelen de rijen
+    kolommen = ft.feature_kolommen(f)
+    model = Geschat(parse_spec("lineair_ruw_d2"), cfg, tr, kolommen)
+    test = f[f["origin"] == pd.Timestamp(date(2025, 2, 10))]
+    pred = model.predict(test, kolommen)
+    assert len(pred) == len(test) and pred["p50"].notna().all()
+    assert model.n_train == {(2,): int((tr["horizon_dag"] == 2).sum()), None: len(tr)}
+
+
+def test_run_rolling_met_d2_levert_alle_horizonten():
+    cfg = maak_config()
+    origins = [date(2025, 1, 10) + timedelta(days=i) for i in range(45)]
+    f = _features_voor_rolling(cfg, origins)
+    v = run_rolling(f, cfg, ["lineair_ruw_d2"], origins[-3:], hertrain_elke_dagen=3, venster_dagen=30, kalibreren=False)
+    assert set(v["horizon_dag"]) == {2, 3} and v["p50"].notna().all()

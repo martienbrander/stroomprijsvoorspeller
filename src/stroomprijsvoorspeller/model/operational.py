@@ -16,9 +16,8 @@ import pandas as pd
 
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import compare
-from stroomprijsvoorspeller.evaluation.rolling import trainset
+from stroomprijsvoorspeller.evaluation.rolling import Geschat, parse_spec, trainset
 from stroomprijsvoorspeller.model.calibration import conformal_correctie, conformal_score
-from stroomprijsvoorspeller.model.quantile_models import maak_model
 from stroomprijsvoorspeller.processing.features import DOEL, bekend_tot, bouw_features, feature_kolommen
 from stroomprijsvoorspeller.sources import open_meteo
 from stroomprijsvoorspeller.timeutil import TZ, utc_now
@@ -49,28 +48,38 @@ def vandaag_lokaal() -> date:
     return utc_now().tz_convert(TZ).date()
 
 
-def train_en_bewaar(cfg: Config, methode: str = "lightgbm", origin: date | None = None) -> Path:
+def train_en_bewaar(cfg: Config, methode: str | None = None, origin: date | None = None) -> Path:
+    methode = methode or cfg.operationele_methode
+    spec = parse_spec(methode)
     origin = origin or vandaag_lokaal()
     f = compare.laad_features(cfg)
-    train = trainset(f, origin, cfg.rolling_venster_dagen)
+    train = trainset(f, origin, spec.venster or cfg.rolling_venster_dagen)
     kolommen = feature_kolommen(f)
-    model = maak_model(methode, cfg.kwantielen, cfg.lightgbm_params).fit(train[kolommen], train[DOEL])
+    model = Geschat(spec, cfg, train, kolommen)
     (cfg.root / "models").mkdir(exist_ok=True)
     pad = cfg.root / "models" / MODEL_BESTAND.format(methode=methode)
-    joblib.dump({"methode": methode, "model": model, "kolommen": kolommen, "origin": origin,
-                 "n_train": len(train), "train_tot": train["time_utc"].max()}, pad)
-    log.info("model %s getraind op %d rijen (t/m %s) -> %s", methode, len(train), train["time_utc"].max(), pad)
+    joblib.dump({"methode": methode, "spec": spec, "model": model, "kolommen": kolommen, "origin": origin,
+                 "n_train": len(train), "n_train_per_deel": model.n_train, "train_tot": train["time_utc"].max()}, pad)
+    log.info("model %s getraind op %d rijen (t/m %s), delen %s -> %s", methode, len(train), train["time_utc"].max(),
+             model.n_train, pad)
     return pad
 
 
 def conformal_per_horizon(cfg: Config, methode: str, origin: date) -> dict[int, float]:
-    """Correctie per horizon uit de meest recente bekende uitkomsten van de rolling backtest."""
-    pad = cfg.processed_dir / compare.VOORSPELLINGEN_BESTAND
-    if not pad.exists():
-        log.warning("geen backtest-voorspellingen gevonden; interval wordt niet gekalibreerd")
+    """Correctie per horizon uit de meest recente bekende uitkomsten van de rolling backtest.
+
+    Zoekt in alle `voorspellingen_*.parquet` naar de methode, ook onder haar canonieke naam (met venster expliciet).
+    Fase 4 vervangt dit door de eigen runhistorie zodra die lang genoeg is.
+    """
+    namen = {methode, parse_spec(methode).canoniek(cfg.rolling_venster_dagen)}
+    delen = []
+    for pad in sorted(cfg.processed_dir.glob("voorspellingen_*.parquet")):
+        d = pd.read_parquet(pad, columns=["origin", "time_utc", "horizon_dag", "methode", "p10", "p90", DOEL])
+        delen.append(d[d["methode"].isin(namen)])
+    v = pd.concat(delen, ignore_index=True).drop_duplicates(["origin", "time_utc", "horizon_dag"]) if delen else pd.DataFrame()
+    if v.empty:
+        log.warning("geen backtest-voorspellingen voor %s gevonden; interval wordt niet gekalibreerd", methode)
         return {}
-    v = pd.read_parquet(pad)
-    v = v[v["methode"] == methode]
     v["time_utc"] = pd.to_datetime(v["time_utc"], utc=True)
     v["origin"] = pd.to_datetime(v["origin"])
     grens = bekend_tot(origin)
@@ -81,7 +90,8 @@ def conformal_per_horizon(cfg: Config, methode: str, origin: date) -> dict[int, 
     return uit
 
 
-def voorspel(cfg: Config, methode: str = "lightgbm", origin: date | None = None) -> pd.DataFrame:
+def voorspel(cfg: Config, methode: str | None = None, origin: date | None = None) -> pd.DataFrame:
+    methode = methode or cfg.operationele_methode
     origin = origin or vandaag_lokaal()
     pad = cfg.root / "models" / MODEL_BESTAND.format(methode=methode)
     bundel = joblib.load(pad)
@@ -89,7 +99,7 @@ def voorspel(cfg: Config, methode: str = "lightgbm", origin: date | None = None)
     actueel = laad_weer_actueel(cfg)
     f = bouw_features(prijzen, weer, cfg, [origin], horizon_dagen=cfg.horizon_dagen, weer_actueel=actueel)
     X = f.reindex(columns=bundel["kolommen"])
-    pred = bundel["model"].predict(X)
+    pred = bundel["model"].predict(f.reindex(columns=list(dict.fromkeys([*f.columns, *bundel["kolommen"]]))), bundel["kolommen"])
     uit = f[["origin", "time_utc", "horizon_dag", "horizon_uren"]].copy()
     for k in ("p10", "p50", "p90"):
         uit[k] = pred[k].to_numpy()

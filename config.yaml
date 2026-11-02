@@ -43,7 +43,8 @@ voorspelling:
 
 model:
   kwantielen: [0.10, 0.50, 0.90]
-  rolling_venster_dagen: 180
+  methode: lightgbm_d2         # operationeel model: LightGBM, apart model voor dag 2, model op alle horizonten voor dag 3+ (besluit 48)
+  rolling_venster_dagen: 365   # trainingsvenster; 365 is in de backtest 4-6% beter dan 180, 730 niet significant beter (besluit 48)
   recente_prijs_dagen: 7       # venster voor "recent prijsniveau"-features
   profiel_dagen: 28            # venster voor het gemiddelde uurprofiel (baseline c)
   hertrain_elke_dagen: 7       # backtest: hoe vaak de modellen opnieuw geschat worden
