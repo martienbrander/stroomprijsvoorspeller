@@ -74,4 +74,4 @@ bevestigd) of **open** (keuze ligt bij opdrachtgever).
 ## Open vragen voor opdrachtgever
 
 - **#38** Welk financieringsmodel? Advies: donaties + subsidieaanvraag, geen affiliates. De README heeft nu een paragraaf "Onderhoud en kosten" zonder donatielink; die komt erbij zodra er een keuze is.
-- **Online zetten:** wanneer? De workflows staan klaar (besluit 47); nodig zijn een GitHub-repository, GitHub Pages aanzetten en eventueel een domeinnaam.
+- **Online zetten:** opdrachtgever koos op 2026-11-02 "voorlopig lokaal". De workflows staan klaar (besluit 47); zodra het zover is zijn nodig: een GitHub-repository, GitHub Pages aanzetten en eventueel een domeinnaam (README, "Online zetten").
