@@ -48,7 +48,7 @@
   };
   const TARIEF_STANDAARD = 'allin';  // standaard: dat staat op de rekening
   const OPSLAG_SLEUTEL = 'stroomprijs-tarief-v2';
-  const RESOLUTIE_SLEUTEL = 'stroomprijs-resolutie-v1'; // 'uur' of 'kwartier'; kwartier alleen voor bekende dagen
+  const RESOLUTIE_SLEUTEL = 'stroomprijs-resolutie-v2'; // 'uur' of 'kwartier'; standaard kwartier (v2: nieuwe standaard, oude keuze vervalt)
   const LADEN_SLEUTEL = 'stroomprijs-laden-v1';
   // laden: zonder instellingen een vast blok van 3 uur en 30 kWh; met instellingen = kWh / kW, hele uren
   const LAAD_STANDAARD_UREN = 3;
@@ -365,7 +365,7 @@
 
   // ---------- resolutie: per uur of per kwartier (alleen bekende dagen) ----------
   function leesResolutie() {
-    try { return localStorage.getItem(RESOLUTIE_SLEUTEL) === 'kwartier' ? 'kwartier' : 'uur'; } catch (e) { return 'uur'; }
+    try { return localStorage.getItem(RESOLUTIE_SLEUTEL) === 'uur' ? 'uur' : 'kwartier'; } catch (e) { return 'kwartier'; }
   }
   function bewaarResolutie(r) {
     try { localStorage.setItem(RESOLUTIE_SLEUTEL, r === 'kwartier' ? 'kwartier' : 'uur'); return true; } catch (e) { return false; }

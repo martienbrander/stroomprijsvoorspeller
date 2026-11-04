@@ -45,6 +45,7 @@
   .vak { display: inline-block; width: 1.1em; height: .7em; border-radius: 2px; }
   .resolutie { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; margin: .6rem 0 0; }
   .resolutie .noot { font-size: .8rem; color: var(--zacht); }
+  .resolutie-noot { font-size: .8rem; color: var(--zacht); margin: .3rem 0 0; }
   .tarief-details { margin: .4rem 0 0; font-size: .9rem; }
   .tarief-details summary { cursor: pointer; color: var(--accent); list-style: none; display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; }
   .tarief-details summary::-webkit-details-marker { display: none; }
@@ -208,6 +209,10 @@
     <div class="grafiek-scroll"><canvas id="grafiek"></canvas></div>
     <p class="schuifhint">Schuif opzij voor alle 7 dagen.</p>
     <div class="resolutie prijsstand">
+      <div class="segment" role="group" aria-label="Prijzen per uur of per kwartier" id="resolutie">
+        <button type="button" data-resolutie="kwartier" aria-pressed="true">Per kwartier</button>
+        <button type="button" data-resolutie="uur" aria-pressed="false">Per uur</button>
+      </div>
       <div class="segment" role="group" aria-label="Welke prijs" id="standen">
         <button type="button" data-stand="markt" aria-pressed="false">Marktprijs</button>
         <button type="button" data-stand="marktplus" aria-pressed="false">Marktprijs+</button>
@@ -229,13 +234,7 @@
       </fieldset>
       </form>
     </details>
-    <div class="resolutie">
-      <div class="segment" role="group" aria-label="Prijzen per uur of per kwartier" id="resolutie">
-        <button type="button" data-resolutie="uur" aria-pressed="true">Per uur</button>
-        <button type="button" data-resolutie="kwartier" aria-pressed="false">Per kwartier</button>
-      </div>
-      <span class="noot">kwartier alleen voor dagen met bekende prijzen; de verwachting is per uur</span>
-    </div>
+    <p class="noot resolutie-noot">Kwartierprijzen alleen voor dagen met bekende prijzen; de verwachting is per uur.</p>
 
     <ul class="legenda">
       <li><span class="vak" style="background:var(--accent)"></span>bekend</li>
@@ -294,7 +293,7 @@
   const ICOON_LADEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M19 10h2v4h-2M7 12h6M10 9l-2 3h4l-2 3"/></svg>';
   const ICOON_WASSEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M8 6h2M14 6h2M8.5 14c1.2-1 2.4-1 3.5 0s2.3 1 3.5 0"/></svg>';
   const PIJL = '<svg class="pijl" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-  let forecast = null, grafiek = null, open = { 1: true }, model = null, tarief = null, laad = null, resolutie = 'uur';
+  let forecast = null, grafiek = null, open = {}, model = null, tarief = null, laad = null, resolutie = 'kwartier';
 
   function render() {
     const m = model = SP.verwerk(forecast, tarief, laad, resolutie);
