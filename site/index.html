@@ -245,7 +245,7 @@
     <ul class="legenda">
       <li><span class="vak" style="background:var(--accent)"></span>bekend</li>
       <li><span class="vak" style="border-top:2px dashed var(--accent);height:0"></span>verwacht</li>
-      <li><span class="vak" style="background:var(--accent);opacity:.25"></span>waarschijnlijk tussen onder- en bovengrens</li>
+      <li><span class="vak" style="background:var(--accent);opacity:.25"></span>marge: in 8 van de 10 gevallen valt de prijs hierbinnen</li>
       <li><span class="vak spits"></span>netspits 16–21 uur</li>
     </ul>
     <details class="tabel"><summary>Dezelfde cijfers als tabel</summary><div id="tabel"></div></details>
@@ -264,7 +264,7 @@
   <div class="kader">
     <h2 style="margin-top:0">Hoe zeker is dit?</h2>
     <p><b>Dagen met bekende prijzen</b> (op de tijdlijn "zeker") staan vast: die prijzen komen van de stroombeurs en veranderen niet meer. Meestal zijn dat de dag van de voorspelling en de dag erna.</p>
-    <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen dagen. Bij elke verwachting hoort een ondergrens en een bovengrens. In ongeveer 8 van de 10 gevallen valt de echte prijs daartussen.</p>
+    <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen dagen. Bij elke verwachting staat hoeveel de prijs naar boven (+) en naar beneden (−) kan afwijken. In ongeveer 8 van de 10 gevallen blijft de echte prijs binnen die marge.</p>
     <p><b>Dag 4 en verder</b> zijn grof: alleen dagdelen, geen losse uren. Een goedkoop dagdeel blijft meestal goedkoop, het exacte uur kan schuiven.</p>
     <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Het label bij elke dag zegt hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
     <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen. Daarom is "gratis stroom" op de rekening niet gratis. Marktprijs toont de kale beursprijs zonder btw, Marktprijs+ de beursprijs plus de inkoopvergoeding met btw, All-in alles zoals op de rekening.</p>
@@ -344,7 +344,7 @@
     document.getElementById('scores').innerHTML = dagenMetScore.length
       ? '<p style="margin:.75rem 0 .25rem"><b>Afgelopen ' + s.periode + ' dagen</b>, gemiddelde afwijking van de verwachting (in de gekozen prijsstand):</p>' +
         '<div class="scores">' + dagenMetScore.map(function (k) { return '<div><b>' + SP.fmt(s.mae[k]) + '</b><span>ct, dag ' + k + '</span></div>'; }).join('') + '</div>' +
-        (verste ? '<p style="margin:0;font-size:.85rem;color:var(--zacht)">In ' + Math.round(s.dekking[dekkingDagen[0]] * 100) + '% van de uren viel de echte prijs tussen onder- en bovengrens (dag ' + dekkingDagen[0] + ')' + (verste !== dekkingDagen[0] ? ', bij dag ' + verste + ' was dat ' + Math.round(s.dekking[verste] * 100) + '%' : '') + '. Doel: 80%.</p>' : '')
+        (verste ? '<p style="margin:0;font-size:.85rem;color:var(--zacht)">In ' + Math.round(s.dekking[dekkingDagen[0]] * 100) + '% van de uren viel de echte prijs binnen de marge (dag ' + dekkingDagen[0] + ')' + (verste !== dekkingDagen[0] ? ', bij dag ' + verste + ' was dat ' + Math.round(s.dekking[verste] * 100) + '%' : '') + '. Doel: 80%.</p>' : '')
       : '<p style="margin:.75rem 0 .25rem;color:var(--zacht)">Nog geen scores: die komen zodra er 30 dagen met bekende uitkomsten zijn.</p>';
   }
 
@@ -414,7 +414,7 @@
       const inst = a.id === 'auto'
         ? '<small>' + SP.fmt(m.laad.kwh, m.laad.kwh % 1 ? 1 : 0) + ' kWh' + (m.laad.inst && m.laad.inst.kw ? ' bij ' + SP.fmt(m.laad.inst.kw, m.laad.inst.kw % 1 ? 1 : 0) + ' kW' : '') + ', blok van ' + r.uren + ' uur</small> <a href="#instellingen">aanpassen</a>'
         : '<small>' + SP.fmt(a.kwh, a.kwh % 1 ? 1 : 0) + ' kWh, duurt ' + SP.duurTekst(a.uren) + '</small> <a href="#apparaten-instellingen">aanpassen</a>';
-      const beste = r.beste ? '<div class="bedrag"><span class="l">Later deze week</span><span class="e">' + SP.fmtEuro(r.beste.euro) + '</span><span class="w">' + SP.dagNaam(r.beste.dag, false) + ' ' + SP.blokTijd(r.beste.blok) + ', tussen ' + SP.fmtEuro(r.beste.euroLaag) + ' en ' + SP.fmtEuro(r.beste.euroHoog) + '</span></div>' : '';
+      const beste = r.beste ? '<div class="bedrag"><span class="l">Later deze week</span><span class="e">' + SP.fmtEuro(r.beste.euro) + '</span><span class="w">' + SP.dagNaam(r.beste.dag, false) + ' ' + SP.blokTijd(r.beste.blok) + ', ' + SP.plusMinEuro(r.beste.euroHoog - r.beste.euro, r.beste.euro - r.beste.euroLaag) + '</span></div>' : '';
       return '<div class="apparaat">' + icoon +
         '<div class="naam">' + a.naam + ' ' + inst + '</div>' +
         '<div class="bedragen">' +

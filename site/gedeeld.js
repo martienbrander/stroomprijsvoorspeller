@@ -330,7 +330,7 @@
     const p90 = gem(blok.map(function (u) { return u.p90; }));
     return {
       start: blok[0].uur, eind: laatste.uur + laatste.duur, n: Math.round(duur * 100) / 100, aantal: aantal, volgendeDag: !!volgendeDag, eindDagNaam: null,
-      p10: p10, p50: p50, p90: p90, uren: blok, onzeker: (p90 - p10) / 2,
+      p10: p10, p50: p50, p90: p90, uren: blok, onzeker: (p90 - p10) / 2, onzekerPlus: p90 - p50, onzekerMin: p50 - p10,
       vaagheid: gem(blok.map(function (u) { return u.vaagheid; })),
       bekend: blok.every(function (u) { return u.bekend; }),
     };
@@ -340,8 +340,12 @@
     if (!blok) return null;
     const e = function (ct) { return (ct * kwh) / 100; };
     return { kwh: kwh, euro: e(blok.p50), euroLaag: e(blok.p10), euroHoog: e(blok.p90), onzeker: e(blok.onzeker),
+      plus: e(blok.onzekerPlus || 0), min: e(blok.onzekerMin || 0),
       vsDuurste: e(blok.vsDuurste || 0), vsGem: e(blok.marge || 0) };
   }
+  // onzekerheid als plus- en minbedrag bij de verwachting (wens opdrachtgever: geen 'tussen a en b')
+  function plusMinCt(plus, min) { return '+' + fmt(plus) + ' / −' + fmt(min) + ' ct'; }
+  function plusMinEuro(plus, min) { return '+' + fmtEuro(plus) + ' / −' + fmtEuro(min); }
   function blokTijd(blok) {
     if (!blok) return '';
     let s = fmtUur(blok.start) + '\u2013' + fmtUur(blok.eind);
@@ -356,7 +360,7 @@
     let s = fmt(blok.p50) + ' ct/kWh, ' + fmtEuro(k.euro) + ' voor ' + fmt(kwh, kwh % 1 ? 1 : 0) + ' kWh. ';
     s += fmtEuro(k.vsDuurste) + ' minder dan op het duurste moment, ';
     s += k.vsGem > 0.005 ? fmtEuro(k.vsGem) + ' minder dan gemiddeld.' : k.vsGem < -0.005 ? fmtEuro(-k.vsGem) + ' meer dan gemiddeld.' : 'gelijk aan gemiddeld.';
-    if (!blok.bekend) s += ' Onzeker: plus of min ' + fmtEuro(k.onzeker) + '.';
+    if (!blok.bekend) s += ' Onzeker: ' + plusMinEuro(k.plus, k.min) + '.';
     if (blok.onzekereDag) s += ' Nog onzeker, kijk een dag later opnieuw.';
     return s;
   }
@@ -366,7 +370,7 @@
     const k = blokKosten(blok, kwh);
     let s = fmt(blok.p50) + ' ct/kWh, ' + fmtEuro(k.euro) + ' per beurt';
     if (k.vsDuurste > 0.005) s += ', ' + fmtEuro(k.vsDuurste) + ' minder dan op het duurste moment';
-    if (!blok.bekend) s += ' (plus of min ' + fmtEuro(k.onzeker) + ')';
+    if (!blok.bekend) s += ' (' + plusMinEuro(k.plus, k.min) + ')';
     return s + '.';
   }
 
@@ -524,12 +528,12 @@
     let s = blokTijd(blok) + ': ' + fmt(blok.p50) + ' ct/kWh';
     if (blok.marge > 0.05) s += ', ' + fmt(blok.marge) + ' ct goedkoper dan het daggemiddelde';
     else s += ', ongeveer gelijk aan het daggemiddelde';
-    if (!blok.bekend) s += ' (plus of min ' + fmt(blok.onzeker) + ' ct)';
+    if (!blok.bekend) s += ' (' + plusMinCt(blok.onzekerPlus, blok.onzekerMin) + ')';
     return s;
   }
   function bandZin(p10, p50, p90, bekend) {
     if (bekend) return fmt(p50) + ' ct/kWh';
-    return 'waarschijnlijk tussen ' + fmt(p10) + ' en ' + fmt(p90) + ' ct/kWh';
+    return 'verwacht ' + fmt(p50) + ' ct/kWh (' + plusMinCt(p90 - p50, p50 - p10) + ')';
   }
   function betrouwbaarheidsWoord(v) {
     if (v < 0.25) return 'redelijk zeker';
@@ -746,12 +750,12 @@
           let r1, r2;
           if (d.perUur) {
             r1 = dagNaam(d, false) + ' ' + fmtUur(u.uur) + '–' + fmtUur(u.uur + u.duur);
-            r2 = u.bekend ? fmt(u.p50) + ' ct/kWh' : 'tussen ' + fmt(u.p10) + ' en ' + fmt(u.p90) + ', verwacht ' + fmt(u.p50);
+            r2 = u.bekend ? fmt(u.p50) + ' ct/kWh' : 'verwacht ' + fmt(u.p50) + ' (' + plusMinCt(u.p90 - u.p50, u.p50 - u.p10) + ')';
             ctx.fillStyle = k.nu; ctx.beginPath(); ctx.arc(cx, y(u.p50), 4, 0, Math.PI * 2); ctx.fill();
           } else {
             const b = d.dagdelen.find(function (b) { return u.uur >= b.van && u.uur < b.tot; });
             r1 = dagNaam(d, false) + ', ' + b.label.toLowerCase() + ' ' + fmtUur(b.van) + '–' + fmtUur(b.tot);
-            r2 = 'tussen ' + fmt(b.p10) + ' en ' + fmt(b.p90) + ', verwacht ' + fmt(b.p50);
+            r2 = 'verwacht ' + fmt(b.p50) + ' (' + plusMinCt(b.p90 - b.p50, b.p50 - b.p10) + ')';
           }
           ctx.font = (compact ? 11 : 12) + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
           const w = Math.max(ctx.measureText(r1).width, ctx.measureText(r2).width) + 16;
@@ -861,10 +865,10 @@
     } else if (r.winst > 0) {
       if (app.streng && r.winstSlecht < drempel) {
         r.soort = 'misschien';
-        r.advies = 'Op ' + dagL + ' waarschijnlijk ' + fmtEuro(r.winst) + ' goedkoper, maar dat is niet zeker (tussen ' + fmtEuro(r.winstSlecht) + ' en ' + fmtEuro(r.winstGoed) + '). ' + naam + ' alleen laden wat u nodig hebt is een veilige keuze.';
+        r.advies = 'Op ' + dagL + ' waarschijnlijk ' + fmtEuro(r.winst) + ' goedkoper, maar dat is niet zeker (' + plusMinEuro(r.winstGoed - r.winst, r.winst - r.winstSlecht) + '). ' + naam + ' alleen laden wat u nodig hebt is een veilige keuze.';
       } else {
         r.soort = 'wacht';
-        r.advies = 'Wachten tot ' + dagL + ' loont: waarschijnlijk ' + fmtEuro(r.winst) + ' goedkoper (tussen ' + fmtEuro(r.winstSlecht) + ' en ' + fmtEuro(r.winstGoed) + ').';
+        r.advies = 'Wachten tot ' + dagL + ' loont: waarschijnlijk ' + fmtEuro(r.winst) + ' goedkoper (' + plusMinEuro(r.winstGoed - r.winst, r.winst - r.winstSlecht) + ').';
       }
     } else {
       r.soort = 'nu';
@@ -978,7 +982,7 @@
     TARIEF_JAAR: TARIEF_JAAR, ENERGIEBELASTING_CT: ENERGIEBELASTING_CT, BTW_PCT: BTW_PCT, INKOOP_STANDAARD_CT: INKOOP_STANDAARD_CT,
     TARIEF_STANDEN: TARIEF_STANDEN, TARIEF_STANDAARD: TARIEF_STANDAARD, tariefFactor: tariefFactor, tariefLabel: tariefLabel, tariefUitlegTekst: tariefUitlegTekst,
     laadLeveranciers: laadLeveranciers, leverancierInfo: leverancierInfo, inkoopEffectief: inkoopEffectief,
-    goedkoopsteBlok: goedkoopsteBlok, blokZin: blokZin, bandZin: bandZin, betrouwbaarheidsWoord: betrouwbaarheidsWoord,
+    goedkoopsteBlok: goedkoopsteBlok, blokZin: blokZin, bandZin: bandZin, plusMinCt: plusMinCt, plusMinEuro: plusMinEuro, betrouwbaarheidsWoord: betrouwbaarheidsWoord,
     samenvatting: samenvatting, maakTabel: maakTabel, stoplichtHtml: stoplichtHtml, tekenGrafiek: tekenGrafiek,
     laadForecast: laadForecast, gegenereerdTekst: gegenereerdTekst, koppelTarief: koppelTarief,
     APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro,
