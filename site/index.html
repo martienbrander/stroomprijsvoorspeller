@@ -433,6 +433,7 @@
       let vergelijk = '';
       if (s.nu && !b.isNu) vergelijk = '<span class="later">nu starten: ' + SP.fmtEuro(s.nu.euro) + ', ' + SP.fmtEuro(s.winst) + ' duurder</span>';
       else if (s.nu && b.isNu) vergelijk = '<span class="w">' + (s.winst > 0.005 ? 'uitstel scheelt hooguit ' + SP.fmtEuro(s.winst) : 'uitstel scheelt niets') + '</span>';
+      if (s.andereDag) vergelijk += '<span class="later">overweeg een andere dag: ' + SP.dagNaam(s.andereDag.dag, false) + ' ' + SP.blokTijd(s.andereDag.blok) + ', ' + SP.fmtEuro(s.andereDag.winst) + ' goedkoper (verwacht)</span>';
       return '<a class="start-blok" href="#apparaten"><span class="n">' + esc(a.naam) + '</span>' +
         '<span class="t">' + (b.isNu ? 'nu' : SP.duurTekst(s.uitstel) + ' <small>uitstel</small>') + '</span>' +
         '<span class="w">' + tijd + ' · ' + SP.fmtEuro(b.euro) + (b.bekend ? '' : ' (verwacht)') + '</span>' + vergelijk + '</a>';

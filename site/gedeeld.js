@@ -870,6 +870,16 @@
         uit.beste = maak(nuBlok, true);
       }
     }
+    // overweeg een andere dag: een latere dag (na het venster, niet 'onzeker') die minstens 20% en 10 cent goedkoper is
+    uit.andereDag = null;
+    dagen.slice(d1 ? 2 : 1).forEach(function (d) {
+      const b = (d.blokken || {})[app.id];
+      if (!b || !d.betrouwbaarheid || d.betrouwbaarheid.code === 'laag') return;
+      const e = euro(b.p50);
+      if (e < uit.beste.euro - Math.max(0.10, 0.20 * Math.abs(uit.beste.euro)) && (!uit.andereDag || e < uit.andereDag.euro)) {
+        uit.andereDag = { dag: d, blok: b, euro: e, winst: uit.beste.euro - e };
+      }
+    });
     return uit;
   }
 
