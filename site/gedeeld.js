@@ -51,7 +51,8 @@
   const RESOLUTIE_SLEUTEL = 'stroomprijs-resolutie-v2'; // 'uur' of 'kwartier'; standaard kwartier (v2: nieuwe standaard, oude keuze vervalt)
   const LADEN_SLEUTEL = 'stroomprijs-laden-v1';
   const APPARATEN_SLEUTEL = 'stroomprijs-apparaten-v1'; // eigen apparaten: [{ id, naam, uren, kwh }]
-  const APPARATEN_STANDAARD = [{ id: 'was', naam: 'Wasmachine', uren: 2, kwh: 1 }];
+  const APPARATEN_STANDAARD = [{ id: 'was', naam: 'Wasmachine', uren: 2, kwh: 1, stap: 1 }];
+  const UITSTEL_STAPPEN = [1, 0.5, 0.25]; // waarin het uitstel op het apparaat is in te stellen (uren)
   // laden: zonder instellingen een vast blok van 3 uur en 30 kWh; met instellingen = kWh / kW, hele uren
   const LAAD_STANDAARD_UREN = 3;
   const LAAD_STANDAARD_KWH = 30;
@@ -399,7 +400,7 @@
       const raw = localStorage.getItem(APPARATEN_SLEUTEL);
       if (!raw) return APPARATEN_STANDAARD.map(function (a) { return Object.assign({}, a); });
       const lijst = JSON.parse(raw).filter(function (a) { return a && a.uren > 0; })
-        .map(function (a, i) { return { id: String(a.id || 'app' + i), naam: String(a.naam || 'Apparaat'), uren: Math.min(24, Number(a.uren)), kwh: a.kwh > 0 ? Number(a.kwh) : 1 }; });
+        .map(function (a, i) { return { id: String(a.id || 'app' + i), naam: String(a.naam || 'Apparaat'), uren: Math.min(24, Number(a.uren)), kwh: a.kwh > 0 ? Number(a.kwh) : 1, stap: UITSTEL_STAPPEN.indexOf(Number(a.stap)) >= 0 ? Number(a.stap) : 1 }; });
       return lijst;
     } catch (e) { return APPARATEN_STANDAARD.map(function (a) { return Object.assign({}, a); }); }
   }
@@ -425,6 +426,7 @@
           '<label>Apparaat<input type="text" name="naam" value="' + esc(a.naam) + '" maxlength="30" placeholder="bijv. vaatwasser"></label>' +
           '<label>Duur (uren)<input type="number" name="uren" value="' + a.uren + '" step="0.25" min="0.25" max="24" inputmode="decimal"></label>' +
           '<label>Verbruik (kWh)<input type="number" name="kwh" value="' + a.kwh + '" step="0.1" min="0.1" inputmode="decimal"></label>' +
+          '<label>Uitstel in stappen van<select name="stap">' + UITSTEL_STAPPEN.map(function (st) { return '<option value="' + st + '"' + (Math.abs((a.stap || 1) - st) < 1e-9 ? ' selected' : '') + '>' + (st === 1 ? '1 uur' : st === 0.5 ? 'half uur' : 'kwartier') + '</option>'; }).join('') + '</select></label>' +
           '<button type="button" class="weg" aria-label="' + esc(a.naam) + ' verwijderen" title="Verwijderen">×</button>' +
           '</div>';
       }).join('') + '<button type="button" class="toevoegen">+ Apparaat toevoegen</button>';
@@ -436,13 +438,15 @@
         const oud = lijst[i] || {};
         const uren = getal(r.querySelector('[name=uren]'), 0.25);
         const kwh = getal(r.querySelector('[name=kwh]'), 0.1);
+        const stap = parseFloat(r.querySelector('[name=stap]').value);
         return { id: oud.id || 'app' + Date.now() + i, naam: r.querySelector('[name=naam]').value.trim() || 'Apparaat',
-                 uren: uren !== null ? Math.min(24, Math.round(uren * 4) / 4) : (oud.uren || 1), kwh: kwh !== null ? kwh : (oud.kwh || 1) };
+                 uren: uren !== null ? Math.min(24, Math.round(uren * 4) / 4) : (oud.uren || 1), kwh: kwh !== null ? kwh : (oud.kwh || 1),
+                 stap: UITSTEL_STAPPEN.indexOf(stap) >= 0 ? stap : 1 };
       });
       bewaarApparaten(lijst);
       bijRefresh(lijst);
     }
-    container.addEventListener('change', function (e) { if (e.target.matches('input')) { lees(); teken(); } });
+    container.addEventListener('change', function (e) { if (e.target.matches('input, select')) { lees(); teken(); } });
     container.addEventListener('click', function (e) {
       if (e.target.matches('.weg')) {
         lijst.splice(parseInt(e.target.closest('.app-rij').dataset.i, 10), 1);
@@ -812,40 +816,58 @@
     return (p[0] % 24) + p[1] / 60;
   }
   /*
-   * startAdvies(model, apparaat, nuUur): "nu, of later vannacht?" Zoekt in het venster van nu tot morgenochtend
-   * NACHT_EIND uur het goedkoopste blok ter lengte van de duur (een blok mag na het venster doorlopen) en vergelijkt
-   * dat met nu starten. Is wachten minder dan 5 cent of 10% goedkoper, dan is het advies 'nu'.
-   * Is de eerste getoonde dag niet vandaag (verouderde voorspelling), dan geldt die hele dag als venster, zonder 'nu'.
-   * Resultaat: { apparaat, beste: { blok, euro, dagStart, dagEind, isNu }, nu: { blok, euro } | null, winst }
+   * startAdvies(model, apparaat, nuUur): "hoeveel uur uitstel stel ik in?" Kandidaten zijn de starttijden nu + k x stap
+   * (de uitstelstappen van het apparaat) tot morgenochtend NACHT_EIND uur. Per kandidaat de prijs van het blok [start,
+   * start + duur], gewogen over de kwartieren die het raakt. Goedkoopste wint; scheelt dat met nu starten minder dan
+   * 5 cent of 10%, dan is het advies 'nu' (uitstel 0).
+   * Is de eerste getoonde dag niet vandaag (verouderde voorspelling), dan geldt die dag als venster en begint 'nu' om 0:00.
+   * Resultaat: { apparaat, uitstel (uren), beste: { start, eind, p50, euro, bekend, dagStart, dagEind, isNu }, nu: { euro }, winst }
    */
   const NACHT_EIND = 8;
+  function blokOpTijd(tijdlijn, start, duur) {
+    const eind = start + duur;
+    let w = 0, p10 = 0, p50 = 0, p90 = 0, bekend = true, n = 0;
+    tijdlijn.forEach(function (u) {
+      const o = Math.min(eind, u.abs + u.duur) - Math.max(start, u.abs);
+      if (o <= 1e-9) return;
+      w += o; p10 += o * u.p10; p50 += o * u.p50; p90 += o * u.p90; bekend = bekend && u.bekend; n++;
+    });
+    if (n === 0 || w < duur - 1e-6) return null;  // het blok valt (deels) buiten de bekende reeks
+    return { start: start, eind: eind, p10: p10 / w, p50: p50 / w, p90: p90 / w, bekend: bekend, n: duur,
+             onzekerPlus: (p90 - p50) / w, onzekerMin: (p50 - p10) / w };
+  }
   function startAdvies(model, app, nuUur) {
     const dagen = model.dagen;
     if (!dagen.length) return null;
     const d0 = dagen[0], d1 = dagen[1];
     const vandaag = d0.datum === vandaagLokaal();
-    const n = Math.max(1, Math.round(app.uren * 4));
-    const q0 = naarKwartieren(d0.reeks);
-    const q1 = d1 ? naarKwartieren(d1.reeks) : [];
-    const vanNu = vandaag ? q0.filter(function (u) { return u.uur + u.duur > nuUur + 1e-9; }) : q0;
-    const nachtStart = q1.filter(function (u) { return u.uur < NACHT_EIND; });
-    const venster = vanNu.concat(nachtStart);
-    const vervolg = q1.filter(function (u) { return u.uur >= NACHT_EIND; });
-    if (!venster.length) return null;
-    const beste = goedkoopsteBlok(venster, n, vervolg);
+    const tijdlijn = naarKwartieren(d0.reeks).map(function (u) { return Object.assign({}, u, { abs: u.uur }); })
+      .concat(d1 ? naarKwartieren(d1.reeks).map(function (u) { return Object.assign({}, u, { abs: u.uur + 24 }); }) : []);
+    const stap = app.stap || 1;
+    const nu = vandaag ? nuUur : 0;
+    const laatsteStart = d1 ? 24 + NACHT_EIND : 24 - app.uren;
+    const euro = function (ct) { return (ct * app.kwh) / 100; };
+    const dagVan = function (t) { return t >= 24 && d1 ? d1 : d0; };
+    let beste = null, nuBlok = null;
+    for (let k = 0; nu + k * stap <= laatsteStart + 1e-9; k++) {
+      const t = nu + k * stap;
+      const b = blokOpTijd(tijdlijn, t, app.uren);
+      if (!b) break;
+      b.uitstel = k * stap;
+      if (k === 0) nuBlok = b;
+      if (!beste || b.p50 < beste.p50 - 1e-9) beste = b;
+    }
     if (!beste) return null;
-    const dagVan = function (u) { return dagen.find(function (d) { return d.datum === u.tijd.slice(0, 10); }) || d0; };
-    const kb = blokKosten(beste, app.kwh);
-    const uit = { apparaat: app, winst: 0, nu: null,
-      beste: { blok: beste, euro: kb.euro, dagStart: dagVan(beste.uren[0]), dagEind: dagVan(beste.uren[beste.uren.length - 1]), isNu: false } };
-    if (vandaag && vanNu.length) {
-      const nuBlok = goedkoopsteBlok(vanNu.slice(0, 1), n, vanNu.slice(1).concat(q1));
-      if (nuBlok) {
-        uit.nu = { blok: nuBlok, euro: blokKosten(nuBlok, app.kwh).euro };
-        uit.winst = uit.nu.euro - kb.euro;
-        if (uit.winst < Math.max(0.05, 0.10 * Math.abs(uit.nu.euro))) {
-          uit.beste = { blok: nuBlok, euro: uit.nu.euro, dagStart: d0, dagEind: dagVan(nuBlok.uren[nuBlok.uren.length - 1]), isNu: true };
-        }
+    const maak = function (b, isNu) {
+      return { start: b.start % 24, eind: b.eind % 24, p50: b.p50, euro: euro(b.p50), bekend: b.bekend, isNu: isNu,
+               dagStart: dagVan(b.start), dagEind: dagVan(b.eind - 1e-9), onzekerPlus: b.onzekerPlus, onzekerMin: b.onzekerMin };
+    };
+    const uit = { apparaat: app, uitstel: beste.uitstel, beste: maak(beste, beste.uitstel === 0), nu: nuBlok ? { euro: euro(nuBlok.p50) } : null, winst: 0 };
+    if (nuBlok) {
+      uit.winst = euro(nuBlok.p50) - euro(beste.p50);
+      if (uit.winst < Math.max(0.05, 0.10 * Math.abs(euro(nuBlok.p50)))) {
+        uit.uitstel = 0;
+        uit.beste = maak(nuBlok, true);
       }
     }
     return uit;
@@ -1030,7 +1052,7 @@
     goedkoopsteBlok: goedkoopsteBlok, blokZin: blokZin, bandZin: bandZin, plusMinCt: plusMinCt, plusMinEuro: plusMinEuro, betrouwbaarheidsWoord: betrouwbaarheidsWoord,
     samenvatting: samenvatting, maakTabel: maakTabel, stoplichtHtml: stoplichtHtml, tekenGrafiek: tekenGrafiek,
     laadForecast: laadForecast, gegenereerdTekst: gegenereerdTekst, koppelTarief: koppelTarief,
-    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro, startAdvies: startAdvies, nuLokaalUur: nuLokaalUur, NACHT_EIND: NACHT_EIND,
+    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro, startAdvies: startAdvies, nuLokaalUur: nuLokaalUur, NACHT_EIND: NACHT_EIND, UITSTEL_STAPPEN: UITSTEL_STAPPEN,
     leesApparaten: leesApparaten, bewaarApparaten: bewaarApparaten, koppelApparaten: koppelApparaten, apparaatZin: apparaatZin, duurTekst: duurTekst,
     BETROUWBAARHEID: BETROUWBAARHEID, betrouwbaarheidTekst: betrouwbaarheidTekst, betrouwbaarheidHtml: betrouwbaarheidHtml,
     blokKosten: blokKosten, blokTijd: blokTijd, laadZin: laadZin, wasZin: wasZin,

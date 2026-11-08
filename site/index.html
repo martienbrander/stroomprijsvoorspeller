@@ -43,6 +43,7 @@
   .start-blok { display: flex; flex-direction: column; gap: .1rem; background: var(--vlak); border-radius: .75rem; padding: .7rem .8rem; min-width: 0; color: inherit; text-decoration: none; }
   .start-blok .n { font-size: .85rem; color: var(--zacht); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .start-blok .t { font-size: clamp(1.4rem, 5vw, 1.9rem); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .start-blok .t small { font-size: .8rem; font-weight: 500; color: var(--zacht); }
   .start-blok .w, .start-blok .later { font-size: .78rem; color: var(--zacht); line-height: 1.3; }
   .start-blok .later { color: var(--accent); }
   @media (max-width: 560px) { .start-blokjes { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); } }
@@ -154,9 +155,9 @@
   .apparaat .naam { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; font-weight: 700; }
   .apparaat .naam small { font-weight: 400; font-size: .85rem; color: var(--zacht); }
   .apparaat .naam a { font-weight: 400; font-size: .85rem; color: var(--accent); }
-  .apparaten-form .app-rij { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(5.5rem, 1fr) minmax(5.5rem, 1fr) auto; gap: .5rem; align-items: end; margin: .5rem 0; }
+  .apparaten-form .app-rij { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(5.5rem, 1fr) minmax(5.5rem, 1fr) minmax(7rem, 1fr) auto; gap: .5rem; align-items: end; margin: .5rem 0; }
   .apparaten-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--zacht); }
-  .apparaten-form input { font: inherit; font-size: .95rem; padding: .35rem .5rem; border: 1px solid var(--rand); border-radius: .4rem; background: var(--vlak); color: var(--tekst); min-width: 0; }
+  .apparaten-form input, .apparaten-form select { font: inherit; font-size: .95rem; padding: .35rem .5rem; border: 1px solid var(--rand); border-radius: .4rem; background: var(--vlak); color: var(--tekst); min-width: 0; }
   .apparaten-form .weg { font: inherit; font-size: 1.1rem; line-height: 1; padding: .35rem .6rem; border: 1px solid var(--rand); border-radius: .4rem; background: transparent; color: var(--zacht); cursor: pointer; }
   .apparaten-form .toevoegen { font: inherit; font-size: .9rem; margin-top: .4rem; padding: .4rem .8rem; border: 1px dashed var(--rand); border-radius: .5rem; background: transparent; color: var(--accent); cursor: pointer; }
   @media (max-width: 560px) { .apparaten-form .app-rij { grid-template-columns: 1fr 1fr; } .apparaten-form .app-rij label:first-child { grid-column: 1 / -1; } }
@@ -212,7 +213,7 @@
   <p class="melding" id="melding" hidden></p>
   <section class="start" id="start" hidden aria-labelledby="start-kop">
     <h2 id="start-kop">Start je apparaat om …</h2>
-    <p class="sub" style="margin-bottom:.6rem">Het goedkoopste moment tussen nu en morgenochtend 8 uur, vergeleken met nu starten.</p>
+    <p class="sub" style="margin-bottom:.6rem">Hoeveel uitstel je nu instelt voor het goedkoopste moment tot morgenochtend 8 uur, vergeleken met meteen starten.</p>
     <div class="start-blokjes" id="start-blokjes"></div>
   </section>
   <h1 id="kop">Even laden…</h1>
@@ -420,7 +421,7 @@
     lokaal = !!(s && s.lokaal);
     if (s && s.bezig) { document.getElementById('ververs-knop').disabled = true; paneel('Bezig met verversen…'); volg(); }
   });
-  // bovenaan: per apparaat (hoogstens drie) het beste startmoment tussen nu en morgenochtend, vergeleken met nu
+  // bovenaan: per apparaat (hoogstens drie) het uitstel dat je op het apparaat instelt, van nu tot morgenochtend
   function renderStart(m) {
     const sectie = document.getElementById('start');
     const nu = SP.nuLokaalUur();
@@ -428,13 +429,13 @@
       const s = SP.startAdvies(m, a, nu);
       if (!s) return '';
       const b = s.beste;
-      const eindTekst = b.dagEind !== b.dagStart ? ' (tot ' + SP.dagNaam(b.dagEind, false) + ')' : '';
-      const dagTekst = SP.dagNaam(b.dagStart, false) + eindTekst;
+      const tijd = 'start ' + SP.fmtUur(b.start) + (b.dagStart !== m.dagen[0] ? ' (' + SP.dagNaam(b.dagStart, false) + ')' : '') + ', klaar ' + SP.fmtUur(b.eind);
       let vergelijk = '';
       if (s.nu && !b.isNu) vergelijk = '<span class="later">nu starten: ' + SP.fmtEuro(s.nu.euro) + ', ' + SP.fmtEuro(s.winst) + ' duurder</span>';
-      else if (s.nu && b.isNu) vergelijk = '<span class="w">' + (s.winst > 0.005 ? 'wachten tot morgenochtend scheelt hooguit ' + SP.fmtEuro(s.winst) : 'wachten tot morgenochtend scheelt niets') + '</span>';
-      return '<a class="start-blok" href="#apparaten"><span class="n">' + esc(a.naam) + '</span><span class="t">' + (b.isNu ? 'nu' : SP.fmtUur(b.blok.start)) + '</span>' +
-        '<span class="w">' + (b.isNu ? SP.fmtUur(b.blok.start) + ' · ' : dagTekst + ' · ') + SP.fmtEuro(b.euro) + (b.blok.bekend ? '' : ' (verwacht)') + '</span>' + vergelijk + '</a>';
+      else if (s.nu && b.isNu) vergelijk = '<span class="w">' + (s.winst > 0.005 ? 'uitstel scheelt hooguit ' + SP.fmtEuro(s.winst) : 'uitstel scheelt niets') + '</span>';
+      return '<a class="start-blok" href="#apparaten"><span class="n">' + esc(a.naam) + '</span>' +
+        '<span class="t">' + (b.isNu ? 'nu' : SP.duurTekst(s.uitstel) + ' <small>uitstel</small>') + '</span>' +
+        '<span class="w">' + tijd + ' · ' + SP.fmtEuro(b.euro) + (b.bekend ? '' : ' (verwacht)') + '</span>' + vergelijk + '</a>';
     }).join('');
     document.getElementById('start-blokjes').innerHTML = tegels;
     sectie.hidden = !tegels;
