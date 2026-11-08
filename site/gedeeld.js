@@ -812,30 +812,41 @@
     return (p[0] % 24) + p[1] / 60;
   }
   /*
-   * startAdvies(model, apparaat, nuUur): het goedkoopste blok ter lengte van de duur dat nog kan beginnen vanaf nu,
-   * op de eerste getoonde dag (mag over middernacht heen lopen). Past er vandaag niets meer, dan de volgende dag.
-   * `later`: de volgende dag als die duidelijk goedkoper is (minstens 10% en 5 cent per beurt).
+   * startAdvies(model, apparaat, nuUur): "nu, of later vannacht?" Zoekt in het venster van nu tot morgenochtend
+   * NACHT_EIND uur het goedkoopste blok ter lengte van de duur (een blok mag na het venster doorlopen) en vergelijkt
+   * dat met nu starten. Is wachten minder dan 5 cent of 10% goedkoper, dan is het advies 'nu'.
+   * Is de eerste getoonde dag niet vandaag (verouderde voorspelling), dan geldt die hele dag als venster, zonder 'nu'.
+   * Resultaat: { apparaat, beste: { blok, euro, dagStart, dagEind, isNu }, nu: { blok, euro } | null, winst }
    */
+  const NACHT_EIND = 8;
   function startAdvies(model, app, nuUur) {
     const dagen = model.dagen;
     if (!dagen.length) return null;
     const d0 = dagen[0], d1 = dagen[1];
     const vandaag = d0.datum === vandaagLokaal();
-    const stap = d0.perKwartier ? 0.25 : 1;
-    const n = Math.max(1, Math.round(app.uren / stap));
-    const reeks = vandaag ? d0.reeks.filter(function (u) { return u.uur + u.duur > nuUur + 1e-9; }) : d0.reeks;
-    let vervolg = d1 ? (stap === 1 ? d1.uren : naarKwartieren(d1.reeks)) : [];
-    let dag = d0, blok = reeks.length ? goedkoopsteBlok(reeks, n, vervolg) : null;
-    if (!blok && d1) { dag = d1; blok = (d1.blokken || {})[app.id] || goedkoopsteBlok(d1.reeks, Math.max(1, Math.round(app.uren / (d1.perKwartier ? 0.25 : 1)))); }
-    if (!blok) return null;
-    if (blok.volgendeDag && dagen[dag.index + 1]) blok.eindDagNaam = dagNaam(dagen[dag.index + 1], false);
-    const k = blokKosten(blok, app.kwh);
-    const uit = { apparaat: app, dag: dag, blok: blok, euro: k.euro, later: null };
-    const volgende = dagen[dag.index + 1];
-    const vb = volgende ? (volgende.blokken || {})[app.id] : null;
-    if (vb) {
-      const kv = blokKosten(vb, app.kwh);
-      if (kv.euro < k.euro - Math.max(0.05, 0.10 * Math.abs(k.euro))) uit.later = { dag: volgende, blok: vb, euro: kv.euro, winst: k.euro - kv.euro };
+    const n = Math.max(1, Math.round(app.uren * 4));
+    const q0 = naarKwartieren(d0.reeks);
+    const q1 = d1 ? naarKwartieren(d1.reeks) : [];
+    const vanNu = vandaag ? q0.filter(function (u) { return u.uur + u.duur > nuUur + 1e-9; }) : q0;
+    const nachtStart = q1.filter(function (u) { return u.uur < NACHT_EIND; });
+    const venster = vanNu.concat(nachtStart);
+    const vervolg = q1.filter(function (u) { return u.uur >= NACHT_EIND; });
+    if (!venster.length) return null;
+    const beste = goedkoopsteBlok(venster, n, vervolg);
+    if (!beste) return null;
+    const dagVan = function (u) { return dagen.find(function (d) { return d.datum === u.tijd.slice(0, 10); }) || d0; };
+    const kb = blokKosten(beste, app.kwh);
+    const uit = { apparaat: app, winst: 0, nu: null,
+      beste: { blok: beste, euro: kb.euro, dagStart: dagVan(beste.uren[0]), dagEind: dagVan(beste.uren[beste.uren.length - 1]), isNu: false } };
+    if (vandaag && vanNu.length) {
+      const nuBlok = goedkoopsteBlok(vanNu.slice(0, 1), n, vanNu.slice(1).concat(q1));
+      if (nuBlok) {
+        uit.nu = { blok: nuBlok, euro: blokKosten(nuBlok, app.kwh).euro };
+        uit.winst = uit.nu.euro - kb.euro;
+        if (uit.winst < Math.max(0.05, 0.10 * Math.abs(uit.nu.euro))) {
+          uit.beste = { blok: nuBlok, euro: uit.nu.euro, dagStart: d0, dagEind: dagVan(nuBlok.uren[nuBlok.uren.length - 1]), isNu: true };
+        }
+      }
     }
     return uit;
   }
@@ -1019,7 +1030,7 @@
     goedkoopsteBlok: goedkoopsteBlok, blokZin: blokZin, bandZin: bandZin, plusMinCt: plusMinCt, plusMinEuro: plusMinEuro, betrouwbaarheidsWoord: betrouwbaarheidsWoord,
     samenvatting: samenvatting, maakTabel: maakTabel, stoplichtHtml: stoplichtHtml, tekenGrafiek: tekenGrafiek,
     laadForecast: laadForecast, gegenereerdTekst: gegenereerdTekst, koppelTarief: koppelTarief,
-    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro, startAdvies: startAdvies, nuLokaalUur: nuLokaalUur,
+    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro, startAdvies: startAdvies, nuLokaalUur: nuLokaalUur, NACHT_EIND: NACHT_EIND,
     leesApparaten: leesApparaten, bewaarApparaten: bewaarApparaten, koppelApparaten: koppelApparaten, apparaatZin: apparaatZin, duurTekst: duurTekst,
     BETROUWBAARHEID: BETROUWBAARHEID, betrouwbaarheidTekst: betrouwbaarheidTekst, betrouwbaarheidHtml: betrouwbaarheidHtml,
     blokKosten: blokKosten, blokTijd: blokTijd, laadZin: laadZin, wasZin: wasZin,

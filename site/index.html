@@ -212,6 +212,7 @@
   <p class="melding" id="melding" hidden></p>
   <section class="start" id="start" hidden aria-labelledby="start-kop">
     <h2 id="start-kop">Start je apparaat om …</h2>
+    <p class="sub" style="margin-bottom:.6rem">Het goedkoopste moment tussen nu en morgenochtend 8 uur, vergeleken met nu starten.</p>
     <div class="start-blokjes" id="start-blokjes"></div>
   </section>
   <h1 id="kop">Even laden…</h1>
@@ -419,18 +420,21 @@
     lokaal = !!(s && s.lokaal);
     if (s && s.bezig) { document.getElementById('ververs-knop').disabled = true; paneel('Bezig met verversen…'); volg(); }
   });
-  // bovenaan: per apparaat (hoogstens drie) de beste starttijd vanaf nu
+  // bovenaan: per apparaat (hoogstens drie) het beste startmoment tussen nu en morgenochtend, vergeleken met nu
   function renderStart(m) {
     const sectie = document.getElementById('start');
     const nu = SP.nuLokaalUur();
     const tegels = (m.apparaten || []).slice(0, 3).map(function (a) {
       const s = SP.startAdvies(m, a, nu);
       if (!s) return '';
-      const dagTekst = SP.dagNaam(s.dag, false) + (s.blok.volgendeDag && s.blok.eindDagNaam ? ' (tot ' + s.blok.eindDagNaam + ')' : '');
-      const later = s.later ? '<span class="later">of ' + SP.dagNaam(s.later.dag, false) + ' ' + SP.fmtUur(s.later.blok.start) + ', ' + SP.fmtEuro(s.later.winst) + ' goedkoper</span>' : '';
-      const isNu = s.dag.datum === SP.vandaagLokaal() && s.blok.start <= nu + 1e-9;
-      return '<a class="start-blok" href="#apparaten"><span class="n">' + esc(a.naam) + '</span><span class="t">' + (isNu ? 'nu' : SP.fmtUur(s.blok.start)) + '</span>' +
-        '<span class="w">' + dagTekst + ' · ' + SP.fmtEuro(s.euro) + (s.blok.bekend ? '' : ' (verwacht)') + '</span>' + later + '</a>';
+      const b = s.beste;
+      const eindTekst = b.dagEind !== b.dagStart ? ' (tot ' + SP.dagNaam(b.dagEind, false) + ')' : '';
+      const dagTekst = SP.dagNaam(b.dagStart, false) + eindTekst;
+      let vergelijk = '';
+      if (s.nu && !b.isNu) vergelijk = '<span class="later">nu starten: ' + SP.fmtEuro(s.nu.euro) + ', ' + SP.fmtEuro(s.winst) + ' duurder</span>';
+      else if (s.nu && b.isNu) vergelijk = '<span class="w">' + (s.winst > 0.005 ? 'wachten tot morgenochtend scheelt hooguit ' + SP.fmtEuro(s.winst) : 'wachten tot morgenochtend scheelt niets') + '</span>';
+      return '<a class="start-blok" href="#apparaten"><span class="n">' + esc(a.naam) + '</span><span class="t">' + (b.isNu ? 'nu' : SP.fmtUur(b.blok.start)) + '</span>' +
+        '<span class="w">' + (b.isNu ? SP.fmtUur(b.blok.start) + ' · ' : dagTekst + ' · ') + SP.fmtEuro(b.euro) + (b.blok.bekend ? '' : ' (verwacht)') + '</span>' + vergelijk + '</a>';
     }).join('');
     document.getElementById('start-blokjes').innerHTML = tegels;
     sectie.hidden = !tegels;
