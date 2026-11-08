@@ -37,6 +37,15 @@
   .ververs-paneel button { font: inherit; font-size: .85rem; padding: .25rem .7rem; border-radius: .4rem; border: 1px solid var(--rand); background: var(--achtergrond); color: var(--tekst); cursor: pointer; margin-left: .4rem; }
   .melding { font-size: .9rem; border-left: 3px solid var(--accent); padding: .4rem .75rem; margin: 0 0 .75rem; color: var(--zacht); }
   h1 { font-size: clamp(1.4rem, 4.5vw, 1.9rem); margin: .25rem 0 .25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .start { margin: 0 0 1.25rem; }
+  .start h2 { margin: 0 0 .5rem; font-size: clamp(1.25rem, 4vw, 1.6rem); font-weight: 700; letter-spacing: -0.01em; }
+  .start-blokjes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+  .start-blok { display: flex; flex-direction: column; gap: .1rem; background: var(--vlak); border-radius: .75rem; padding: .7rem .8rem; min-width: 0; color: inherit; text-decoration: none; }
+  .start-blok .n { font-size: .85rem; color: var(--zacht); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .start-blok .t { font-size: clamp(1.4rem, 5vw, 1.9rem); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .start-blok .w, .start-blok .later { font-size: .78rem; color: var(--zacht); line-height: 1.3; }
+  .start-blok .later { color: var(--accent); }
+  @media (max-width: 560px) { .start-blokjes { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); } }
   .sub { color: var(--zacht); margin: 0 0 1rem; }
   h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; font-weight: 600; }
   canvas { display: block; width: 100%; }
@@ -201,6 +210,10 @@
   </header>
   <div class="ververs-paneel" id="ververs-paneel" hidden></div>
   <p class="melding" id="melding" hidden></p>
+  <section class="start" id="start" hidden aria-labelledby="start-kop">
+    <h2 id="start-kop">Start je apparaat om …</h2>
+    <div class="start-blokjes" id="start-blokjes"></div>
+  </section>
   <h1 id="kop">Even laden…</h1>
   <p class="sub" id="sub"></p>
 
@@ -321,6 +334,7 @@
     document.getElementById('kop').textContent = SP.dagNaam(morgen, true) + (morgen.bekend ? '' : ' (verwachting)') + ': goedkoopst tussen ' + SP.fmtUur(bl.start) + ' en ' + SP.fmtUur(bl.eind) + ' uur' + (bl.volgendeDag ? ' (tot ' + bl.eindDagNaam + ')' : '');
     document.getElementById('sub').textContent = 'Dan ' + SP.fmt(bl.p50) + ' ct/kWh, ' + SP.fmt(bl.marge) + ' ct onder het daggemiddelde. Prijs in ' + m.eenheidLabel + '.';
 
+    renderStart(m);
     renderApparaten(m);
     if (!grafiek) grafiek = SP.tekenGrafiek(document.getElementById('grafiek'), m, { hoogte: 200, compact: true });
     else grafiek.update(m);
@@ -405,6 +419,23 @@
     lokaal = !!(s && s.lokaal);
     if (s && s.bezig) { document.getElementById('ververs-knop').disabled = true; paneel('Bezig met verversen…'); volg(); }
   });
+  // bovenaan: per apparaat (hoogstens drie) de beste starttijd vanaf nu
+  function renderStart(m) {
+    const sectie = document.getElementById('start');
+    const nu = SP.nuLokaalUur();
+    const tegels = (m.apparaten || []).slice(0, 3).map(function (a) {
+      const s = SP.startAdvies(m, a, nu);
+      if (!s) return '';
+      const dagTekst = SP.dagNaam(s.dag, false) + (s.blok.volgendeDag && s.blok.eindDagNaam ? ' (tot ' + s.blok.eindDagNaam + ')' : '');
+      const later = s.later ? '<span class="later">of ' + SP.dagNaam(s.later.dag, false) + ' ' + SP.fmtUur(s.later.blok.start) + ', ' + SP.fmtEuro(s.later.winst) + ' goedkoper</span>' : '';
+      const isNu = s.dag.datum === SP.vandaagLokaal() && s.blok.start <= nu + 1e-9;
+      return '<a class="start-blok" href="#apparaten"><span class="n">' + esc(a.naam) + '</span><span class="t">' + (isNu ? 'nu' : SP.fmtUur(s.blok.start)) + '</span>' +
+        '<span class="w">' + dagTekst + ' · ' + SP.fmtEuro(s.euro) + (s.blok.bekend ? '' : ' (verwacht)') + '</span>' + later + '</a>';
+    }).join('');
+    document.getElementById('start-blokjes').innerHTML = tegels;
+    sectie.hidden = !tegels;
+  }
+
   function renderApparaten(m) {
     const el = document.getElementById('apparaten');
     el.innerHTML = SP.apparatenLijst(m).map(function (a) {
@@ -478,6 +509,7 @@
     resolutie = SP.koppelResolutie(document.getElementById('resolutie'), function (r) { resolutie = r; render(); });
     render();
     planDagwissel();
+    setInterval(function () { if (forecast) render(); }, 15 * 60 * 1000);
   }).catch(function (e) {
     document.getElementById('kop').textContent = 'De voorspelling kon niet geladen worden.';
     document.getElementById('sub').textContent = e.message;

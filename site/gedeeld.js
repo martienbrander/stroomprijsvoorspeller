@@ -806,6 +806,40 @@
     return { teken: teken, update: function (m) { zetModel(m); teken(); } };
   }
 
+  // ---------- startadvies: "start je apparaat om ..." (besluit 58) ----------
+  function nuLokaalUur() {
+    const p = new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', hour12: false }).split(':').map(Number);
+    return (p[0] % 24) + p[1] / 60;
+  }
+  /*
+   * startAdvies(model, apparaat, nuUur): het goedkoopste blok ter lengte van de duur dat nog kan beginnen vanaf nu,
+   * op de eerste getoonde dag (mag over middernacht heen lopen). Past er vandaag niets meer, dan de volgende dag.
+   * `later`: de volgende dag als die duidelijk goedkoper is (minstens 10% en 5 cent per beurt).
+   */
+  function startAdvies(model, app, nuUur) {
+    const dagen = model.dagen;
+    if (!dagen.length) return null;
+    const d0 = dagen[0], d1 = dagen[1];
+    const vandaag = d0.datum === vandaagLokaal();
+    const stap = d0.perKwartier ? 0.25 : 1;
+    const n = Math.max(1, Math.round(app.uren / stap));
+    const reeks = vandaag ? d0.reeks.filter(function (u) { return u.uur + u.duur > nuUur + 1e-9; }) : d0.reeks;
+    let vervolg = d1 ? (stap === 1 ? d1.uren : naarKwartieren(d1.reeks)) : [];
+    let dag = d0, blok = reeks.length ? goedkoopsteBlok(reeks, n, vervolg) : null;
+    if (!blok && d1) { dag = d1; blok = (d1.blokken || {})[app.id] || goedkoopsteBlok(d1.reeks, Math.max(1, Math.round(app.uren / (d1.perKwartier ? 0.25 : 1)))); }
+    if (!blok) return null;
+    if (blok.volgendeDag && dagen[dag.index + 1]) blok.eindDagNaam = dagNaam(dagen[dag.index + 1], false);
+    const k = blokKosten(blok, app.kwh);
+    const uit = { apparaat: app, dag: dag, blok: blok, euro: k.euro, later: null };
+    const volgende = dagen[dag.index + 1];
+    const vb = volgende ? (volgende.blokken || {})[app.id] : null;
+    if (vb) {
+      const kv = blokKosten(vb, app.kwh);
+      if (kv.euro < k.euro - Math.max(0.05, 0.10 * Math.abs(k.euro))) uit.later = { dag: volgende, blok: vb, euro: kv.euro, winst: k.euro - kv.euro };
+    }
+    return uit;
+  }
+
   // ---------- kosten per handeling: "wat kost het als ik het nu doe?" ----------
   // auto: blok en kWh uit de laadinstellingen (model.laad); was: vast blok en vast verbruik
   const APPARATEN = [
@@ -985,7 +1019,7 @@
     goedkoopsteBlok: goedkoopsteBlok, blokZin: blokZin, bandZin: bandZin, plusMinCt: plusMinCt, plusMinEuro: plusMinEuro, betrouwbaarheidsWoord: betrouwbaarheidsWoord,
     samenvatting: samenvatting, maakTabel: maakTabel, stoplichtHtml: stoplichtHtml, tekenGrafiek: tekenGrafiek,
     laadForecast: laadForecast, gegenereerdTekst: gegenereerdTekst, koppelTarief: koppelTarief,
-    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro,
+    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro, startAdvies: startAdvies, nuLokaalUur: nuLokaalUur,
     leesApparaten: leesApparaten, bewaarApparaten: bewaarApparaten, koppelApparaten: koppelApparaten, apparaatZin: apparaatZin, duurTekst: duurTekst,
     BETROUWBAARHEID: BETROUWBAARHEID, betrouwbaarheidTekst: betrouwbaarheidTekst, betrouwbaarheidHtml: betrouwbaarheidHtml,
     blokKosten: blokKosten, blokTijd: blokTijd, laadZin: laadZin, wasZin: wasZin,
