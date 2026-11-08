@@ -50,6 +50,8 @@
   const OPSLAG_SLEUTEL = 'stroomprijs-tarief-v2';
   const RESOLUTIE_SLEUTEL = 'stroomprijs-resolutie-v2'; // 'uur' of 'kwartier'; standaard kwartier (v2: nieuwe standaard, oude keuze vervalt)
   const LADEN_SLEUTEL = 'stroomprijs-laden-v1';
+  const APPARATEN_SLEUTEL = 'stroomprijs-apparaten-v1'; // eigen apparaten: [{ id, naam, uren, kwh }]
+  const APPARATEN_STANDAARD = [{ id: 'was', naam: 'Wasmachine', uren: 2, kwh: 1 }];
   // laden: zonder instellingen een vast blok van 3 uur en 30 kWh; met instellingen = kWh / kW, hele uren
   const LAAD_STANDAARD_UREN = 3;
   const LAAD_STANDAARD_KWH = 30;
@@ -139,10 +141,11 @@
   }
 
   // ---------- verwerken ----------
-  function verwerk(forecast, tarief, laadInst, resolutie) {
+  function verwerk(forecast, tarief, laadInst, resolutie, apparaten) {
     tarief = netTarief(tarief);
     const factor = tariefFactor(tarief);
     const laad = { inst: laadInst || null, uren: laadBlokUren(laadInst), kwh: laadKwh(laadInst) };
+    apparaten = apparaten && apparaten.length ? apparaten : APPARATEN_STANDAARD;
     const perKwartier = resolutie === 'kwartier';
     const perDag = new Map();
     function dagVan(t) {
@@ -208,7 +211,10 @@
       if (d.laden) d.laden.onzekereDag = d.betrouwbaarheid.code === 'laag';
       if (d.laden && d.laden.volgendeDag) d.laden.eindDagNaam = dagNaam(dagen[i + 1], false);
       if (d.laden && d.laden.duurste && d.laden.duurste.volgendeDag) d.laden.duurste.eindDagNaam = dagNaam(dagen[i + 1], false);
-      d.wassen = goedkoopsteBlok(d.reeks, Math.round(WAS_BLOK_UREN / stap));
+      // eigen apparaten: een blok ter lengte van de duur, binnen de dag (per kwartier als die dag kwartierprijzen heeft)
+      d.blokken = {};
+      apparaten.forEach(function (a) { d.blokken[a.id] = goedkoopsteBlok(d.reeks, Math.max(1, Math.round(a.uren / stap))); });
+      d.wassen = d.blokken[apparaten[0].id] || goedkoopsteBlok(d.reeks, Math.round(WAS_BLOK_UREN / stap));
     });
     // stoplicht: tertielen van alle dagdeel-P50's over de hele horizon
     const alle = [];
@@ -224,7 +230,7 @@
     });
     const scores = forecast.scores || {};
     return {
-      dagen: dagen, grenzen: { goedkoop: g1, duur: g2 }, classificeer: classificeer, laad: laad, resolutie: perKwartier ? 'kwartier' : 'uur',
+      dagen: dagen, grenzen: { goedkoop: g1, duur: g2 }, classificeer: classificeer, laad: laad, apparaten: apparaten, resolutie: perKwartier ? 'kwartier' : 'uur',
       gegenereerd: forecast.gegenereerd_utc, tarief: tarief, stand: TARIEF_STANDEN[tarief.stand],
       scores: scoresVan(scores, factor),
       eenheidLabel: tariefLabel(tarief),
@@ -354,10 +360,11 @@
     if (blok.onzekereDag) s += ' Nog onzeker, kijk een dag later opnieuw.';
     return s;
   }
-  function wasZin(blok) {
+  function wasZin(blok) { return apparaatZin(blok, WAS_KWH); }
+  function apparaatZin(blok, kwh) {
     if (!blok) return '';
-    const k = blokKosten(blok, WAS_KWH);
-    let s = fmt(blok.p50) + ' ct/kWh, ' + fmtEuro(k.euro) + ' per was';
+    const k = blokKosten(blok, kwh);
+    let s = fmt(blok.p50) + ' ct/kWh, ' + fmtEuro(k.euro) + ' per beurt';
     if (k.vsDuurste > 0.005) s += ', ' + fmtEuro(k.vsDuurste) + ' minder dan op het duurste moment';
     if (!blok.bekend) s += ' (plus of min ' + fmtEuro(k.onzeker) + ')';
     return s + '.';
@@ -380,6 +387,71 @@
     const r = leesResolutie();
     toon(r);
     return r;
+  }
+
+  // ---------- eigen apparaten: naam, duur in uren, verbruik in kWh (blijft in de browser) ----------
+  function leesApparaten() {
+    try {
+      const raw = localStorage.getItem(APPARATEN_SLEUTEL);
+      if (!raw) return APPARATEN_STANDAARD.map(function (a) { return Object.assign({}, a); });
+      const lijst = JSON.parse(raw).filter(function (a) { return a && a.uren > 0; })
+        .map(function (a, i) { return { id: String(a.id || 'app' + i), naam: String(a.naam || 'Apparaat'), uren: Math.min(24, Number(a.uren)), kwh: a.kwh > 0 ? Number(a.kwh) : 1 }; });
+      return lijst;
+    } catch (e) { return APPARATEN_STANDAARD.map(function (a) { return Object.assign({}, a); }); }
+  }
+  function bewaarApparaten(lijst) {
+    try { localStorage.setItem(APPARATEN_SLEUTEL, JSON.stringify(lijst)); return true; } catch (e) { return false; }
+  }
+  function duurTekst(uren) {
+    const h = Math.floor(uren + 1e-9), m = Math.round((uren - h) * 60);
+    if (m === 0) return h + ' uur';
+    if (h === 0) return m + ' min';
+    return h + ' uur ' + (m < 10 ? '0' : '') + m;
+  }
+  /*
+   * koppelApparaten(container, bijRefresh): tekent een bewerkbare lijst (naam, duur, kWh, verwijderen) plus een knop
+   * "Apparaat toevoegen". Elke wijziging wordt bewaard en geeft de nieuwe lijst door. Geeft de huidige lijst terug.
+   */
+  function koppelApparaten(container, bijRefresh) {
+    let lijst = leesApparaten();
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function teken() {
+      container.innerHTML = lijst.map(function (a, i) {
+        return '<div class="app-rij" data-i="' + i + '">' +
+          '<label>Apparaat<input type="text" name="naam" value="' + esc(a.naam) + '" maxlength="30" placeholder="bijv. vaatwasser"></label>' +
+          '<label>Duur (uren)<input type="number" name="uren" value="' + a.uren + '" step="0.25" min="0.25" max="24" inputmode="decimal"></label>' +
+          '<label>Verbruik (kWh)<input type="number" name="kwh" value="' + a.kwh + '" step="0.1" min="0.1" inputmode="decimal"></label>' +
+          '<button type="button" class="weg" aria-label="' + esc(a.naam) + ' verwijderen" title="Verwijderen">×</button>' +
+          '</div>';
+      }).join('') + '<button type="button" class="toevoegen">+ Apparaat toevoegen</button>';
+    }
+    function getal(el, min) { const v = parseFloat(String(el.value).replace(',', '.')); return v >= min ? v : null; }
+    function lees() {
+      const rijen = Array.from(container.querySelectorAll('.app-rij'));
+      lijst = rijen.map(function (r, i) {
+        const oud = lijst[i] || {};
+        const uren = getal(r.querySelector('[name=uren]'), 0.25);
+        const kwh = getal(r.querySelector('[name=kwh]'), 0.1);
+        return { id: oud.id || 'app' + Date.now() + i, naam: r.querySelector('[name=naam]').value.trim() || 'Apparaat',
+                 uren: uren !== null ? Math.min(24, Math.round(uren * 4) / 4) : (oud.uren || 1), kwh: kwh !== null ? kwh : (oud.kwh || 1) };
+      });
+      bewaarApparaten(lijst);
+      bijRefresh(lijst);
+    }
+    container.addEventListener('change', function (e) { if (e.target.matches('input')) { lees(); teken(); } });
+    container.addEventListener('click', function (e) {
+      if (e.target.matches('.weg')) {
+        lijst.splice(parseInt(e.target.closest('.app-rij').dataset.i, 10), 1);
+        bewaarApparaten(lijst); teken(); bijRefresh(lijst);
+      } else if (e.target.matches('.toevoegen')) {
+        lijst.push({ id: 'app' + Date.now(), naam: '', uren: 1, kwh: 1 });
+        teken();
+        const nieuw = container.querySelector('.app-rij:last-of-type [name=naam]');
+        if (nieuw) nieuw.focus();
+      }
+    });
+    teken();
+    return lijst;
   }
 
   // ---------- laadinstellingen (vermogen en hoeveelheid) ----------
@@ -736,6 +808,12 @@
     { id: 'auto', naam: 'Standaardlaadbeurt', streng: true, blok: 'laden' },
     { id: 'was', naam: 'Wasbeurt', streng: false, blok: 'wassen' },
   ];
+  // de auto plus de eigen apparaten uit het model
+  function apparatenLijst(model) {
+    return [APPARATEN[0]].concat((model.apparaten || []).map(function (a) {
+      return { id: a.id, naam: a.naam, streng: false, blok: 'apparaat', uren: a.uren, kwh: a.kwh };
+    }));
+  }
   function fmtEuro(x) {
     if (x === null || x === undefined || Number.isNaN(x)) return '–';
     const a = Math.abs(x);
@@ -752,8 +830,8 @@
    */
   function kostenAdvies(model, app, drempelEuro) {
     const drempel = typeof drempelEuro === 'number' ? drempelEuro : 0.5;
-    const kwh = app.blok === 'laden' ? model.laad.kwh : WAS_KWH;
-    const blokVan = function (d) { return d[app.blok]; };
+    const kwh = app.blok === 'laden' ? model.laad.kwh : app.blok === 'apparaat' ? app.kwh : WAS_KWH;
+    const blokVan = function (d) { return app.blok === 'apparaat' ? (d.blokken || {})[app.id] : d[app.blok]; };
     const euro = function (ct) { return (ct * kwh) / 100; };
     const morgen = model.dagen[1] || model.dagen[0];
     const mb = blokVan(morgen);
@@ -903,7 +981,8 @@
     goedkoopsteBlok: goedkoopsteBlok, blokZin: blokZin, bandZin: bandZin, betrouwbaarheidsWoord: betrouwbaarheidsWoord,
     samenvatting: samenvatting, maakTabel: maakTabel, stoplichtHtml: stoplichtHtml, tekenGrafiek: tekenGrafiek,
     laadForecast: laadForecast, gegenereerdTekst: gegenereerdTekst, koppelTarief: koppelTarief,
-    APPARATEN: APPARATEN, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro,
+    APPARATEN: APPARATEN, apparatenLijst: apparatenLijst, kostenAdvies: kostenAdvies, fmtEuro: fmtEuro,
+    leesApparaten: leesApparaten, bewaarApparaten: bewaarApparaten, koppelApparaten: koppelApparaten, apparaatZin: apparaatZin, duurTekst: duurTekst,
     BETROUWBAARHEID: BETROUWBAARHEID, betrouwbaarheidTekst: betrouwbaarheidTekst, betrouwbaarheidHtml: betrouwbaarheidHtml,
     blokKosten: blokKosten, blokTijd: blokTijd, laadZin: laadZin, wasZin: wasZin,
     leesLaadinstellingen: leesLaadinstellingen, bewaarLaadinstellingen: bewaarLaadinstellingen, laadBlokUren: laadBlokUren,

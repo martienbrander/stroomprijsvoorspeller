@@ -145,6 +145,12 @@
   .apparaat .naam { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; font-weight: 700; }
   .apparaat .naam small { font-weight: 400; font-size: .85rem; color: var(--zacht); }
   .apparaat .naam a { font-weight: 400; font-size: .85rem; color: var(--accent); }
+  .apparaten-form .app-rij { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(5.5rem, 1fr) minmax(5.5rem, 1fr) auto; gap: .5rem; align-items: end; margin: .5rem 0; }
+  .apparaten-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--zacht); }
+  .apparaten-form input { font: inherit; font-size: .95rem; padding: .35rem .5rem; border: 1px solid var(--rand); border-radius: .4rem; background: var(--vlak); color: var(--tekst); min-width: 0; }
+  .apparaten-form .weg { font: inherit; font-size: 1.1rem; line-height: 1; padding: .35rem .6rem; border: 1px solid var(--rand); border-radius: .4rem; background: transparent; color: var(--zacht); cursor: pointer; }
+  .apparaten-form .toevoegen { font: inherit; font-size: .9rem; margin-top: .4rem; padding: .4rem .8rem; border: 1px dashed var(--rand); border-radius: .5rem; background: transparent; color: var(--accent); cursor: pointer; }
+  @media (max-width: 560px) { .apparaten-form .app-rij { grid-template-columns: 1fr 1fr; } .apparaten-form .app-rij label:first-child { grid-column: 1 / -1; } }
   .bedragen { grid-column: 2; display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .35rem; }
   .bedrag { background: var(--vlak); border-radius: .5rem; padding: .5rem .6rem; min-width: 0; }
   .bedrag .l { display: block; font-size: .72rem; color: var(--zacht); line-height: 1.25; }
@@ -267,6 +273,12 @@
   </div>
 
   <div class="kader">
+    <h2 style="margin-top:0" id="apparaten-instellingen">Mijn apparaten</h2>
+    <p style="color:var(--zacht)">Hoe lang doet een apparaat erover en hoeveel stroom gebruikt het per beurt? Dan zoeken we per dag het goedkoopste moment om het aan te zetten. Dit blijft in uw eigen browser.</p>
+    <div class="apparaten-form" id="apparaten-form"></div>
+  </div>
+
+  <div class="kader">
     <h2 style="margin-top:0" id="instellingen">Mijn auto</h2>
     <p style="color:var(--zacht)">Standaard een laadblok van 3 uur en 30 kWh. Vul uw laadvermogen en hoeveelheid in voor uw eigen laadbeurt. Dit blijft in uw eigen browser.</p>
     <form class="tarief" id="tarief">
@@ -293,10 +305,10 @@
   const ICOON_LADEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M19 10h2v4h-2M7 12h6M10 9l-2 3h4l-2 3"/></svg>';
   const ICOON_WASSEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M8 6h2M14 6h2M8.5 14c1.2-1 2.4-1 3.5 0s2.3 1 3.5 0"/></svg>';
   const PIJL = '<svg class="pijl" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-  let forecast = null, grafiek = null, open = {}, model = null, tarief = null, laad = null, resolutie = 'kwartier';
+  let forecast = null, grafiek = null, open = {}, model = null, tarief = null, laad = null, apparaten = null, resolutie = 'kwartier';
 
   function render() {
-    const m = model = SP.verwerk(forecast, tarief, laad, resolutie);
+    const m = model = SP.verwerk(forecast, tarief, laad, resolutie, apparaten);
     document.getElementById('bijgewerkt').textContent = 'Bijgewerkt ' + SP.gegenereerdTekst(m.gegenereerd) + runLabel(forecast);
     toonMelding(forecast);
     const morgen = m.dagen[1] || m.dagen[0];
@@ -395,12 +407,13 @@
   });
   function renderApparaten(m) {
     const el = document.getElementById('apparaten');
-    el.innerHTML = SP.APPARATEN.map(function (a) {
+    el.innerHTML = SP.apparatenLijst(m).map(function (a) {
       const r = SP.kostenAdvies(m, a, 0.5);
+      if (!r.zeker.blok) return '';
       const icoon = a.id === 'auto' ? ICOON_LADEN : ICOON_WASSEN;
       const inst = a.id === 'auto'
         ? '<small>' + SP.fmt(m.laad.kwh, m.laad.kwh % 1 ? 1 : 0) + ' kWh' + (m.laad.inst && m.laad.inst.kw ? ' bij ' + SP.fmt(m.laad.inst.kw, m.laad.inst.kw % 1 ? 1 : 0) + ' kW' : '') + ', blok van ' + r.uren + ' uur</small> <a href="#instellingen">aanpassen</a>'
-        : '<small>' + SP.WAS_KWH + ' kWh, blok van ' + r.uren + ' uur</small>';
+        : '<small>' + SP.fmt(a.kwh, a.kwh % 1 ? 1 : 0) + ' kWh, duurt ' + SP.duurTekst(a.uren) + '</small> <a href="#apparaten-instellingen">aanpassen</a>';
       const beste = r.beste ? '<div class="bedrag"><span class="l">Later deze week</span><span class="e">' + SP.fmtEuro(r.beste.euro) + '</span><span class="w">' + SP.dagNaam(r.beste.dag, false) + ' ' + SP.blokTijd(r.beste.blok) + ', tussen ' + SP.fmtEuro(r.beste.euroLaag) + ' en ' + SP.fmtEuro(r.beste.euroHoog) + '</span></div>' : '';
       return '<div class="apparaat">' + icoon +
         '<div class="naam">' + a.naam + ' ' + inst + '</div>' +
@@ -429,7 +442,7 @@
           return '<div class="cel blok ' + s.klasse + '" title="' + b.label + ' ' + b.van + '–' + b.tot + ' u: ' + SP.bandZin(b.p10, b.p50, b.p90, false) + '"><span class="lbl">' + b.label + '</span><span><span class="sl-icoon" aria-hidden="true">' + s.icoon + '</span>' + s.label + '</span></div>';
         }).join('') + '</div>';
     }
-    const bl = d.laden, bw = d.wassen;
+    const bl = d.laden;
     const mark = bl ? '<div class="markering" style="left:' + (bl.start / 24 * 100).toFixed(2) + '%;width:' + (Math.min(bl.n, 24 - bl.start) / 24 * 100).toFixed(2) + '%" title="Goedkoopste ' + bl.n + ' uur om te laden">' + ICOON_LADEN + '</div>' : '';
     const detail = d.perUur ? '' : ddLijst(d); // uurprijzen niet meer in het uitklapdeel (wens opdrachtgever); ze staan in de tabel
     return '<li class="rij">' +
@@ -440,7 +453,10 @@
       '<div class="detail" id="detail-' + d.index + '"' + (isOpen ? '' : ' hidden') + '>' +
       '<p class="btr-regel">' + SP.betrouwbaarheidHtml(d, false) + (d.perUur ? '' : ' <span>Per dagdeel: een goedkoop dagdeel blijft meestal goedkoop, het uur kan schuiven.</span>') + '</p>' +
       '<div class="beste"><div>' + ICOON_LADEN + '<div><b>Laden ' + SP.blokTijd(bl) + '</b> <span>' + SP.laadZin(bl, model.laad.kwh) + '</span></div></div>' +
-      (bw ? '<div>' + ICOON_WASSEN + '<div><b>Wassen ' + SP.blokTijd(bw) + '</b> <span>' + SP.wasZin(bw) + '</span></div></div>' : '') + '</div>' +
+      (model.apparaten || []).map(function (a) {
+        const b = (d.blokken || {})[a.id];
+        return b ? '<div>' + ICOON_WASSEN + '<div><b>' + a.naam + ' ' + SP.blokTijd(b) + '</b> <span>' + SP.apparaatZin(b, a.kwh) + '</span></div></div>' : '';
+      }).join('') + '</div>' +
       detail + '</div></li>';
   }
   function ddLijst(d) {
@@ -458,6 +474,7 @@
     tarief = SP.koppelTarief({ standen: document.getElementById('standen'), inkoop: prijsForm.querySelector('[name=inkoop]'), uitleg: document.querySelector('.tarief-uitleg'), form: prijsForm,
       leveranciers: prijsForm.querySelector('[name=leverancier]'), leverancierInfo: prijsForm.querySelector('.leverancier-info'), leveranciersNoot: prijsForm.querySelector('.leveranciers-noot'), lijst: lijst }, function (t) { tarief = t; render(); });
     laad = SP.koppelLaadinstellingen(form, function (l) { laad = l; render(); });
+    apparaten = SP.koppelApparaten(document.getElementById('apparaten-form'), function (l) { apparaten = l; render(); });
     resolutie = SP.koppelResolutie(document.getElementById('resolutie'), function (r) { resolutie = r; render(); });
     render();
     planDagwissel();
