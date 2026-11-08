@@ -91,14 +91,47 @@ class Handler(SimpleHTTPRequestHandler):
         log.debug(fmt, *args)
 
 
-def serve(cfg: Config, poort: int = 8766, open_browser: bool = False) -> None:
+def netwerk_adressen() -> list[str]:
+    """IPv4-adressen van deze pc op het lokale netwerk (voor de telefoon op dezelfde wifi)."""
+    import socket
+
+    adressen = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if not ip.startswith("127."):
+                adressen.add(ip)
+    except OSError:
+        pass
+    # het adres waarmee naar buiten gepraat wordt is meestal het juiste wifi-adres; zet dat vooraan
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("192.0.2.1", 80))  # geen verkeer, alleen routekeuze
+        voorkeur = s.getsockname()[0]
+        s.close()
+        adressen.discard(voorkeur)
+        return [voorkeur, *sorted(adressen)]
+    except OSError:
+        return sorted(adressen)
+
+
+def serve(cfg: Config, poort: int = 8766, open_browser: bool = False, netwerk: bool = False) -> None:
+    """Serveert de site. Standaard alleen voor deze pc; met `netwerk=True` ook voor apparaten op hetzelfde (wifi)netwerk,
+    bijvoorbeeld een telefoon (besluit 57). Windows Firewall vraagt dan eenmalig om toestemming voor Python."""
     site = cfg.root / "site"
     handler = partial(Handler, directory=str(site))
     Handler.cfg = cfg
-    server = ThreadingHTTPServer(("127.0.0.1", poort), handler)
+    server = ThreadingHTTPServer(("0.0.0.0" if netwerk else "127.0.0.1", poort), handler)
     url = f"http://localhost:{poort}/"
     log.info("site op %s (map %s); stoppen met Ctrl+C", url, site)
-    print(f"Site: {url}  (Ctrl+C om te stoppen)")
+    print(f"Site: {url}  (Ctrl+C om te stoppen)", flush=True)
+    if netwerk:
+        adressen = netwerk_adressen()
+        if adressen:
+            print("Op je telefoon of een andere pc op hetzelfde wifinetwerk: " + "  of  ".join(f"http://{a}:{poort}/" for a in adressen))
+        else:
+            print("Ook bereikbaar op het lokale netwerk; het adres van deze pc staat bij `ipconfig` (IPv4-adres).")
+        print("Vraagt Windows Firewall om toestemming? Kies dan 'toestaan' voor privenetwerken.", flush=True)
     if open_browser:
         webbrowser.open(url)
     try:

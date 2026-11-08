@@ -93,7 +93,9 @@ Twee bestanden in de projectmap (geen taakplanner, besluit 49):
 - `ververs.bat`: maakt een nieuwe voorspelling. Haalt prijzen en weer op, haalt gemiste dagen in, traint het model
   opnieuw als het ouder is dan een week, voorspelt 7 dagen vooruit en schrijft `site/data/forecast.json`.
 - `site.bat`: opent de site in de browser via een lokaal servertje. De knop **Ververs** rechtsboven doet hetzelfde
-  als `ververs.bat` en laadt de pagina daarna opnieuw.
+  als `ververs.bat` en laadt de pagina daarna opnieuw. Het servervenster toont ook een adres als
+  `http://192.168.x.x:8766/` voor je telefoon op hetzelfde wifinetwerk (`epv serve --netwerk`; zonder die optie is de
+  site alleen op de pc zelf te zien). Windows Firewall vraagt de eerste keer om toestemming voor Python.
 
 De prijzen voor de volgende dag komen tussen 13:00 en 14:00 binnen; eerder verversen geeft één dag minder vooruit. De pagina noemt dagen altijd bij weekdag en datum en laat een voorbije dag na middernacht vanzelf vallen, ook als ze open blijft staan. Elke run komt in
 `data/runs/` terecht (hoofdrun, verversing of inhaalrun). Een paar dagen niet draaien is geen probleem: de volgende

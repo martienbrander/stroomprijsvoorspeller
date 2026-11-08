@@ -166,7 +166,7 @@ def cmd_serve(args) -> int:
     from stroomprijsvoorspeller.pipeline import serve
 
     cfg = load_config(args.config)
-    serve.serve(cfg, poort=args.poort, open_browser=args.open)
+    serve.serve(cfg, poort=args.poort, open_browser=args.open, netwerk=args.netwerk)
     return 0
 
 
@@ -259,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     sv = sub.add_parser("serve", help="lokale server voor de site, met ververs-knop")
     sv.add_argument("--poort", type=int, default=8766)
     sv.add_argument("--open", action="store_true", help="open de site in de browser")
+    sv.add_argument("--netwerk", action="store_true", help="ook bereikbaar voor telefoon of andere pc op hetzelfde wifinetwerk")
     sv.set_defaults(func=cmd_serve)
 
     he = sub.add_parser("historie-export", help="compacte backtest-historie voor online gebruik -> data/processed/voorspellingen_historie.parquet")
