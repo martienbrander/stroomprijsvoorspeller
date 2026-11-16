@@ -8,8 +8,9 @@ De dag van de voorspelling en de dag erna staan vast (die prijzen komen van de b
 de weersverwachting (wind op zee en land, zon, temperatuur) en de prijzen van de afgelopen dagen. Bij elke verwachting
 hoort een onder- en bovengrens; hoe verder vooruit, hoe breder die band en hoe minder detail de site laat zien.
 
-Status: fase 1 tot en met 5 klaar (data, modellen, backtest, dagelijkse run met site, publicatie). De site draait
-lokaal; online zetten kan met de meegeleverde workflows. Zie [PLAN.md](PLAN.md) voor de fasen en
+Status: testversie 0.1.0. Fase 1 tot en met 5 zijn klaar (data, modellen, backtest, dagelijkse run met site,
+publicatie); de site staat online ter beproeving, de voorspellingen worden nog gecontroleerd en de opmaak kan
+veranderen. Zie [PLAN.md](PLAN.md) voor de fasen en
 [DECISIONS.md](DECISIONS.md) voor alle keuzes en aannames.
 
 ## Hoe goed is het?
