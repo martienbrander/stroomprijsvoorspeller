@@ -82,7 +82,8 @@
   const LAAD_DREMPEL_EURO = 0.5;     // onder dit verschil: "doe het wanneer het uitkomt"
 
   // startadvies (besluit 58)
-  const NACHT_EIND = 8;              // het venster loopt tot morgenochtend 8 uur
+  const NACHT_EIND = 8;              // het venster loopt tot morgenochtend 8 uur ...
+  const MAX_UITSTEL_UREN = 24;       // ... maar nooit verder dan een etmaal vooruit (besluit 65)
   const START_MIN_WINST_EURO = 0.05; // uitstel moet minstens 5 cent ...
   const START_MIN_WINST_DEEL = 0.10; // ... en 10% schelen, anders is het advies 'nu'
   const ANDERE_DAG_MIN_EURO = 0.10;  // een andere dag noemen we pas bij 10 cent ...
@@ -1229,7 +1230,8 @@
   /*
    * startAdvies(model, apparaat, nuUur) -> { uitstel, beste, nu, winst, andereDag } of null
    *
-   * Kandidaten zijn de starttijden nu + k x stap (de uitstelstap van het apparaat) tot morgenochtend 8 uur. De
+   * Kandidaten zijn de starttijden nu + k x stap (de uitstelstap van het apparaat) tot morgenochtend 8 uur, en
+   * nooit meer dan 24 uur vooruit: na middernacht zou het venster anders tot 8 uur de dag erna lopen. De
    * goedkoopste wint; scheelt dat met meteen starten minder dan 5 cent of 10%, dan is het advies 'nu'.
    * Is de eerste getoonde dag niet vandaag (een verouderde voorspelling), dan geldt die dag als venster vanaf 0:00.
    *
@@ -1251,7 +1253,9 @@
 
     const stap = apparaat.stap || 1;
     const eersteStart = vandaag.datum === vandaagLokaal() ? nuUur : 0;
-    const laatsteStart = morgen ? 24 + NACHT_EIND : 24 - apparaat.uren;
+    const laatsteStart = morgen
+      ? Math.min(24 + NACHT_EIND, eersteStart + MAX_UITSTEL_UREN)
+      : 24 - apparaat.uren;
     let beste = null, meteen = null;
     for (let k = 0; eersteStart + k * stap <= laatsteStart + 1e-9; k++) {
       const blok = blokOpTijd(tijdlijn, eersteStart + k * stap, apparaat.uren);

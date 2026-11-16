@@ -377,7 +377,7 @@
   <section class="start" id="start" hidden aria-labelledby="start-kop">
     <h2 id="start-kop">Start je apparaat om …</h2>
     <p class="sub" style="margin-bottom:.6rem">Hoeveel uitstel je nu instelt voor het goedkoopste moment tot
-      morgenochtend 8 uur, vergeleken met meteen starten.</p>
+      morgenochtend 8 uur (nooit meer dan 24 uur vooruit), vergeleken met meteen starten.</p>
     <div class="start-blokjes" id="start-blokjes"></div>
   </section>
 
@@ -514,7 +514,7 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=2"></script>
+<script src="gedeeld.js?v=3"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
@@ -627,7 +627,7 @@
         `${blokTijd(ander.blok)}, ${fmtEuro(ander.winst)} goedkoper (verwacht)</span>`;
     }
     return [
-      '<a class="start-blok" href="#apparaten">',
+      '<a class="start-blok" href="#apparaten-instellingen">',
       `<span class="n">${esc(apparaat.naam)}</span>`,
       `<span class="t">${uitstel}</span>`,
       `<span class="w">start ${fmtUur(beste.start)}${opAndereDag}, klaar ${fmtUur(beste.eind)} · `,
@@ -729,12 +729,11 @@
   function rijHtml(dag) {
     const isOpen = !!open[dag.index];
     const b = dag.betrouwbaarheid;
-    const onderDatum = dag.index < 2 ? dagNaam(dag, false) : `gem. ${fmt(dag.gem)} ct`;
     return [
       '<li class="rij">',
       `<button class="rijknop" type="button" aria-expanded="${isOpen}" aria-controls="detail-${dag.index}"`,
       ` data-index="${dag.index}">`,
-      `<span class="datum"><b>${dagNaam(dag, false)}</b><small>${onderDatum}</small>`,
+      `<span class="datum"><b>${dagNaam(dag, false)}</b><small>gem. ${fmt(dag.gem)} ct</small>`,
       `<span class="status"><span class="btr-icoon" aria-hidden="true">${b.icoon}</span> ${b.label}</span></span>`,
       `<span class="strook">${laadMarkeringHtml(dag.laden)}${strookHtml(dag)}`,
       '<span class="spitsvlak" aria-hidden="true" title="Netspits 16–21 uur"></span>',
