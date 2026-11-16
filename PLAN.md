@@ -16,7 +16,7 @@ gratis hosting (GitHub Actions + GitHub Pages).
 | 2 | Features, baselines, kwantielmodellen (lineair asinh, LightGBM), conformal-kalibratie, methodenvergelijking op rolling-origin | `epv features`, `epv compare` -> `reports/methodenvergelijking.md`, `epv train`, `epv predict` |
 | 3 | Backtest met dagelijkse 13:00-simulatie | `reports/backtest.md` + png's, tests op lekkage |
 | 4 | Dagelijkse run (hoofd, verversing, inhaal), runarchief, JSON, site op variant C, lokale server met ververs-knop | `epv daily`, `epv serve`, `ververs.bat`, `site/` leest `site/data/forecast.json` |
-| 5 | README, API-documentatie; later GitHub Actions + Pages | eerst alles lokaal op deze pc, pas daarna online |
+| 5 | README, API-documentatie, GitHub Actions + Pages | online sinds 16 november 2026 op martienbrander.github.io/stroomprijsvoorspeller; eigen domein stroomprijsvoorspeller.nl zodra de DNS staat |
 
 Na elke fase: korte samenvatting, commit, wachten op akkoord.
 
@@ -68,7 +68,7 @@ stroomprijsvoorspeller/
 ├── models/                    laatst getrainde modellen (niet in git)
 ├── reports/                   backtest.md + figures/*.png (wel in git)
 ├── site/                      fase 4: statische site, plain HTML + JS; site/data/ bevat de gegenereerde JSON
-└── .github/workflows/         fase 5 (later, pas als we online gaan)
+└── .github/workflows/         fase 5 (online sinds 2026-11-16)
 ```
 
 ## Datastroom (fase 1)

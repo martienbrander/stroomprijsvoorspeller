@@ -112,24 +112,35 @@ run rekent de gemiste dagen alsnog uit, zodat de kalibratie en de scores doorlop
 De cijfers staan als JSON naast de site: `/api/v1/voorspelling.json` en `/data/leveranciers.json`. Velden, eenheden en
 voorwaarden in [API.md](API.md).
 
-## Online zetten
+## Online
 
-De workflows in `.github/workflows/` doen online hetzelfde als `ververs.bat` lokaal (besluit 47):
+De site staat op [martienbrander.github.io/stroomprijsvoorspeller](https://martienbrander.github.io/stroomprijsvoorspeller/)
+en verhuist naar [stroomprijsvoorspeller.nl](https://stroomprijsvoorspeller.nl) zodra de DNS-records bij dds.nl staan.
+De broncode staat op [github.com/martienbrander/stroomprijsvoorspeller](https://github.com/martienbrander/stroomprijsvoorspeller).
 
-1. Maak een GitHub-repository en push `main`.
-2. Zet in de instellingen van de repository GitHub Pages op "GitHub Actions".
-3. Start de workflow "dagelijkse run" één keer met de hand; die haalt alles op en zet de site live. Daarna draait hij
-   op het rooster: vijf pogingen tussen 12:20 en 15:20 (alleen de eerste poging waarin de prijzen voor morgen binnen
-   zijn doet echt iets; GitHub rekent in UTC, vandaar de ruime marge voor zomer- en wintertijd) en drie verversingen per dag.
-4. De werkdata (`data/`, `models/`) staan na elke run op de branch `data`, in één commit zonder geschiedenis. Wil je de
-   lokale historie meenemen, draai dan eerst `epv historie-export` en push `data/`, `models/` en dat exportbestand
-   naar die branch.
+**Wat er draait** (besluit 47, 54, 62). De workflow "dagelijkse run" in `.github/workflows/daily.yml` doet online
+hetzelfde als `ververs.bat` lokaal: vijf pogingen tussen 12:20 en 15:20 (alleen de eerste poging waarin de prijzen voor
+morgen binnen zijn doet echt iets; GitHub rekent in UTC, vandaar de ruime marge voor zomer- en wintertijd) en drie
+verversingen per dag (19:05, 01:05, 07:05). Elke run haalt de werkdata van de branch `data`, draait `epv daily`, zet de
+nieuwe werkdata terug op die branch (één commit, geen geschiedenis) en publiceert `site/` via GitHub Pages. De
+workflow "wekelijkse evaluatie" schrijft op maandag `reports/verversingen.md` bij.
 
-De wekelijkse workflow schrijft `reports/verversingen.md` bij.
+**Waar staat wat, en wat kost het.** Code, dagelijkse run en hosting: GitHub (publieke repository, gratis). Domein en
+DNS: dds.nl (ongeveer 36 euro per jaar). Mail: geen; het domein verstuurt geen mail en de DNS zegt dat ook.
+
+**Als een run mislukt.** Kijk onder "Actions" naar de rode run en open de stap "Run"; daar staat de foutmelding van
+`epv daily`. Een gemiste dag is geen ramp: de volgende run haalt de gemiste dagen in (besluit 50) en de site toont hoe
+oud de laatste voorspelling is. Zelf een run starten: Actions, "dagelijkse run", "Run workflow" met type `auto` (of
+`gh workflow run "dagelijkse run" -f type=auto`). Is de branch `data` onbruikbaar geraakt, verwijder hem dan; de
+volgende run haalt alles opnieuw op (dat duurt dan een kwartier in plaats van twee minuten) en bouwt de kalibratie
+opnieuw op uit het runarchief dat verloren is, dus doe dat alleen als het echt moet.
+
+**Lokaal blijft werken.** `ververs.bat` en `epv serve` doen het nog steeds op deze pc. De lokale werkdata en de
+werkdata online zijn gescheiden en worden niet gesynchroniseerd; de online run is de bron voor de site.
 
 ## Onderhoud en kosten
 
-Hosting op GitHub Pages is gratis, een domeinnaam kost ongeveer tien euro per jaar; het werk zit in het bijhouden van
+Hosting op GitHub Pages is gratis, de domeinnaam kost ongeveer 36 euro per jaar bij dds.nl; het werk zit in het bijhouden van
 de leverancierstabel, het controleren van de scores en het meegroeien met de bronnen. Er komen geen advertenties en
 geen affiliate-links, omdat die de onafhankelijkheid van de leverancierstabel zouden aantasten. Hoe het onderhoud op
 termijn betaald wordt (donaties, een subsidie voor uitbreidingen) is nog open; zie besluit 38.
