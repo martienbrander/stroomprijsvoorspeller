@@ -47,17 +47,19 @@ jobs:
     outputs:
       overgeslagen: ${{ steps.run.outputs.overgeslagen }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Data van de vorige run ophalen (branch data)
         run: |
           git fetch origin data:refs/remotes/origin/data || echo "nog geen data-branch; eerste run haalt alles op"
           if git show-ref --verify --quiet refs/remotes/origin/data; then
-            git restore --source=origin/data --worktree -- data models || true
+            for pad in data/raw data/processed data/runs models; do
+              git restore --source=origin/data --worktree -- "$pad" || echo "$pad niet op de data-branch"
+            done
             git reset -q
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -68,6 +70,7 @@ jobs:
       - name: Run
         id: run
         run: |
+          set -o pipefail
           TYPE="${{ github.event.inputs.type }}"
           if [ -z "$TYPE" ]; then
             case "${{ github.event.schedule }}" in
@@ -91,9 +94,9 @@ jobs:
           git commit -qm "data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push -f origin data-nieuw:data
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         if: steps.run.outputs.overgeslagen != 'true'
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: steps.run.outputs.overgeslagen != 'true'
         with:
           path: site
@@ -107,4 +110,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
