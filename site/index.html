@@ -265,7 +265,7 @@
   /* "Mijn apparaten" */
   .apparaten-form .app-rij {
     display: grid;
-    grid-template-columns: minmax(8rem, 2fr) minmax(4rem, .8fr) minmax(4.5rem, .8fr) minmax(5.5rem, 1fr) minmax(7rem, 1fr) auto;
+    grid-template-columns: minmax(7rem, 2fr) minmax(3.5rem, .7fr) minmax(4.5rem, .8fr) minmax(5rem, .9fr) minmax(6.5rem, 1fr) minmax(6rem, 1fr) auto;
     gap: .5rem; align-items: end; margin: .5rem 0;
   }
   .apparaten-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--zacht); }
@@ -377,8 +377,8 @@
   <p class="sub" id="sub"></p>
   <section class="start" id="start" hidden aria-labelledby="start-kop">
     <h2 id="start-kop">Start je apparaat om …</h2>
-    <p class="sub" style="margin-bottom:.6rem">Hoeveel uitstel je nu instelt voor het goedkoopste moment in de
-      komende 24 uur (vandaag of morgen), vergeleken met meteen starten.</p>
+    <p class="sub" style="margin-bottom:.6rem">Nu aanzetten, of loont wachten? Je ziet het eerste moment dat de
+      moeite waard is, binnen het uitstel dat je per apparaat toestaat (standaard 8 uur).</p>
     <div class="start-blokjes" id="start-blokjes"></div>
   </section>
 
@@ -475,8 +475,9 @@
 
   <div class="kader">
     <h2 style="margin-top:0" id="apparaten-instellingen">Mijn apparaten</h2>
-    <p style="color:var(--zacht)">Hoe lang doet een apparaat erover en hoeveel stroom gebruikt het per beurt? Dan
-      zoeken we per dag het goedkoopste moment om het aan te zetten. Dit blijft in uw eigen browser.</p>
+    <p style="color:var(--zacht)">Hoe lang doet een apparaat erover, hoeveel stroom gebruikt het per beurt en
+      hoeveel uitstel wilt u hooguit? Dan zoeken we het eerste goedkope moment om het aan te zetten. Dit blijft in
+      uw eigen browser.</p>
     <div class="apparaten-form" id="apparaten-form"></div>
   </div>
 
@@ -516,7 +517,7 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=4"></script>
+<script src="gedeeld.js?v=5"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
@@ -614,27 +615,35 @@
     const advies = SP.startAdvies(model, apparaat, nu);
     if (!advies) return '';
     const beste = advies.beste;
-    const opAndereDag = beste.dagStart !== model.dagen[0] ? ` (${dagNaam(beste.dagStart, false)})` : '';
-    const uitstel = beste.isNu ? 'nu' : `${duurTekst(advies.uitstel)} <small>uitstel</small>`;
-    let vergelijking = '';
-    if (advies.nu && beste.isNu) {
-      const scheelt = advies.winst > 0.005 ? `uitstel scheelt hooguit ${fmtEuro(advies.winst)}` : 'uitstel scheelt niets';
-      vergelijking = `<span class="w">${scheelt}</span>`;
-    } else if (advies.nu) {
-      vergelijking = `<span class="later">nu starten: ${fmtEuro(advies.nu.euro)}, ${fmtEuro(advies.winst)} duurder</span>`;
+    const dagErbij = (moment) => (moment.dagStart !== model.dagen[0] ? ` (${dagNaam(moment.dagStart, false)})` : '');
+    const verwacht = (moment) => (moment.bekend ? '' : ' (verwacht)');
+    const regels = [];
+    if (beste.isNu) {
+      // nu: wat het kost, en wat wachten binnen de grens hooguit zou schelen
+      regels.push(`<span class="w">klaar ${fmtUur(beste.eind)} · ${fmtEuro(beste.euro)}${verwacht(beste)}</span>`);
+      regels.push(`<span class="w">${advies.maxWinst > 0.005
+        ? `tot ${advies.maxUitstel} uur wachten scheelt hooguit ${fmtEuro(advies.maxWinst)}`
+        : 'wachten scheelt niets'}</span>`);
+    } else {
+      // later: het moment en de prijs, met ernaast wat nu starten kost
+      regels.push(`<span class="w">start ${fmtUur(beste.start)}${dagErbij(beste)}, klaar ${fmtUur(beste.eind)} · ` +
+        `${fmtEuro(beste.euro)}${verwacht(beste)}</span>`);
+      regels.push(`<span class="later">nu starten: ${fmtEuro(advies.nu.euro)}, ${fmtEuro(advies.winst)} duurder</span>`);
     }
-    if (advies.andereDag) {
+    if (advies.verder) {
+      const v = advies.verder;
+      regels.push(`<span class="w">nog goedkoper: ${duurTekst(v.uitstel)} uitstel, start ${fmtUur(v.start)}` +
+        `${dagErbij(v)}, ${fmtEuro(v.winst)} minder${verwacht(v)}</span>`);
+    } else if (advies.andereDag) {
       const ander = advies.andereDag;
-      vergelijking += `<span class="later">overweeg een andere dag: ${dagNaam(ander.dag, false)} ` +
-        `${blokTijd(ander.blok)}, ${fmtEuro(ander.winst)} goedkoper (verwacht)</span>`;
+      regels.push(`<span class="w">overweeg een andere dag: ${dagNaam(ander.dag, false)} ` +
+        `${blokTijd(ander.blok)}, ${fmtEuro(ander.winst)} goedkoper (verwacht)</span>`);
     }
     return [
       '<a class="start-blok" href="#apparaten-instellingen">',
       `<span class="n">${esc(apparaat.naam)}</span>`,
-      `<span class="t">${uitstel}</span>`,
-      `<span class="w">start ${fmtUur(beste.start)}${opAndereDag}, klaar ${fmtUur(beste.eind)} · `,
-      `${fmtEuro(beste.euro)}${beste.bekend ? '' : ' (verwacht)'}</span>`,
-      vergelijking,
+      `<span class="t">${beste.isNu ? 'nu' : `${duurTekst(advies.uitstel)} <small>uitstel</small>`}</span>`,
+      regels.join(''),
       '</a>',
     ].join('');
   }

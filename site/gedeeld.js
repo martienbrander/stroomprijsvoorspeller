@@ -68,7 +68,9 @@
   const APPARATEN_SLEUTEL = 'stroomprijs-apparaten-v1'; // [{ id, naam, uren, kwh, stap }]
 
   // eigen apparaten (besluit 55, 63)
-  const APPARATEN_STANDAARD = [{ id: 'was', naam: 'Wasmachine', uren: 2, kwh: 1, stap: 1 }];
+  const APPARATEN_STANDAARD = [{ id: 'was', naam: 'Wasmachine', uren: 2, kwh: 1, stap: 1, maxUitstel: 8 }];
+  const MAX_UITSTEL_KEUZES = [4, 6, 8, 12, 16, 24];  // hoeveel uitstel iemand hooguit wil, per apparaat (besluit 67)
+  const MAX_UITSTEL_STANDAARD = 8;
   const UITSTEL_STAPPEN = [1, 0.5, 0.25];  // waarin het uitstel op het apparaat is in te stellen (uren)
   const UITSTEL_LABELS = { 1: '1 uur', 0.5: 'half uur', 0.25: 'kwartier' };
   const MINUTEN_KEUZES = [0, 15, 30, 45];
@@ -82,7 +84,9 @@
   const LAAD_DREMPEL_EURO = 0.5;     // onder dit verschil: "doe het wanneer het uitkomt"
 
   // startadvies (besluit 58)
-  const MAX_UITSTEL_UREN = 24;       // het venster: van nu tot 24 uur vooruit, dus vandaag of morgen (besluit 66)
+  const MAX_UITSTEL_UREN = 24;       // verder dan 24 uur vooruit kijkt het advies nooit (besluit 66)
+  const START_BIJNA_EURO = 0.02;     // 'bijna net zo goedkoop' als het goedkoopste moment: binnen 2 cent ...
+  const START_BIJNA_DEEL = 0.05;     // ... of 5%; het eerste moment dat daaraan voldoet wint (besluit 67)
   const START_MIN_WINST_EURO = 0.05; // uitstel moet minstens 5 cent ...
   const START_MIN_WINST_DEEL = 0.10; // ... en 10% schelen, anders is het advies 'nu'
   const ANDERE_DAG_MIN_EURO = 0.10;  // een andere dag noemen we pas bij 10 cent ...
@@ -592,6 +596,8 @@
 
   const standaardApparaten = () => APPARATEN_STANDAARD.map((a) => Object.assign({}, a));
   const geldigeStap = (stap) => (UITSTEL_STAPPEN.indexOf(Number(stap)) >= 0 ? Number(stap) : 1);
+  const geldigMaxUitstel = (uren) =>
+    (MAX_UITSTEL_KEUZES.indexOf(Number(uren)) >= 0 ? Number(uren) : MAX_UITSTEL_STANDAARD);
 
   function leesApparaten() {
     try {
@@ -603,6 +609,7 @@
         uren: Math.min(MAX_DUUR_UREN, Number(a.uren)),
         kwh: a.kwh > 0 ? Number(a.kwh) : 1,
         stap: geldigeStap(a.stap),
+        maxUitstel: geldigMaxUitstel(a.maxUitstel),
       }));
     } catch (e) { return standaardApparaten(); }
   }
@@ -613,6 +620,8 @@
     const minuten = MINUTEN_KEUZES.map((m) => optieHtml(m, m, duur.minuten === m)).join('');
     const stappen = UITSTEL_STAPPEN
       .map((stap) => optieHtml(stap, UITSTEL_LABELS[stap], Math.abs((a.stap || 1) - stap) < 1e-9)).join('');
+    const maxKeuzes = MAX_UITSTEL_KEUZES
+      .map((uren) => optieHtml(uren, `${uren} uur`, geldigMaxUitstel(a.maxUitstel) === uren)).join('');
     return [
       `<div class="app-rij" data-i="${i}">`,
       `<label>Apparaat<input type="text" name="naam" value="${esc(a.naam)}" maxlength="30"`,
@@ -623,12 +632,13 @@
       `<label>Verbruik (kWh)<input type="number" name="kwh" value="${a.kwh}" step="0.1" min="0.1"`,
       ' inputmode="decimal"></label>',
       `<label>Uitstel in stappen van<select name="stap">${stappen}</select></label>`,
+      `<label>Hoogstens uitstel<select name="max">${maxKeuzes}</select></label>`,
       `<button type="button" class="weg" aria-label="${esc(a.naam)} verwijderen" title="Verwijderen">×</button>`,
       '</div>',
     ].join('');
   }
 
-  // Tekent in `container` een bewerkbare lijst (naam, duur, verbruik, uitstelstap, verwijderen) met een knop
+  // Tekent in `container` een bewerkbare lijst (naam, duur, verbruik, uitstelstap, grens, verwijderen) met een knop
   // "Apparaat toevoegen".
   function koppelApparaten(container, bijWijziging) {
     let lijst = leesApparaten();
@@ -655,6 +665,7 @@
         uren: uren,
         kwh: kwh >= 0.1 ? kwh : (vorige.kwh || 1),
         stap: geldigeStap(parseFloat(veld('stap').value)),
+        maxUitstel: geldigMaxUitstel(parseFloat(veld('max').value)),
       };
     }
     function bewaarEnMeld() {
@@ -1263,18 +1274,24 @@
   }
 
   /*
-   * startAdvies(model, apparaat, nuUur) -> { uitstel, beste, nu, winst, andereDag } of null
+   * startAdvies(model, apparaat, nuUur) -> advies of null
    *
-   * Kandidaten zijn de starttijden nu + k x stap (de uitstelstap van het apparaat) tot 24 uur vooruit: verder
-   * gaat de uitgestelde start van een apparaat niet, en de vraag gaat over vandaag of morgen (besluit 66). De
-   * goedkoopste wint; scheelt dat met meteen starten minder dan 5 cent of 10%, dan is het advies 'nu'.
+   * De vraag is: "de machine is vol, zet ik hem nu aan of loont een paar uur wachten?" (besluit 67). Kandidaten
+   * zijn de starttijden nu + k x stap (de uitstelstap van het apparaat). Binnen de grens die de gebruiker per
+   * apparaat toestaat (`maxUitstel`, standaard 8 uur) wint niet het allergoedkoopste moment, maar het eerste dat
+   * bijna zo goedkoop is (binnen 2 cent of 5%): eerder is beter. Scheelt dat met meteen starten minder dan
+   * 5 cent of 10%, dan is het advies 'nu'.
    * Is de eerste getoonde dag niet vandaag (een verouderde voorspelling), dan geldt die dag als venster vanaf 0:00.
    *
-   *   uitstel    uren uitstel om in te stellen (0 = nu)
-   *   beste      { start, eind (uur van de dag), dagStart, euro, bekend, isNu }
-   *   nu         { euro }: wat meteen starten kost
-   *   winst      euro goedkoper dan meteen starten
-   *   andereDag  { dag, blok, euro, winst }: een latere dag die duidelijk goedkoper is, of null
+   *   uitstel     uren uitstel om in te stellen (0 = nu)
+   *   beste       { start, eind (uur van de dag), dagStart, euro, bekend, isNu }
+   *   nu          { euro }: wat meteen starten kost
+   *   winst       euro goedkoper dan meteen starten (0 bij 'nu')
+   *   maxWinst    wat wachten binnen de grens hooguit oplevert
+   *   maxUitstel  de grens in uren
+   *   verder      { uitstel, start, eind, dagStart, euro, winst, bekend }: een moment na de grens maar binnen
+   *               24 uur dat duidelijk goedkoper is (10 cent en 20%), of null
+   *   andereDag   { dag, blok, euro, winst }: een latere dag die duidelijk goedkoper is, of null
    */
   function startAdvies(model, apparaat, nuUur) {
     const [vandaag, morgen] = model.dagen;
@@ -1286,40 +1303,63 @@
     const dagVan = (tijd) => (tijd >= 24 && morgen ? morgen : vandaag);
     const euro = (ct) => (ct * apparaat.kwh) / 100;
 
+    // alle starttijden tot 24 uur vooruit, zolang het blok binnen de bekende reeks valt
     const stap = apparaat.stap || 1;
     const eersteStart = vandaag.datum === vandaagLokaal() ? nuUur : 0;
-    const laatsteStart = morgen ? eersteStart + MAX_UITSTEL_UREN : 24 - apparaat.uren;
-    let beste = null, meteen = null;
-    for (let k = 0; eersteStart + k * stap <= laatsteStart + 1e-9; k++) {
+    const kandidaten = [];
+    for (let k = 0; k * stap <= MAX_UITSTEL_UREN + 1e-9; k++) {
       const blok = blokOpTijd(tijdlijn, eersteStart + k * stap, apparaat.uren);
       if (!blok) break;
       blok.uitstel = k * stap;
-      if (k === 0) meteen = blok;
-      if (!beste || blok.p50 < beste.p50 - 1e-9) beste = blok;
+      blok.euro = euro(blok.p50);
+      kandidaten.push(blok);
     }
-    if (!beste) return null;
+    if (!kandidaten.length) return null;
+    const goedkoopste = (lijst) => lijst.reduce((beste, b) => (b.euro < beste.euro - 1e-9 ? b : beste));
+    const duidelijkMinder = (bedrag) => bedrag - Math.max(ANDERE_DAG_MIN_EURO, ANDERE_DAG_MIN_DEEL * Math.abs(bedrag));
 
-    const winst = meteen ? euro(meteen.p50) - euro(beste.p50) : 0;
-    const loontNiet = meteen && winst < Math.max(START_MIN_WINST_EURO, START_MIN_WINST_DEEL * Math.abs(euro(meteen.p50)));
-    const gekozen = loontNiet ? meteen : beste;
+    const maxUitstel = Math.min(MAX_UITSTEL_UREN, apparaat.maxUitstel || MAX_UITSTEL_STANDAARD);
+    const meteen = kandidaten[0];
+    const binnenGrens = kandidaten.filter((b) => b.uitstel <= maxUitstel + 1e-9);
+    const laagste = goedkoopste(binnenGrens);
+    // eerder is beter: het eerste moment dat bijna zo goedkoop is als het goedkoopste binnen de grens
+    const bijna = laagste.euro + Math.max(START_BIJNA_EURO, START_BIJNA_DEEL * Math.abs(laagste.euro));
+    const eerste = binnenGrens.find((b) => b.euro <= bijna);
+    // wachten loont als het goedkoopste moment genoeg scheelt; het eerdere moment telt alleen als dat zelf ook genoeg scheelt
+    const genoeg = Math.max(START_MIN_WINST_EURO, START_MIN_WINST_DEEL * Math.abs(meteen.euro));
+    let gekozen = meteen;
+    if (meteen.euro - laagste.euro >= genoeg) gekozen = meteen.euro - eerste.euro >= genoeg ? eerste : laagste;
+
+    const alsMoment = (b) => ({
+      uitstel: b.uitstel, start: b.start % 24, eind: b.eind % 24, dagStart: dagVan(b.start),
+      euro: b.euro, bekend: b.bekend,
+    });
     const advies = {
       uitstel: gekozen.uitstel,
-      beste: {
-        start: gekozen.start % 24, eind: gekozen.eind % 24, dagStart: dagVan(gekozen.start),
-        euro: euro(gekozen.p50), bekend: gekozen.bekend, isNu: gekozen.uitstel === 0,
-      },
-      nu: meteen ? { euro: euro(meteen.p50) } : null,
-      winst: winst,
+      beste: Object.assign(alsMoment(gekozen), { isNu: gekozen.uitstel === 0 }),
+      nu: { euro: meteen.euro },
+      winst: meteen.euro - gekozen.euro,
+      maxWinst: meteen.euro - laagste.euro,
+      maxUitstel: maxUitstel,
+      verder: null,
       andereDag: null,
     };
-    // een latere dag (na het venster, niet 'onzeker') die minstens 20% en 10 cent goedkoper is
-    const drempel = advies.beste.euro - Math.max(ANDERE_DAG_MIN_EURO, ANDERE_DAG_MIN_DEEL * Math.abs(advies.beste.euro));
+    // na de grens maar binnen 24 uur: alleen noemen als het duidelijk goedkoper is
+    const naGrens = kandidaten.filter((b) => b.uitstel > maxUitstel + 1e-9);
+    if (naGrens.length) {
+      const later = goedkoopste(naGrens);
+      if (later.euro < duidelijkMinder(gekozen.euro)) {
+        advies.verder = Object.assign(alsMoment(later), { winst: gekozen.euro - later.euro });
+      }
+    }
+    // een latere dag (na morgen, niet 'onzeker') die minstens 20% en 10 cent goedkoper is
+    const drempel = duidelijkMinder(gekozen.euro);
     model.dagen.slice(morgen ? 2 : 1).forEach((dag) => {
       const blok = dag.blokken[apparaat.id];
       if (!blok || dag.betrouwbaarheid.code === 'laag') return;
       const kosten = euro(blok.p50);
       if (kosten < drempel && (!advies.andereDag || kosten < advies.andereDag.euro)) {
-        advies.andereDag = { dag: dag, blok: blok, euro: kosten, winst: advies.beste.euro - kosten };
+        advies.andereDag = { dag: dag, blok: blok, euro: kosten, winst: gekozen.euro - kosten };
       }
     });
     return advies;
