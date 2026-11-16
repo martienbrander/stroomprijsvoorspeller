@@ -64,7 +64,9 @@ uurprofiel, niet dat de fout klein is. Kijk voor de fout zelf naar `verwachte_af
 
 - De gegevens zijn afgeleid van Energy-Charts en Open-Meteo (beide CC BY 4.0) en worden onder dezelfde licentie
   doorgegeven: vrij te gebruiken, met vermelding van "stroomprijsvoorspeller" en de bronnen.
-- Het is een hulpmiddel, geen garantie. De leverancier bepaalt wat een huishouden betaalt.
+- Het is een hulpmiddel, geen garantie: een inschatting op basis van openbare gegevens en een statistisch model, geen
+  advies. De werkelijke prijzen kunnen afwijken; gebruik is op eigen risico en de maker is niet aansprakelijk voor
+  beslissingen die op deze cijfers worden gebaseerd. De leverancier bepaalt wat een huishouden betaalt.
 - Haal de JSON niet vaker op dan nodig; de inhoud verandert hooguit enkele keren per dag. `gegenereerd_utc` zegt of er
   iets nieuws is.
 - Geen persoonsgegevens, geen cookies, geen tracking.

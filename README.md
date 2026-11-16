@@ -41,6 +41,11 @@ experimenten die tot de modelkeuze leidden: [reports/backtest.md](reports/backte
 - De weersverwachting komt van één model (Open-Meteo `best_match`); er is geen ensemble van weermodellen.
 - Feestdagen en weekenden kent het model; schoolvakanties en brugdagen niet. De backtest splitst de fout uit per dagsoort en laat zien dat het model in schoolvakanties niet slechter is dan op werkdagen, dus daar is geen aparte vlag nodig. Feestdagen waren de afgelopen twee jaar gemiddeld ruim 20% goedkoper dan de werkdagen eromheen; de site noemt de feestdag bij de dag.
 
+**Geen advies, geen garantie.** Deze voorspelling is een inschatting op basis van openbare gegevens en een statistisch
+model. Het is geen advies en geen garantie; de werkelijke prijzen kunnen afwijken. Gebruik is op eigen risico. De maker
+is niet aansprakelijk voor beslissingen die op deze cijfers worden gebaseerd. De code valt onder de MIT-licentie, die
+hetzelfde zegt over de software.
+
 ## Bronnen en licenties
 
 - Prijzen: [Energy-Charts](https://energy-charts.info) van Fraunhofer ISE (data: Bundesnetzagentur | SMARD.de,
