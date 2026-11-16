@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from stroomprijsvoorspeller.config import Config
+from stroomprijsvoorspeller.evaluation.markdown import md_tabel
 from stroomprijsvoorspeller.evaluation.metrics import samenvatting
 from stroomprijsvoorspeller.evaluation.rolling import run_rolling
 from stroomprijsvoorspeller.model.baselines import BASELINES
@@ -27,8 +28,8 @@ ALLE_METHODEN = (*BASELINES, *MODELNAMEN)
 
 
 def laad_basis(cfg: Config) -> tuple[pd.DataFrame, pd.DataFrame]:
-    prijzen = pd.read_parquet(cfg.processed_dir / dataset.UUR_BESTAND)
-    prijzen["time_utc"] = pd.to_datetime(prijzen["time_utc"], utc=True)
+    """De bewaarde uurprijzen en het previous-runs weer (index time_utc), zoals `epv build` ze schreef."""
+    prijzen = dataset.lees_uurprijzen(cfg)
     weer = pd.read_parquet(cfg.processed_dir / dataset.WEER_BESTAND)
     weer.index = pd.to_datetime(weer.index, utc=True)
     return prijzen, weer
@@ -87,19 +88,6 @@ def vergelijk(cfg: Config, methoden: list[str] | None = None, start: date | None
     return tabel
 
 
-def _md_tabel(df: pd.DataFrame, kolommen: dict[str, str], fmt: dict[str, str]) -> str:
-    kop = "| " + " | ".join(kolommen.values()) + " |"
-    lijn = "|" + "|".join("---" for _ in kolommen) + "|"
-    rijen = []
-    for _, r in df.iterrows():
-        cellen = []
-        for k in kolommen:
-            v = r[k]
-            cellen.append(fmt.get(k, "{}").format(v) if pd.notna(v) else "")
-        rijen.append("| " + " | ".join(cellen) + " |")
-    return "\n".join([kop, lijn, *rijen])
-
-
 def schrijf_rapport(tabel: pd.DataFrame, origins: list[date], cfg: Config) -> str:
     delen = [
         "# Methodenvergelijking (rolling-origin backtest)\n",
@@ -117,10 +105,9 @@ def schrijf_rapport(tabel: pd.DataFrame, origins: list[date], cfg: Config) -> st
            "breedte80_kal": "{:.1f}"}
     for k, g in tabel.groupby("horizon_dag"):
         delen.append(f"\n## Dag {k} vooruit\n")
-        delen.append(_md_tabel(g.sort_values("mae"), kolommen, fmt))
+        delen.append(md_tabel(g.sort_values("mae")[list(kolommen)], fmt, kolommen))
         delen.append("")
     beste = tabel.loc[tabel.groupby("horizon_dag")["mae"].idxmin(), ["horizon_dag", "methode", "mae"]]
     delen.append("\n## Beste methode per horizon (op MAE)\n")
-    delen.append(_md_tabel(beste, {"horizon_dag": "dag", "methode": "methode", "mae": "MAE"},
-                           {"horizon_dag": "{:.0f}", "mae": "{:.2f}"}))
+    delen.append(md_tabel(beste, {"horizon_dag": "{:.0f}", "mae": "{:.2f}"}, {"horizon_dag": "dag", "mae": "MAE"}))
     return "\n".join(delen) + "\n"

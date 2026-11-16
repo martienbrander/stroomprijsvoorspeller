@@ -62,7 +62,8 @@ def betrouwbaarheid(rmae: float | None, band_breedte: float, p50_niveau: float) 
 
 
 def verdeling_niveaus(voorsp: pd.DataFrame, methode: str, referentie: str = "profiel_4w", dagen: int = 30) -> pd.DataFrame:
-    """Voor het ijken: per voorspelmoment en horizon het rMAE van de 30 dagen ervoor en het niveau. Maandelijkse steekproef."""
+    """Voor het ijken: per voorspelmoment en horizon het rMAE van de 30 dagen ervoor en het niveau.
+    Wekelijkse steekproef: elk zevende voorspelmoment."""
     rijen = []
     origins = sorted(voorsp["origin"].unique())
     for D in origins[::7]:

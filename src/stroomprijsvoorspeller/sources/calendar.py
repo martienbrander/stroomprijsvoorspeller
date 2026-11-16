@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import cache
+
 import holidays
 import pandas as pd
 
@@ -14,14 +16,17 @@ def nl_feestdagen(jaren) -> holidays.HolidayBase:
     return holidays.country_holidays("NL", years=jaren)
 
 
+@cache
+def _feestdagen_in_jaren(eerste: int, laatste: int) -> holidays.HolidayBase:
+    """Hetzelfde als `nl_feestdagen`, maar per periode één keer opgebouwd: de featurematrix vraagt dit per doeldag op."""
+    return nl_feestdagen(range(eerste, laatste + 1))
+
+
 def kalender_features(index_utc: pd.DatetimeIndex) -> pd.DataFrame:
     """Kenmerken per tijdstip, berekend in lokale tijd. Index = time_utc."""
     lokaal = to_local(index_utc)
-    if len(lokaal):
-        jaren = range(int(lokaal.year.min()), int(lokaal.year.max()) + 1)
-    else:
-        jaren = range(2024, 2025)
-    feest = nl_feestdagen(jaren)
+    eerste_jaar, laatste_jaar = (int(lokaal.year.min()), int(lokaal.year.max())) if len(lokaal) else (2024, 2024)
+    feest = _feestdagen_in_jaren(eerste_jaar, laatste_jaar)
     datums = pd.Index(lokaal.date)
     is_feestdag = [d in feest for d in datums]
     df = pd.DataFrame({

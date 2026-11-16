@@ -15,6 +15,7 @@ import pandas as pd
 import yaml
 
 from stroomprijsvoorspeller.sources.calendar import nl_feestdagen
+from stroomprijsvoorspeller.timeutil import local_date
 
 DAGSOORTEN = ("werkdag", "schoolvakantie", "brugdag", "weekend", "feestdag")
 VAKANTIE_BESTAND = "schoolvakanties.yaml"
@@ -98,8 +99,6 @@ def _effect(prijs_dag: pd.Series, soorten: pd.Series, doel: str, venster_dagen: 
 def dag_effecten(prijzen: pd.DataFrame, root: Path, prijs_kolom: str = "prijs_eur_mwh") -> dict:
     """Prijseffect van feestdagen, brugdagen en schoolvakantiedagen t.o.v. gewone werkdagen in de buurt, uit de
     daggemiddelde beursprijs. Geeft ook de periode waarover gerekend is."""
-    from stroomprijsvoorspeller.timeutil import local_date
-
     p = prijzen.dropna(subset=[prijs_kolom])
     dag = pd.Index(local_date(pd.DatetimeIndex(p["time_utc"])))
     prijs_dag = p[prijs_kolom].groupby(dag).mean()

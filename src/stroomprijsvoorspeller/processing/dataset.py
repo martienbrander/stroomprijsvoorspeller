@@ -31,7 +31,15 @@ BASIS_BESTAND = "basis_uur.parquet"
 WEER_BESTAND = "weer_prev_runs.parquet"
 
 
+def lees_uurprijzen(cfg: Config) -> pd.DataFrame:
+    """De bewaarde uurprijzen (kolommen time_utc in UTC, prijs_eur_mwh, n_waarden, geinterpoleerd)."""
+    prijzen = pd.read_parquet(cfg.processed_dir / UUR_BESTAND)
+    prijzen["time_utc"] = pd.to_datetime(prijzen["time_utc"], utc=True)
+    return prijzen
+
+
 def bouw_prijzen(cfg: Config) -> pd.DataFrame:
+    """Schrijft de uur- en kwartierprijzen uit de ruwe prijzen en geeft de uurprijzen terug."""
     ruw = energy_charts.lees_ruw(cfg.raw_dir)
     if ruw.empty:
         raise RuntimeError("geen ruwe prijzen; draai eerst `epv fetch`")
@@ -49,6 +57,7 @@ def bouw_prijzen(cfg: Config) -> pd.DataFrame:
 
 
 def bouw_basis(cfg: Config, uur: pd.DataFrame) -> pd.DataFrame:
+    """Uurprijzen met kalenderkenmerken ernaast (basis_uur.parquet)."""
     idx = pd.DatetimeIndex(uur["time_utc"])
     kal = kalender_features(idx)
     basis = uur.set_index("time_utc").join(kal)
@@ -57,6 +66,8 @@ def bouw_basis(cfg: Config, uur: pd.DataFrame) -> pd.DataFrame:
 
 
 def bouw_weer(cfg: Config) -> pd.DataFrame | None:
+    """Zet de previous-runs bestanden van alle weerpunten naast elkaar (index time_utc, kolom `<punt>__<var>_lead<N>`).
+    None als er voor geen enkel punt data is."""
     delen = []
     for punt in cfg.weerpunten:
         pad = open_meteo.prev_runs_bestand(cfg.raw_dir, punt.naam)
@@ -77,6 +88,7 @@ def bouw_weer(cfg: Config) -> pd.DataFrame | None:
 
 
 def bouw_alles(cfg: Config) -> dict[str, Path]:
+    """`epv build`: alle verwerkte datasets opnieuw; geeft de paden terug."""
     uur = bouw_prijzen(cfg)
     bouw_basis(cfg, uur)
     bouw_weer(cfg)

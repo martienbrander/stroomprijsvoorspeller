@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
 import subprocess
 import sys
 import threading
@@ -24,24 +25,27 @@ from stroomprijsvoorspeller.config import Config
 
 log = logging.getLogger(__name__)
 
+MAX_REGELS = 200   # zoveel uitvoerregels van de lopende run bewaren we
+# toestand van de ververs-knop, gedeeld tussen de serverdraden; alleen lezen en schrijven binnen _LOCK
 STATUS = {"bezig": False, "gestart_utc": None, "klaar_utc": None, "exit": None, "run_type": None, "regels": []}
 _LOCK = threading.Lock()
 
 
 def _start_run(cfg: Config, run_type: str) -> bool:
+    """Start `epv daily` in een eigen proces en houdt de laatste uitvoerregels bij. False als er al een run loopt."""
     with _LOCK:
         if STATUS["bezig"]:
             return False
         STATUS.update(bezig=True, gestart_utc=pd.Timestamp.now(tz="UTC").isoformat(), klaar_utc=None, exit=None,
                       run_type=run_type, regels=[])
 
-    def werk():
+    def werk() -> None:
         cmd = [sys.executable, "-m", "stroomprijsvoorspeller", "--config", str(cfg.root / "config.yaml"), "daily", "--type", run_type]
         proc = subprocess.Popen(cmd, cwd=cfg.root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                 encoding="utf-8", errors="replace")
         for regel in proc.stdout:
             with _LOCK:
-                STATUS["regels"] = (STATUS["regels"] + [regel.rstrip()])[-200:]
+                STATUS["regels"] = (STATUS["regels"] + [regel.rstrip()])[-MAX_REGELS:]
         proc.wait()
         with _LOCK:
             STATUS.update(bezig=False, klaar_utc=pd.Timestamp.now(tz="UTC").isoformat(), exit=proc.returncode)
@@ -53,7 +57,7 @@ def _start_run(cfg: Config, run_type: str) -> bool:
 class Handler(SimpleHTTPRequestHandler):
     cfg: Config
 
-    def end_headers(self):
+    def end_headers(self) -> None:
         # lokale server: nooit cachen, anders blijft de browser na een update het oude script of de oude JSON gebruiken
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
@@ -66,14 +70,14 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.path.split("?")[0] == "/api/local/status":
             with _LOCK:
                 self._json({**STATUS, "regels": STATUS["regels"][-30:], "lokaal": True})
             return
         super().do_GET()
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         pad = self.path.split("?")[0]
         if pad == "/api/local/ververs":
             lengte = int(self.headers.get("Content-Length") or 0)
@@ -87,14 +91,12 @@ class Handler(SimpleHTTPRequestHandler):
             return
         self._json({"fout": "onbekend pad"}, 404)
 
-    def log_message(self, fmt, *args):
+    def log_message(self, fmt: str, *args) -> None:
         log.debug(fmt, *args)
 
 
 def netwerk_adressen() -> list[str]:
     """IPv4-adressen van deze pc op het lokale netwerk (voor de telefoon op dezelfde wifi)."""
-    import socket
-
     adressen = set()
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):

@@ -1,7 +1,11 @@
 """Commandoregel: `epv <commando>` of `python -m stroomprijsvoorspeller <commando>`.
 
-Fase 1: fetch, build, status. Fase 2/3: features, compare, backtest, train, predict.
-Fase 4: daily, refresh, site, serve, evalueer-verversingen.
+Dagelijks gebruik: daily (alles in één keer), refresh, serve. De rest zijn de losse stappen en de evaluatie:
+fetch, build, status, features, compare, backtest, train, predict, site, historie-export, evalueer-verversingen.
+Elk commando is een functie `cmd_<naam>(args)` die een exitcode teruggeeft; `main` onderaan koppelt ze aan argparse.
+
+Zware modules (LightGBM, matplotlib) worden pas geladen in het commando dat ze nodig heeft, zodat `epv status` en
+`epv fetch` snel starten.
 """
 
 from __future__ import annotations
@@ -9,11 +13,13 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
 from stroomprijsvoorspeller.config import load_config
+from stroomprijsvoorspeller.model.calibration import ACI_GAMMA
 from stroomprijsvoorspeller.processing import dataset
 from stroomprijsvoorspeller.sources import energy_charts, entsoe, open_meteo
 
@@ -27,7 +33,8 @@ def _logging(verbose: bool) -> None:
     )
 
 
-def cmd_fetch(args) -> int:
+def cmd_fetch(args: argparse.Namespace) -> int:
+    """Prijzen (Energy-Charts, of ENTSO-E als dat in de config staat) en weer (Open-Meteo) ophalen."""
     cfg = load_config(args.config)
     if args.alleen in (None, "prijzen"):
         if cfg.prijsbron == "entsoe":
@@ -47,7 +54,7 @@ def cmd_fetch(args) -> int:
     return 0
 
 
-def cmd_build(args) -> int:
+def cmd_build(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     paden = dataset.bouw_alles(cfg)
     for naam, pad in paden.items():
@@ -55,11 +62,12 @@ def cmd_build(args) -> int:
     return 0
 
 
-def _datum(s: str | None):
-    return pd.Timestamp(s).date() if s else None
+def _datum(tekst: str | None) -> date | None:
+    """YYYY-MM-DD van de commandoregel naar een datum; None als de optie niet is meegegeven."""
+    return pd.Timestamp(tekst).date() if tekst else None
 
 
-def cmd_features(args) -> int:
+def cmd_features(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.evaluation import compare
 
     cfg = load_config(args.config)
@@ -68,7 +76,7 @@ def cmd_features(args) -> int:
     return 0
 
 
-def cmd_compare(args) -> int:
+def cmd_compare(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.evaluation import compare
 
     cfg = load_config(args.config)
@@ -82,7 +90,7 @@ def cmd_compare(args) -> int:
     return 0
 
 
-def cmd_backtest(args) -> int:
+def cmd_backtest(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.evaluation import report
 
     cfg = load_config(args.config)
@@ -91,7 +99,7 @@ def cmd_backtest(args) -> int:
     return 0
 
 
-def cmd_train(args) -> int:
+def cmd_train(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.model import operational
 
     cfg = load_config(args.config)
@@ -100,7 +108,7 @@ def cmd_train(args) -> int:
     return 0
 
 
-def cmd_predict(args) -> int:
+def cmd_predict(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.model import operational
 
     cfg = load_config(args.config)
@@ -115,7 +123,7 @@ def cmd_predict(args) -> int:
     return 0
 
 
-def cmd_daily(args) -> int:
+def cmd_daily(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.pipeline import daily
 
     cfg = load_config(args.config)
@@ -130,12 +138,13 @@ def cmd_daily(args) -> int:
     return 0
 
 
-def cmd_refresh(args) -> int:
+def cmd_refresh(args: argparse.Namespace) -> int:
+    """`epv refresh` is `epv daily --type verversing`."""
     args.type = "verversing"
     return cmd_daily(args)
 
 
-def cmd_site(args) -> int:
+def cmd_site(args: argparse.Namespace) -> int:
     """Schrijft de JSON voor de site opnieuw uit de laatste gearchiveerde run (zonder te voorspellen)."""
     from stroomprijsvoorspeller.pipeline import archive, daily, site_export
 
@@ -145,16 +154,14 @@ def cmd_site(args) -> int:
         print("geen runs in het archief; draai eerst `epv daily`", file=sys.stderr)
         return 2
     laatste = runs[runs["run_utc"] == runs["run_utc"].max()]
-    prijzen = pd.read_parquet(cfg.processed_dir / "prijzen_nl_uur.parquet")
-    prijzen["time_utc"] = pd.to_datetime(prijzen["time_utc"], utc=True)
-    origin = laatste["origin"].iloc[0].date()
-    pad = site_export.schrijf_site(cfg, laatste, prijzen, origin, laatste["run_utc"].iloc[0], laatste["run_type"].iloc[0],
-                                   daily.laad_model(cfg))
+    eerste_rij = laatste.iloc[0]
+    pad = site_export.schrijf_site(cfg, laatste, dataset.lees_uurprijzen(cfg), eerste_rij["origin"].date(),
+                                   eerste_rij["run_utc"], eerste_rij["run_type"], daily.laad_model(cfg))
     print(f"site: {pad}")
     return 0
 
 
-def cmd_historie_export(args) -> int:
+def cmd_historie_export(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.pipeline import archive
 
     cfg = load_config(args.config)
@@ -162,7 +169,7 @@ def cmd_historie_export(args) -> int:
     return 0
 
 
-def cmd_serve(args) -> int:
+def cmd_serve(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.pipeline import serve
 
     cfg = load_config(args.config)
@@ -170,7 +177,7 @@ def cmd_serve(args) -> int:
     return 0
 
 
-def cmd_evalueer_verversingen(args) -> int:
+def cmd_evalueer_verversingen(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.evaluation import refresh
 
     cfg = load_config(args.config)
@@ -178,7 +185,7 @@ def cmd_evalueer_verversingen(args) -> int:
     return 0
 
 
-def cmd_status(args) -> int:
+def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     ruw = energy_charts.lees_ruw(cfg.raw_dir)
     print(f"config:      {cfg.root / 'config.yaml'}")
@@ -198,6 +205,7 @@ def cmd_status(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Leest de commandoregel en voert het gekozen commando uit."""
     p = argparse.ArgumentParser(prog="epv", description="stroomprijsvoorspeller")
     p.add_argument("--config", help="pad naar config.yaml (standaard: zoekt omhoog vanaf de werkmap)")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -228,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     c.set_defaults(func=cmd_compare)
 
     bt = sub.add_parser("backtest", help="schrijf reports/backtest.md met tabellen en grafieken uit de rolling voorspellingen")
-    bt.add_argument("--gamma", type=float, default=0.02, help="leersnelheid van de online kalibratie (ACI)")
+    bt.add_argument("--gamma", type=float, default=ACI_GAMMA, help="leersnelheid van de online kalibratie (ACI)")
     bt.set_defaults(func=cmd_backtest)
 
     t = sub.add_parser("train", help="train het operationele model op het rolling venster t/m vandaag")

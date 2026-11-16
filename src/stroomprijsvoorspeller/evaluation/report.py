@@ -21,9 +21,12 @@ import matplotlib.pyplot as plt
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import blocks, reliability, stats
 from stroomprijsvoorspeller.evaluation.compare import VOORSPELLINGEN_BESTAND
+from stroomprijsvoorspeller.evaluation.markdown import md_tabel
 from stroomprijsvoorspeller.evaluation.metrics import breedte, dekking, mae, pinball, rmse
-from stroomprijsvoorspeller.model.calibration import pas_aci_toe
+from stroomprijsvoorspeller.model.baselines import is_baseline
+from stroomprijsvoorspeller.model.calibration import ACI_GAMMA, pas_aci_toe
 from stroomprijsvoorspeller.processing.dagsoort import DAGSOORTEN, Dagsoorten, dag_effecten
+from stroomprijsvoorspeller.timeutil import TZ_NAAM
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +51,6 @@ LABEL = {
 }
 GRIJS = "#52514e"
 LICHTGRIJS = "#e6e5e1"
-TZ = "Europe/Amsterdam"
 
 
 def _label(m: str) -> str:
@@ -75,30 +77,6 @@ def _bewaar(fig, pad: Path):
     plt.close(fig)
 
 
-def _md(df: pd.DataFrame, fmt: dict[str, str] | None = None, hernoem: dict[str, str] | None = None) -> str:
-    fmt = fmt or {}
-    hernoem = hernoem or {}
-    kop = "| " + " | ".join(str(hernoem.get(c, c)) for c in df.columns) + " |"
-    lijn = "|" + "|".join("---" for _ in df.columns) + "|"
-    rijen = []
-    for _, r in df.iterrows():
-        cellen = []
-        for c in df.columns:
-            v = r[c]
-            if isinstance(v, float) and np.isnan(v):
-                cellen.append("")
-            elif c in fmt:
-                cellen.append(fmt[c].format(v))
-            elif isinstance(v, (int, np.integer)) or (isinstance(v, float) and float(v).is_integer() and c in ("horizon_dag", "dag", "n", "count", "n_dagen", "dagen", "n_uren")):
-                cellen.append(str(int(v)))
-            elif isinstance(v, float):
-                cellen.append(f"{v:.2f}")
-            else:
-                cellen.append(str(v))
-        rijen.append("| " + " | ".join(cellen) + " |")
-    return "\n".join([kop, lijn, *rijen])
-
-
 def laad_voorspellingen(cfg: Config, bestand: str = VOORSPELLINGEN_BESTAND) -> pd.DataFrame | None:
     pad = cfg.processed_dir / bestand
     if not pad.exists():
@@ -119,7 +97,7 @@ def hoofdtabel(v: pd.DataFrame) -> pd.DataFrame:
             "mae": mae(g["doel"], g["p50"]), "rmse": rmse(g["doel"], g["p50"]),
             "pinball_p10": pinball(g["doel"], g["p10_kal"], 0.1), "pinball_p50": pinball(g["doel"], g["p50"], 0.5),
             "pinball_p90": pinball(g["doel"], g["p90_kal"], 0.9),
-            "dekking_ruw": dekking(g["doel"], g["p10"], g["p90"]) if m not in ("laatste_dag", "vorige_week", "profiel_4w") else np.nan,
+            "dekking_ruw": dekking(g["doel"], g["p10"], g["p90"]) if not is_baseline(m) else np.nan,
             "dekking_kal": dekking(g["doel"], g["p10_kal"], g["p90_kal"]), "breedte_kal": breedte(g["p10_kal"], g["p90_kal"]),
         })
     t = pd.DataFrame(rijen)
@@ -144,7 +122,7 @@ def periode_tabel(v: pd.DataFrame, groep: str, horizons=(2, 5, 7)) -> pd.DataFra
 
 def verrijk(v: pd.DataFrame, cfg: Config | None = None) -> pd.DataFrame:
     v = v.dropna(subset=["doel"]).copy()
-    lok = v["time_utc"].dt.tz_convert(TZ)
+    lok = v["time_utc"].dt.tz_convert(TZ_NAAM)
     if cfg is not None:
         ds = Dagsoorten(cfg.root)
         datums = lok.dt.date
@@ -254,7 +232,7 @@ def fig_voorbeeld(v: pd.DataFrame, pad: Path, origin: pd.Timestamp | None = None
         per_origin = per_origin[per_origin["n"] == per_origin["n"].max()]
         origin = (per_origin["mae"] - per_origin["mae"].median()).abs().idxmin()
     d = lg[lg["origin"] == origin].sort_values("time_utc")
-    t = d["time_utc"].dt.tz_convert(TZ)
+    t = d["time_utc"].dt.tz_convert(TZ_NAAM)
     fig, ax = plt.subplots(figsize=(11, 4.5))
     ax.fill_between(t, d["p10_kal"], d["p90_kal"], color="#2a78d6", alpha=0.12, linewidth=0, label="80%-interval (gekalibreerd)")
     ax.plot(t, d["p50"], color="#2a78d6", linewidth=2, label="voorspelling (P50)")
@@ -338,7 +316,7 @@ def fig_rmae_verdeling(verd: pd.DataFrame, pad: Path):
 
 # ---------- rapport ----------
 
-def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = 0.02) -> Path:
+def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = ACI_GAMMA) -> Path:
     v = laad_voorspellingen(cfg)
     if v is None:
         raise FileNotFoundError("geen backtest-voorspellingen; draai eerst `epv compare`")
@@ -390,7 +368,7 @@ def maak_rapport(cfg: Config, uit: Path | None = None, gamma_aci: float = 0.02) 
         exp_tabel = exp_tabel.merge(exp_sc[["methode", "horizon_dag", "binnen_10pct", "meerkosten_gem"]], on=["methode", "horizon_dag"], how="left")
 
     tekst = schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin,
-                             exp_dm, dagsoort_tab=dagsoort_tab, effecten=effecten)
+                             exp_dm, dagsoort_tab=dagsoort_tab, effecten=effecten, gamma_aci=gamma_aci)
     uit.parent.mkdir(parents=True, exist_ok=True)
     uit.write_text(tekst, encoding="utf-8")
     log.info("rapport -> %s", uit)
@@ -407,7 +385,7 @@ def dagsoort_sectie(tab: pd.DataFrame, effecten: dict | None) -> list[str]:
     g = tab.copy()
     g["_v"] = g["dagsoort"].map(volgorde)
     g = g.sort_values(["dag", "_v"]).drop(columns="_v")
-    L.append(_md(g[["dagsoort", "dag", "dagen", "mae_model", "mae_profiel", "rmae", "dekking_kal", "gem_prijs"]],
+    L.append(md_tabel(g[["dagsoort", "dag", "dagen", "mae_model", "mae_profiel", "rmae", "dekking_kal", "gem_prijs"]],
                  {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
                  {"mae_model": "MAE model", "mae_profiel": "MAE profiel", "rmae": "rMAE", "dekking_kal": "dekking", "gem_prijs": "gem. prijs"}))
     L.append("")
@@ -454,7 +432,7 @@ def _f(x, n=1):
 
 
 def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, exp_tabel, belang, verd, origins, voorbeeld_origin,
-                     exp_dm=None, dagsoort_tab=None, effecten=None) -> str:
+                     exp_dm=None, dagsoort_tab=None, effecten=None, gamma_aci: float = ACI_GAMMA) -> str:
     lg = t[t["methode"] == HOOFDMODEL].set_index("horizon_dag")
     pf = t[t["methode"] == REFERENTIE].set_index("horizon_dag")
     horizons = sorted(lg.index)
@@ -500,7 +478,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
         g = t[t["horizon_dag"] == k].copy()
         g["methode"] = g["methode"].map(_label)
         L.append(f"### Dag {k} vooruit\n")
-        L.append(_md(g[["methode", "mae", "rmse", "rmae", "pinball_p10", "pinball_p50", "pinball_p90", "dekking_ruw", "dekking_kal", "breedte_kal"]],
+        L.append(md_tabel(g[["methode", "mae", "rmse", "rmae", "pinball_p10", "pinball_p50", "pinball_p90", "dekking_ruw", "dekking_kal", "breedte_kal"]],
                      {"rmae": "{:.3f}", "dekking_ruw": "{:.3f}", "dekking_kal": "{:.3f}", "breedte_kal": "{:.1f}"},
                      {"mae": "MAE", "rmse": "RMSE", "rmae": "rMAE", "pinball_p10": "pinball P10", "pinball_p50": "pinball P50",
                       "pinball_p90": "pinball P90", "dekking_ruw": "dekking ruw", "dekking_kal": "dekking kal.", "breedte_kal": "breedte kal."}))
@@ -513,7 +491,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
              "Newey-West-correctie voor samenhang tussen dagen. Negatieve statistiek = methode is beter.\n")
     g = dm.copy()
     g["methode"] = g["methode"].map(_label)
-    L.append(_md(g[["methode", "horizon_dag", "n_dagen", "mae_methode", "mae_referentie", "dm_stat", "p_beter"]],
+    L.append(md_tabel(g[["methode", "horizon_dag", "n_dagen", "mae_methode", "mae_referentie", "dm_stat", "p_beter"]],
                  {"dm_stat": "{:.2f}", "p_beter": "{:.4f}"},
                  {"horizon_dag": "dag", "n_dagen": "dagen", "mae_methode": "MAE methode", "mae_referentie": "MAE profiel", "dm_stat": "DM", "p_beter": "p (beter)"}))
     L.append("")
@@ -527,7 +505,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
     L.append("![Goedkoopste blok](figures/goedkoopste_blok.png)\n")
     g = sam.copy()
     g["methode"] = g["methode"].map(_label)
-    L.append(_md(g[["methode", "horizon_dag", "exact", "binnen_10pct", "dagdeel_juist", "meerkosten_gem", "meerkosten_mediaan", "besparing_beste_gem", "aandeel_van_besparing"]],
+    L.append(md_tabel(g[["methode", "horizon_dag", "exact", "binnen_10pct", "dagdeel_juist", "meerkosten_gem", "meerkosten_mediaan", "besparing_beste_gem", "aandeel_van_besparing"]],
                  {"exact": "{:.3f}", "binnen_10pct": "{:.3f}", "dagdeel_juist": "{:.3f}", "aandeel_van_besparing": "{:.3f}"},
                  {"horizon_dag": "dag", "exact": "zelfde start", "binnen_10pct": "binnen 10%", "dagdeel_juist": "zelfde dagdeel",
                   "meerkosten_gem": "meerkosten gem.", "meerkosten_mediaan": "meerkosten mediaan", "besparing_beste_gem": "max. besparing",
@@ -536,13 +514,13 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
 
     L.append("## 4. Kalibratie van het interval\n")
     L.append("![Dekking per horizon](figures/dekking_per_horizon.png)\n")
-    L.append(_md(dek, {"ruw": "{:.3f}", "conformal": "{:.3f}", "ACI": "{:.3f}"}, {"ruw": "dekking ruw", "conformal": "dekking conformal", "ACI": "dekking ACI"}))
+    L.append(md_tabel(dek, {"ruw": "{:.3f}", "conformal": "{:.3f}", "ACI": "{:.3f}"}, {"ruw": "dekking ruw", "conformal": "dekking conformal", "ACI": "dekking ACI"}))
     L.append("")
     if len(okt):
         L.append(f"De eigen kwantielen van LightGBM zijn te smal. De conformal-correctie op {cfg.kalibratie_venster_dagen} dagen herstelt de "
                  f"dekking, maar loopt achter bij een plotselinge niveausprong: in oktober 2026 (gemiddelde prijs "
                  f"{okt['doel'].mean():.0f} EUR/MWh) dekte het interval {dekking(okt['doel'], okt['p10_kal'], okt['p90_kal'])*100:.0f}% "
-                 f"(conformal) en {dekking(okt['doel'], okt['p10_aci'], okt['p90_aci'])*100:.0f}% (ACI, gamma {0.02}). "
+                 f"(conformal) en {dekking(okt['doel'], okt['p10_aci'], okt['p90_aci'])*100:.0f}% (ACI, gamma {gamma_aci}). "
                  "ACI helpt dus iets, maar lost een regimewissel niet op.\n")
 
     L.append("## 5. Fout per uur, per maand, per seizoen, per periode en per dagsoort\n")
@@ -554,12 +532,12 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
     L.append("### Per kwartaal (dag 2 en 5)\n")
     k2 = kwart.pivot(index="kwartaal", columns="dag", values=["mae_model", "mae_profiel", "rmae", "dekking_kal"])
     k2.columns = [f"{a} dag {b}" for a, b in k2.columns]
-    L.append(_md(k2.reset_index(), {c: "{:.3f}" for c in k2.columns if c.startswith(("rmae", "dekking"))}))
+    L.append(md_tabel(k2.reset_index(), {c: "{:.3f}" for c in k2.columns if c.startswith(("rmae", "dekking"))}))
     L.append("\n### Per seizoen\n")
-    L.append(_md(seiz, {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
+    L.append(md_tabel(seiz, {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
                  {"mae_model": "MAE model", "mae_profiel": "MAE profiel", "rmae": "rMAE", "dekking_kal": "dekking", "gem_prijs": "gem. prijs"}))
     L.append("\n### Voor en na de kwartierprijzen (1 oktober 2025)\n")
-    L.append(_md(kwartier, {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
+    L.append(md_tabel(kwartier, {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "gem_prijs": "{:.0f}"},
                  {"periode_kwartier": "periode", "mae_model": "MAE model", "mae_profiel": "MAE profiel", "rmae": "rMAE", "dekking_kal": "dekking", "gem_prijs": "gem. prijs"}))
     L.append("")
     if dagsoort_tab is not None and not dagsoort_tab.empty:
@@ -580,7 +558,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
                  "langer dan alle beschikbare data.\n")
         g = exp_tabel.copy()
         g["methode"] = g["methode"].map(_label)
-        L.append(_md(g[["methode", "horizon_dag", "mae", "rmae", "pinball_p50", "dekking_kal", "breedte_kal", "binnen_10pct", "meerkosten_gem"]],
+        L.append(md_tabel(g[["methode", "horizon_dag", "mae", "rmae", "pinball_p50", "dekking_kal", "breedte_kal", "binnen_10pct", "meerkosten_gem"]],
                      {"rmae": "{:.3f}", "dekking_kal": "{:.3f}", "breedte_kal": "{:.1f}", "binnen_10pct": "{:.3f}"},
                      {"horizon_dag": "dag", "mae": "MAE", "rmae": "rMAE", "pinball_p50": "pinball P50", "dekking_kal": "dekking kal.",
                       "breedte_kal": "breedte kal.", "binnen_10pct": "blok binnen 10%", "meerkosten_gem": "meerkosten blok"}))
@@ -605,7 +583,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
             g = exp_dm.copy()
             g["variant"] = g["variant"].map(_label)
             g["referentie"] = g["referentie"].map(_label)
-            L.append(_md(g[["variant", "referentie", "horizon_dag", "mae_variant", "mae_referentie", "dm", "p"]],
+            L.append(md_tabel(g[["variant", "referentie", "horizon_dag", "mae_variant", "mae_referentie", "dm", "p"]],
                          {"p": "{:.4f}"},
                          {"horizon_dag": "dag", "mae_variant": "MAE variant", "mae_referentie": "MAE referentie", "dm": "DM", "p": "p"}))
             L.append("")
@@ -629,7 +607,7 @@ def schrijf_markdown(cfg, v, t, dm, sam, kwart, seiz, kwartier, dek, dek_uur, ex
     L.append(f"Per voorspelmoment (wekelijkse steekproef) is de rMAE van de 30 dagen ervoor berekend. Drempels: hoog < "
              f"{reliability.DREMPEL_HOOG}, redelijk < {reliability.DREMPEL_REDELIJK}, anders laag. Een vage band (breedte > "
              f"{reliability.BAND_VAAG:.0%} van het prijsniveau van die dag) zet het niveau één stap lager.\n")
-    L.append(_md(vt.merge(nv, on="horizon_dag"), {"count": "{:.0f}", "25%": "{:.3f}", "50%": "{:.3f}", "75%": "{:.3f}", "hoog": "{:.0%}", "redelijk": "{:.0%}", "laag": "{:.0%}"},
+    L.append(md_tabel(vt.merge(nv, on="horizon_dag"), {"count": "{:.0f}", "25%": "{:.3f}", "50%": "{:.3f}", "75%": "{:.3f}", "hoog": "{:.0%}", "redelijk": "{:.0%}", "laag": "{:.0%}"},
                  {"horizon_dag": "dag", "count": "n", "25%": "rMAE 25%", "50%": "rMAE mediaan", "75%": "rMAE 75%"}))
     L.append("")
 

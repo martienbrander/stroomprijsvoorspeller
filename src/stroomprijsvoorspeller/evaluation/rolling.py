@@ -130,8 +130,6 @@ class Geschat:
         return model.belang() if hasattr(model, "belang") else None
 
 
-_Geschat = Geschat
-
 
 def run_rolling(features: pd.DataFrame, cfg: Config, methoden: list[str], origins: list[date],
                 hertrain_elke_dagen: int | None = None, venster_dagen: int | None = None,
