@@ -10,7 +10,7 @@ hoort een onder- en bovengrens; hoe verder vooruit, hoe breder die band en hoe m
 
 Status: fase 1 tot en met 5 klaar (data, modellen, backtest, dagelijkse run met site, publicatie). De site draait
 lokaal; online zetten kan met de meegeleverde workflows. Zie [PLAN.md](PLAN.md) voor de fasen en
-[DECISIONS.md](DECISIONS.md) voor alle 52 keuzes en aannames.
+[DECISIONS.md](DECISIONS.md) voor alle keuzes en aannames.
 
 ## Hoe goed is het?
 
@@ -127,6 +127,12 @@ Hosting op GitHub Pages is gratis, een domeinnaam kost ongeveer tien euro per ja
 de leverancierstabel, het controleren van de scores en het meegroeien met de bronnen. Er komen geen advertenties en
 geen affiliate-links, omdat die de onafhankelijkheid van de leverancierstabel zouden aantasten. Hoe het onderhoud op
 termijn betaald wordt (donaties, een subsidie voor uitbreidingen) is nog open; zie besluit 38.
+
+## Hoe dit gemaakt is
+
+Dit project is gebouwd door Martien Brander samen met Claude (Claude Code van Anthropic). De keuzes staan in
+[DECISIONS.md](DECISIONS.md); de opdrachtgever nam elk besluit, Claude schreef de code, de analyses en de documentatie.
+Elke commit vermeldt dat met een regel `Co-Authored-By`. Fouten zijn van ons samen, meld ze gerust via een issue.
 
 ## Bijdragen
 
