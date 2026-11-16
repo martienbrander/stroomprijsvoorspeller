@@ -18,9 +18,11 @@ import pandas as pd
 from stroomprijsvoorspeller.timeutil import to_local
 
 DAGDELEN = ["nacht", "ochtend", "middag", "avond"]
+LAADBLOK_UREN = 3   # standaardblok voor de auto; elke run archiveert het goedkoopste blok van deze lengte
+WASBLOK_UREN = 2    # idem voor een wasbeurt
 
 
-def goedkoopste_blok(prijzen: np.ndarray, lengte: int = 3) -> tuple[int, float]:
+def goedkoopste_blok(prijzen: np.ndarray, lengte: int = LAADBLOK_UREN) -> tuple[int, float]:
     """Startindex en gemiddelde prijs van het goedkoopste aaneengesloten blok. NaN-uren maken een blok ongeldig."""
     p = np.asarray(prijzen, dtype=float)
     if len(p) < lengte:
@@ -37,7 +39,7 @@ def dagdeel(uur_lokaal: int) -> str:
     return DAGDELEN[min(int(uur_lokaal) // 6, 3)]
 
 
-def blok_scores(voorsp: pd.DataFrame, lengte: int = 3, tolerantie: float = 0.10, prijs_kolom: str = "p50") -> pd.DataFrame:
+def blok_scores(voorsp: pd.DataFrame, lengte: int = LAADBLOK_UREN, tolerantie: float = 0.10, prijs_kolom: str = "p50") -> pd.DataFrame:
     """Eén rij per (methode, origin, horizon_dag)."""
     v = voorsp.dropna(subset=["doel"]).sort_values(["methode", "origin", "horizon_dag", "time_utc"])
     rijen = []

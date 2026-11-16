@@ -14,17 +14,16 @@ import pandas as pd
 
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import stats
-from stroomprijsvoorspeller.evaluation.blocks import goedkoopste_blok
+from stroomprijsvoorspeller.evaluation.blocks import LAADBLOK_UREN, goedkoopste_blok
 from stroomprijsvoorspeller.evaluation.metrics import dekking, pinball
 from stroomprijsvoorspeller.pipeline import archive
 from stroomprijsvoorspeller.processing.features import DOEL
-from stroomprijsvoorspeller.timeutil import TZ, local_date
+from stroomprijsvoorspeller.timeutil import MIN_UREN_PER_DAG, TZ, local_date
 
 log = logging.getLogger(__name__)
 
 SLOTS = (19, 1, 7)          # verversingsmomenten (lokaal uur) uit besluit 33
 MIN_PAREN_BESLUIT = 40      # dagen met volledige paren voordat de beslisregel geldt
-LAADBLOK_UREN = 3
 
 
 def slot_van(run_utc: pd.Timestamp) -> int:
@@ -77,7 +76,7 @@ def blokverschuiving(p: pd.DataFrame) -> pd.DataFrame:
     rijen = []
     for (slot, k, origin, doeldag), g in p.groupby(["slot", "horizon_dag", "origin", "doeldag"]):
         g = g.sort_values("time_utc")
-        if len(g) < 23:
+        if len(g) < MIN_UREN_PER_DAG:
             continue
         echt = g[DOEL].to_numpy()
         uren = pd.DatetimeIndex(g["time_utc"]).tz_convert(TZ).hour.to_numpy()

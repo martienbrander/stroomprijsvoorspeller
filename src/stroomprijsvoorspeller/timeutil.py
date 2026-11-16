@@ -9,7 +9,7 @@ import pandas as pd
 
 TZ_NAAM = "Europe/Amsterdam"
 TZ = ZoneInfo(TZ_NAAM)
-UTC = ZoneInfo("UTC")
+MIN_UREN_PER_DAG = 23   # een lokale dag heeft minstens 23 uur (de dag waarop de zomertijd ingaat)
 
 
 def utc_now() -> pd.Timestamp:
