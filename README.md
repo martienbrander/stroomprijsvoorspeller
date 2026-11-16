@@ -137,7 +137,7 @@ Elke commit vermeldt dat met een regel `Co-Authored-By`. Fouten zijn van ons sam
 ## Bijdragen
 
 Fouten melden, een leverancier aanvullen (`data/leveranciers.yaml`, met bron en peildatum) of een idee aandragen kan
-via een issue of pull request. Voor codewijzigingen: `ruff check src tests` en `pytest` moeten slagen, en elke aanname
+via een issue of pull request op [github.com/martienbrander/stroomprijsvoorspeller](https://github.com/martienbrander/stroomprijsvoorspeller). Voor codewijzigingen: `ruff check src tests` en `pytest` moeten slagen, en elke aanname
 krijgt een regel in `DECISIONS.md`.
 
 Verdere rapporten: [dataverkenning](reports/verkenning/data-verkenning.md), [literatuurmemo over

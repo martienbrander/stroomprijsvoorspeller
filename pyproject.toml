@@ -23,7 +23,8 @@ model = ["lightgbm>=4.3", "scikit-learn>=1.4", "statsmodels>=0.14", "scipy>=1.11
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.urls]
-Documentatie = "https://github.com/stroomprijsvoorspeller"
+Broncode = "https://github.com/martienbrander/stroomprijsvoorspeller"
+Website = "https://stroomprijsvoorspeller.nl"
 
 [project.scripts]
 epv = "stroomprijsvoorspeller.cli:main"
