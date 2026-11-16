@@ -174,6 +174,7 @@
   .cel.sl-goedkoop { background: var(--sl-g-a); color: var(--sl-g-t); }
   .cel.sl-gemiddeld { background: var(--sl-m-a); color: var(--sl-m-t); }
   .cel.sl-duur { background: var(--sl-d-a); color: var(--sl-d-t); }
+  .cel.voorbij { filter: grayscale(1); opacity: .45; }   /* de uren van vandaag die voorbij zijn */
   .cel.blok { flex-direction: column; line-height: 1.15; gap: .1rem; }
   .cel.blok .lbl { font-weight: 500; font-size: .68rem; opacity: .85; }
   .cel.blok .sl-icoon { font-size: .6em; margin-right: .2em; }
@@ -376,8 +377,8 @@
   <p class="sub" id="sub"></p>
   <section class="start" id="start" hidden aria-labelledby="start-kop">
     <h2 id="start-kop">Start je apparaat om …</h2>
-    <p class="sub" style="margin-bottom:.6rem">Hoeveel uitstel je nu instelt voor het goedkoopste moment tot
-      morgenochtend 8 uur (nooit meer dan 24 uur vooruit), vergeleken met meteen starten.</p>
+    <p class="sub" style="margin-bottom:.6rem">Hoeveel uitstel je nu instelt voor het goedkoopste moment in de
+      komende 24 uur (vandaag of morgen), vergeleken met meteen starten.</p>
     <div class="start-blokjes" id="start-blokjes"></div>
   </section>
 
@@ -436,6 +437,7 @@
       <li><span class="vak" style="background:var(--accent);opacity:.25"></span>marge: in 8 van de 10 gevallen valt de
         prijs hierbinnen</li>
       <li><span class="vak spits"></span>netspits 16–21 uur</li>
+      <li><span class="vak" style="background:var(--zacht);opacity:.35"></span>grijs: voorbij</li>
     </ul>
     <details class="tabel"><summary>Dezelfde cijfers als tabel</summary><div id="tabel"></div></details>
   </section>
@@ -514,7 +516,7 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=3"></script>
+<script src="gedeeld.js?v=4"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
@@ -676,9 +678,13 @@
   function strookHtml(dag) {
     const beschrijving = `role="img" aria-label="${dagNaam(dag, true)}: ${dagdelenTekst(dag)}"`;
     if (dag.perUur) {
-      const cellen = dag.reeks.map((u) =>
-        `<div class="cel ${SP.STOPLICHT[u.stoplicht].klasse}" title="${fmtUur(u.uur)}: ` +
-        `${bandZin(u.p10, u.p50, u.p90, u.bekend)}"></div>`).join('');
+      // vandaag: wat voorbij is wordt grijs (besluit 66)
+      const nu = dag.datum === SP.vandaagLokaal() ? SP.nuLokaalUur() : -1;
+      const cellen = dag.reeks.map((u) => {
+        const voorbij = u.uur + u.duur <= nu + 1e-9;
+        return `<div class="cel ${SP.STOPLICHT[u.stoplicht].klasse}${voorbij ? ' voorbij' : ''}" ` +
+          `title="${fmtUur(u.uur)}: ${bandZin(u.p10, u.p50, u.p90, u.bekend)}${voorbij ? ' (voorbij)' : ''}"></div>`;
+      }).join('');
       return `<div class="uren${dag.perKwartier ? ' fijn' : ''}" ` +
         `style="grid-template-columns:repeat(${dag.reeks.length},1fr)" ${beschrijving}>${cellen}</div>`;
     }

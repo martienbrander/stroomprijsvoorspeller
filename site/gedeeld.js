@@ -82,8 +82,7 @@
   const LAAD_DREMPEL_EURO = 0.5;     // onder dit verschil: "doe het wanneer het uitkomt"
 
   // startadvies (besluit 58)
-  const NACHT_EIND = 8;              // het venster loopt tot morgenochtend 8 uur ...
-  const MAX_UITSTEL_UREN = 24;       // ... maar nooit verder dan een etmaal vooruit (besluit 65)
+  const MAX_UITSTEL_UREN = 24;       // het venster: van nu tot 24 uur vooruit, dus vandaag of morgen (besluit 66)
   const START_MIN_WINST_EURO = 0.05; // uitstel moet minstens 5 cent ...
   const START_MIN_WINST_DEEL = 0.10; // ... en 10% schelen, anders is het advies 'nu'
   const ANDERE_DAG_MIN_EURO = 0.10;  // een andere dag noemen we pas bij 10 cent ...
@@ -1033,10 +1032,46 @@
       ctx.strokeStyle = t.kleur.raster; ctx.lineWidth = 1;
       lijn(ctx, xBegin, t.boven, xBegin, t.onder);
       tekenNetspits(t, dag, eersteUur);
+      const xNu = xVanNu(t, dag, eersteUur);
+      if (xNu === null) {
+        tekenPrijzen(t, dag, eersteUur, xBegin, xEind);
+      } else {
+        // vandaag: de uren die voorbij zijn in grijs, de rest in kleur, met een dunne lijn op 'nu' (besluit 66)
+        const grijs = Object.assign({}, t, {
+          kleur: Object.assign({}, t.kleur, { bekend: t.kleur.zacht, band: t.kleur.zacht, lijn: t.kleur.zacht }),
+        });
+        binnenStrook(t, xBegin, xNu, () => tekenPrijzen(grijs, dag, eersteUur, xBegin, xEind));
+        binnenStrook(t, xNu, xEind, () => tekenPrijzen(t, dag, eersteUur, xBegin, xEind));
+        ctx.strokeStyle = t.kleur.zacht; ctx.lineWidth = 1;
+        lijn(ctx, xNu, t.boven, xNu, t.onder);
+        ctx.font = (t.compact ? 10 : 11) + GRAFIEK_FONT;
+        ctx.fillStyle = t.kleur.zacht; ctx.textBaseline = 'top';
+        const past = xNu + 20 < xEind;
+        ctx.textAlign = past ? 'left' : 'right';
+        ctx.fillText('nu', xNu + (past ? 3 : -3), t.boven + 1);
+        ctx.font = (t.compact ? 11 : 12) + GRAFIEK_FONT;
+      }
+      tekenDaglabel(t, dag, xBegin, xEind);
+    }
+    function tekenPrijzen(t, dag, eersteUur, xBegin, xEind) {
       if (!dag.perUur) tekenDagdelen(t, dag, eersteUur);
       else if (dag.bekend) tekenBekendeDag(t, dag, eersteUur, xBegin, xEind);
       else tekenVerwachteDag(t, dag, eersteUur, xBegin, xEind);
-      tekenDaglabel(t, dag, xBegin, xEind);
+    }
+    // x-positie van 'nu' als deze dag vandaag is, anders null; `pos` telt goed op dagen met 23 of 25 uur
+    function xVanNu(t, dag, eersteUur) {
+      if (dag.datum !== vandaagLokaal()) return null;
+      const nu = nuLokaalUur();
+      const uur = dag.uren.find((u) => u.uur === Math.floor(nu));
+      return t.x(eersteUur + (uur ? uur.pos + (nu - uur.uur) : nu));
+    }
+    // tekent alleen binnen de verticale strook van x0 tot x1
+    function binnenStrook(t, x0, x1, tekenen) {
+      const ctx = t.ctx;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x0, 0, Math.max(0, x1 - x0), t.hoog); ctx.clip();
+      tekenen();
+      ctx.restore();
     }
 
     // netspits 16-21 uur: arcering. De positie komt uit het uur zelf, zodat dagen met 23 of 25 uur goed gaan.
@@ -1230,8 +1265,8 @@
   /*
    * startAdvies(model, apparaat, nuUur) -> { uitstel, beste, nu, winst, andereDag } of null
    *
-   * Kandidaten zijn de starttijden nu + k x stap (de uitstelstap van het apparaat) tot morgenochtend 8 uur, en
-   * nooit meer dan 24 uur vooruit: na middernacht zou het venster anders tot 8 uur de dag erna lopen. De
+   * Kandidaten zijn de starttijden nu + k x stap (de uitstelstap van het apparaat) tot 24 uur vooruit: verder
+   * gaat de uitgestelde start van een apparaat niet, en de vraag gaat over vandaag of morgen (besluit 66). De
    * goedkoopste wint; scheelt dat met meteen starten minder dan 5 cent of 10%, dan is het advies 'nu'.
    * Is de eerste getoonde dag niet vandaag (een verouderde voorspelling), dan geldt die dag als venster vanaf 0:00.
    *
@@ -1253,9 +1288,7 @@
 
     const stap = apparaat.stap || 1;
     const eersteStart = vandaag.datum === vandaagLokaal() ? nuUur : 0;
-    const laatsteStart = morgen
-      ? Math.min(24 + NACHT_EIND, eersteStart + MAX_UITSTEL_UREN)
-      : 24 - apparaat.uren;
+    const laatsteStart = morgen ? eersteStart + MAX_UITSTEL_UREN : 24 - apparaat.uren;
     let beste = null, meteen = null;
     for (let k = 0; eersteStart + k * stap <= laatsteStart + 1e-9; k++) {
       const blok = blokOpTijd(tijdlijn, eersteStart + k * stap, apparaat.uren);
