@@ -157,12 +157,12 @@
   .apparaat .naam { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; font-weight: 700; }
   .apparaat .naam small { font-weight: 400; font-size: .85rem; color: var(--zacht); }
   .apparaat .naam a { font-weight: 400; font-size: .85rem; color: var(--accent); }
-  .apparaten-form .app-rij { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(5.5rem, 1fr) minmax(5.5rem, 1fr) minmax(7rem, 1fr) auto; gap: .5rem; align-items: end; margin: .5rem 0; }
+  .apparaten-form .app-rij { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(4rem, .8fr) minmax(4.5rem, .8fr) minmax(5.5rem, 1fr) minmax(7rem, 1fr) auto; gap: .5rem; align-items: end; margin: .5rem 0; }
   .apparaten-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--zacht); }
   .apparaten-form input, .apparaten-form select { font: inherit; font-size: .95rem; padding: .35rem .5rem; border: 1px solid var(--rand); border-radius: .4rem; background: var(--vlak); color: var(--tekst); min-width: 0; }
   .apparaten-form .weg { font: inherit; font-size: 1.1rem; line-height: 1; padding: .35rem .6rem; border: 1px solid var(--rand); border-radius: .4rem; background: transparent; color: var(--zacht); cursor: pointer; }
   .apparaten-form .toevoegen { font: inherit; font-size: .9rem; margin-top: .4rem; padding: .4rem .8rem; border: 1px dashed var(--rand); border-radius: .5rem; background: transparent; color: var(--accent); cursor: pointer; }
-  @media (max-width: 560px) { .apparaten-form .app-rij { grid-template-columns: 1fr 1fr; } .apparaten-form .app-rij label:first-child { grid-column: 1 / -1; } }
+  @media (max-width: 560px) { .apparaten-form .app-rij { grid-template-columns: 1fr 1fr 1fr; } .apparaten-form .app-rij label:first-child { grid-column: 1 / -1; } }
   .bedragen { grid-column: 2; display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .35rem; }
   .bedrag { background: var(--vlak); border-radius: .5rem; padding: .5rem .6rem; min-width: 0; }
   .bedrag .l { display: block; font-size: .72rem; color: var(--zacht); line-height: 1.25; }
@@ -298,7 +298,7 @@
 
   <div class="kader">
     <h2 style="margin-top:0" id="instellingen">Mijn auto</h2>
-    <p style="color:var(--zacht)">Standaard een laadblok van 3 uur en 30 kWh. Vul uw laadvermogen en hoeveelheid in voor uw eigen laadbeurt. Dit blijft in uw eigen browser.</p>
+    <p style="color:var(--zacht)">Standaard 30 kWh in een laadblok van 3 uur. Vul uw laadsnelheid (vermogen) en de hoeveelheid in voor uw eigen laadbeurt; de laadduur wordt dan op een kwartier afgerond. Dit blijft in uw eigen browser.</p>
     <form class="tarief" id="tarief">
       <fieldset class="laad">
         <legend>Auto laden</legend>
@@ -452,7 +452,7 @@
       if (!r.zeker.blok) return '';
       const icoon = a.id === 'auto' ? ICOON_LADEN : ICOON_WASSEN;
       const inst = a.id === 'auto'
-        ? '<small>' + SP.fmt(m.laad.kwh, m.laad.kwh % 1 ? 1 : 0) + ' kWh' + (m.laad.inst && m.laad.inst.kw ? ' bij ' + SP.fmt(m.laad.inst.kw, m.laad.inst.kw % 1 ? 1 : 0) + ' kW' : '') + ', blok van ' + r.uren + ' uur</small> <a href="#instellingen">aanpassen</a>'
+        ? '<small>' + SP.fmt(m.laad.kwh, m.laad.kwh % 1 ? 1 : 0) + ' kWh te laden, ' + (m.laad.inst && m.laad.inst.kw ? 'laadsnelheid ' + SP.fmt(m.laad.inst.kw, m.laad.inst.kw % 1 ? 1 : 0) + ' kW, duurt ' : 'laadsnelheid niet ingesteld, blok van ') + SP.duurTekst(r.uren) + '</small> <a href="#instellingen">aanpassen</a>'
         : '<small>' + SP.fmt(a.kwh, a.kwh % 1 ? 1 : 0) + ' kWh, duurt ' + SP.duurTekst(a.uren) + '</small> <a href="#apparaten-instellingen">aanpassen</a>';
       const beste = r.beste ? '<div class="bedrag"><span class="l">Later deze week</span><span class="e">' + SP.fmtEuro(r.beste.euro) + '</span><span class="w">' + SP.dagNaam(r.beste.dag, false) + ' ' + SP.blokTijd(r.beste.blok) + ', ' + SP.plusMinEuro(r.beste.euroHoog - r.beste.euro, r.beste.euro - r.beste.euroLaag) + '</span></div>' : '';
       return '<div class="apparaat">' + icoon +
@@ -483,7 +483,7 @@
         }).join('') + '</div>';
     }
     const bl = d.laden;
-    const mark = bl ? '<div class="markering" style="left:' + (bl.start / 24 * 100).toFixed(2) + '%;width:' + (Math.min(bl.n, 24 - bl.start) / 24 * 100).toFixed(2) + '%" title="Goedkoopste ' + bl.n + ' uur om te laden">' + ICOON_LADEN + '</div>' : '';
+    const mark = bl ? '<div class="markering" style="left:' + (bl.start / 24 * 100).toFixed(2) + '%;width:' + (Math.min(bl.n, 24 - bl.start) / 24 * 100).toFixed(2) + '%" title="Goedkoopste ' + SP.duurTekst(bl.n) + ' om te laden">' + ICOON_LADEN + '</div>' : '';
     const detail = d.perUur ? '' : ddLijst(d); // uurprijzen niet meer in het uitklapdeel (wens opdrachtgever); ze staan in de tabel
     return '<li class="rij">' +
       '<button class="rijknop" type="button" aria-expanded="' + isOpen + '" aria-controls="detail-' + d.index + '" data-index="' + d.index + '">' +

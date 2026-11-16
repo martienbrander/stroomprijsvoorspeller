@@ -411,7 +411,7 @@
     const h = Math.floor(uren + 1e-9), m = Math.round((uren - h) * 60);
     if (m === 0) return h + ' uur';
     if (h === 0) return m + ' min';
-    return h + ' uur ' + (m < 10 ? '0' : '') + m;
+    return h + ' uur ' + m + ' min';
   }
   /*
    * koppelApparaten(container, bijRefresh): tekent een bewerkbare lijst (naam, duur, kWh, verwijderen) plus een knop
@@ -424,7 +424,8 @@
       container.innerHTML = lijst.map(function (a, i) {
         return '<div class="app-rij" data-i="' + i + '">' +
           '<label>Apparaat<input type="text" name="naam" value="' + esc(a.naam) + '" maxlength="30" placeholder="bijv. vaatwasser"></label>' +
-          '<label>Duur (uren)<input type="number" name="uren" value="' + a.uren + '" step="0.25" min="0.25" max="24" inputmode="decimal"></label>' +
+          '<label>Uren<input type="number" name="uren" value="' + Math.floor(a.uren + 1e-9) + '" step="1" min="0" max="24" inputmode="numeric"></label>' +
+          '<label>Minuten<select name="min">' + [0, 15, 30, 45].map(function (mi) { return '<option value="' + mi + '"' + (Math.round((a.uren - Math.floor(a.uren + 1e-9)) * 60) === mi ? ' selected' : '') + '>' + mi + '</option>'; }).join('') + '</select></label>' +
           '<label>Verbruik (kWh)<input type="number" name="kwh" value="' + a.kwh + '" step="0.1" min="0.1" inputmode="decimal"></label>' +
           '<label>Uitstel in stappen van<select name="stap">' + UITSTEL_STAPPEN.map(function (st) { return '<option value="' + st + '"' + (Math.abs((a.stap || 1) - st) < 1e-9 ? ' selected' : '') + '>' + (st === 1 ? '1 uur' : st === 0.5 ? 'half uur' : 'kwartier') + '</option>'; }).join('') + '</select></label>' +
           '<button type="button" class="weg" aria-label="' + esc(a.naam) + ' verwijderen" title="Verwijderen">×</button>' +
@@ -436,11 +437,12 @@
       const rijen = Array.from(container.querySelectorAll('.app-rij'));
       lijst = rijen.map(function (r, i) {
         const oud = lijst[i] || {};
-        const uren = getal(r.querySelector('[name=uren]'), 0.25);
+        const heel = getal(r.querySelector('[name=uren]'), 0), minuten = parseInt(r.querySelector('[name=min]').value, 10) || 0;
+        const uren = heel === null ? null : heel + minuten / 60;
         const kwh = getal(r.querySelector('[name=kwh]'), 0.1);
         const stap = parseFloat(r.querySelector('[name=stap]').value);
         return { id: oud.id || 'app' + Date.now() + i, naam: r.querySelector('[name=naam]').value.trim() || 'Apparaat',
-                 uren: uren !== null ? Math.min(24, Math.round(uren * 4) / 4) : (oud.uren || 1), kwh: kwh !== null ? kwh : (oud.kwh || 1),
+                 uren: uren !== null ? Math.min(24, Math.max(0.25, Math.round(uren * 4) / 4)) : (oud.uren || 1), kwh: kwh !== null ? kwh : (oud.kwh || 1),
                  stap: UITSTEL_STAPPEN.indexOf(stap) >= 0 ? stap : 1 };
       });
       bewaarApparaten(lijst);
@@ -478,16 +480,16 @@
       return true;
     } catch (e) { return false; }
   }
-  // bloklengte in hele uren: kWh / kW naar boven afgerond, 1..24; zonder instellingen 3 uur
+  // bloklengte in uren, naar boven afgerond op een kwartier: kWh / kW, 0,25..24; zonder instellingen 3 uur
   function laadBlokUren(inst) {
-    if (inst && inst.kw > 0 && inst.kwh > 0) return Math.min(24, Math.max(1, Math.ceil(inst.kwh / inst.kw - 1e-9)));
+    if (inst && inst.kw > 0 && inst.kwh > 0) return Math.min(24, Math.max(0.25, Math.ceil(inst.kwh / inst.kw * 4 - 1e-9) / 4));
     return LAAD_STANDAARD_UREN;
   }
   function laadKwh(inst) { return inst && inst.kwh > 0 ? inst.kwh : LAAD_STANDAARD_KWH; }
   function laadUitleg(inst) {
     const n = laadBlokUren(inst);
-    if (inst && inst.kw > 0 && inst.kwh > 0) return fmt(inst.kwh, inst.kwh % 1 ? 1 : 0) + ' kWh bij ' + fmt(inst.kw, inst.kw % 1 ? 1 : 0) + ' kW: een blok van ' + n + ' uur.';
-    return 'Standaard: een blok van ' + LAAD_STANDAARD_UREN + ' uur en ' + LAAD_STANDAARD_KWH + ' kWh. Vul vermogen en hoeveelheid in voor uw eigen laadbeurt.';
+    if (inst && inst.kw > 0 && inst.kwh > 0) return fmt(inst.kwh, inst.kwh % 1 ? 1 : 0) + ' kWh bij ' + fmt(inst.kw, inst.kw % 1 ? 1 : 0) + ' kW: laden duurt ' + duurTekst(n) + ' (afgerond op een kwartier).';
+    return 'Standaard: ' + LAAD_STANDAARD_KWH + ' kWh in een blok van ' + LAAD_STANDAARD_UREN + ' uur. Vul laadsnelheid en hoeveelheid in voor uw eigen laadbeurt.';
   }
   // formulier koppelen: select[name=kw] (met optie "anders"), input[name=kw-anders], input[name=kwh], input[name=km], element .laad-uitleg
   function koppelLaadinstellingen(form, bijRefresh) {
@@ -553,7 +555,7 @@
       if (d.bekend) z += 'bekend, gemiddeld ' + fmt(d.gem) + ' ct/kWh, van ' + fmt(d.min) + ' tot ' + fmt(d.max) + '.';
       else z += 'voorspeld, ' + betrouwbaarheidTekst(d, false) + ', gemiddeld rond ' + fmt(d.gem) + ' ct/kWh.';
       z += ' Dagdelen: ' + d.dagdelen.map(function (x) { return x.label.toLowerCase() + ' ' + x.stoplicht; }).join(', ') + '.';
-      if (b) z += ' Goedkoopste ' + b.n + ' uur om te laden: ' + blokTijd(b) + '.';
+      if (b) z += ' Goedkoopste ' + duurTekst(b.n) + ' om te laden: ' + blokTijd(b) + '.';
       return z;
     }).join(' ');
   }
