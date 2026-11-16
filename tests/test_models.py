@@ -75,7 +75,7 @@ def test_conformal_correctie_herstelt_dekking():
     lo, hi = np.full(5000, -0.5), np.full(5000, 0.5)  # veel te smal: dekt ~38%
     q = cal.conformal_correctie(cal.conformal_score(y, lo, hi), alpha=0.2)
     assert q > 0
-    assert abs(cal.dekking(y, lo - q, hi + q) - 0.8) < 0.03
+    assert abs(metrics.dekking(y, lo - q, hi + q) - 0.8) < 0.03
 
 
 def test_conformal_maakt_te_breed_interval_smaller():

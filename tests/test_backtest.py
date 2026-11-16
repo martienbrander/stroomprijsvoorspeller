@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from stroomprijsvoorspeller.evaluation import blocks, reliability, stats
+from stroomprijsvoorspeller.evaluation import blocks, metrics, reliability, stats
 from stroomprijsvoorspeller.model import calibration as cal
 from stroomprijsvoorspeller.processing import features as ft
 
@@ -87,8 +87,8 @@ def test_aci_herstelt_dekking_na_regimewissel():
     aci = cal.pas_aci_toe(kal, venster_dagen=30, gamma=0.05)
     na = aci[aci["origin"] >= pd.Timestamp(origins[85])]
     na = na[na["origin"] < pd.Timestamp(origins[110])]
-    d_kal = cal.dekking(na["doel"], na["p10_kal"], na["p90_kal"])
-    d_aci = cal.dekking(na["doel"], na["p10_aci"], na["p90_aci"])
+    d_kal = metrics.dekking(na["doel"], na["p10_kal"], na["p90_kal"])
+    d_aci = metrics.dekking(na["doel"], na["p10_aci"], na["p90_aci"])
     assert d_aci > d_kal
     assert (aci["alpha_aci"] <= 0.5).all() and (aci["alpha_aci"] >= 0.01).all()
     # geen lekkage: alpha en q voor origin D mogen niet afhangen van uitkomsten na bekend_tot(D)

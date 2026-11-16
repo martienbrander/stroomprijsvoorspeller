@@ -8,16 +8,22 @@ Voor baselines (p10 = p50 = p90) wordt dit een symmetrisch interval van residu-k
 
 Lekkage-regel: voor voorspelmoment D tellen alleen uitkomsten mee van doeluren die op D al bekend waren
 (time_utc < bekend_tot(D)), uit voorspelmomenten in de `venster_dagen` dagen voor D.
+
+Beide `pas_..._toe`-functies rekenen per (methode, horizon_dag) op numpy-arrays en schrijven de uitkomst pas aan het
+eind in het frame: toewijzen per voorspelmoment met `.loc` maakte de kalibratie de traagste stap van de dagelijkse run.
 """
 
 from __future__ import annotations
+
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
 
 from stroomprijsvoorspeller.processing.features import bekend_tot
 
-MIN_SCORES = 48  # minstens twee dagen aan bekende uitkomsten voordat we corrigeren
+MIN_SCORES = 48   # minstens twee dagen aan bekende uitkomsten voordat we corrigeren
+ACI_GAMMA = 0.02  # leersnelheid van de online bijsturing (besluit 41)
 
 
 def conformal_score(y, lo, hi) -> np.ndarray:
@@ -35,12 +41,25 @@ def conformal_correctie(scores, alpha: float = 0.2) -> float:
     return float(np.quantile(s, niveau, method="higher"))
 
 
-def dekking(y, lo, hi) -> float:
-    y, lo, hi = (np.asarray(a, dtype=float) for a in (y, lo, hi))
-    ok = ~np.isnan(y)
-    if ok.sum() == 0:
-        return float("nan")
-    return float(((y[ok] >= lo[ok]) & (y[ok] <= hi[ok])).mean())
+@lru_cache(maxsize=4096)
+def _bekend_tot_utc(origin: np.datetime64) -> np.datetime64:
+    """`bekend_tot` van een voorspelmoment als tijdzoneloze UTC-tijd, vergelijkbaar met de arrays hieronder."""
+    return bekend_tot(pd.Timestamp(origin).date()).tz_convert("UTC").tz_localize(None).to_datetime64()
+
+
+def _tijdassen(voorsp: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Voorspelmoment en doeluur per rij als numpy-arrays (doeluur in UTC, zonder tijdzone)."""
+    origins = pd.to_datetime(voorsp["origin"]).to_numpy()
+    tijden = pd.DatetimeIndex(voorsp["time_utc"]).tz_convert("UTC").tz_localize(None).to_numpy()
+    return origins, tijden
+
+
+def _kalibratiescores(origins: np.ndarray, tijden: np.ndarray, scores: np.ndarray, origin: np.datetime64,
+                      venster: np.timedelta64) -> np.ndarray:
+    """Scores die op voorspelmoment `origin` mogen meetellen: uit voorspelmomenten in het venster ervoor, en alleen
+    van doeluren waarvan de prijs op dat moment al bekend was (de lekkage-regel)."""
+    telt_mee = (origins >= origin - venster) & (origins < origin) & (tijden < _bekend_tot_utc(origin)) & ~np.isnan(scores)
+    return scores[telt_mee]
 
 
 def pas_conformal_toe(voorsp: pd.DataFrame, venster_dagen: int, alpha: float = 0.2,
@@ -50,36 +69,26 @@ def pas_conformal_toe(voorsp: pd.DataFrame, venster_dagen: int, alpha: float = 0
     voorsp: kolommen origin (Timestamp), time_utc, horizon_dag, methode, p10, p50, p90, doel.
     """
     uit = voorsp.copy()
-    uit["conformal_q"] = 0.0
-    uit["p10_kal"] = uit["p10"]
-    uit["p90_kal"] = uit["p90"]
-    score = conformal_score(uit["doel"], uit["p10"], uit["p90"])
-    venster = pd.Timedelta(days=venster_dagen)
+    alle_scores = conformal_score(uit["doel"], uit["p10"], uit["p90"])
+    alle_origins, alle_tijden = _tijdassen(uit)
+    venster = np.timedelta64(venster_dagen, "D")
+    q = np.zeros(len(uit))
 
-    for idx in uit.groupby(["methode", "horizon_dag"]).groups.values():
-        g = uit.loc[idx]
-        origins = pd.to_datetime(g["origin"]).to_numpy()
-        tijden = pd.DatetimeIndex(g["time_utc"]).tz_convert("UTC").tz_localize(None).to_numpy()
-        sc = score[uit.index.get_indexer(idx)]
-        for D in np.unique(origins):
-            D_ts = pd.Timestamp(D)
-            grens = bekend_tot(D_ts.date()).tz_convert("UTC").tz_localize(None).to_datetime64()
-            mask = (origins >= (D_ts - venster).to_datetime64()) & (origins < D_ts.to_datetime64()) \
-                & (tijden < grens) & ~np.isnan(sc)
-            if mask.sum() < min_scores:
-                continue
-            q = conformal_correctie(sc[mask], alpha)
-            doel_idx = idx[origins == D]
-            uit.loc[doel_idx, "conformal_q"] = q
-            uit.loc[doel_idx, "p10_kal"] = uit.loc[doel_idx, "p10"] - q
-            uit.loc[doel_idx, "p90_kal"] = uit.loc[doel_idx, "p90"] + q
-    # interval mag niet kruisen met de mediaan
-    uit["p10_kal"] = np.minimum(uit["p10_kal"], uit["p50"])
-    uit["p90_kal"] = np.maximum(uit["p90_kal"], uit["p50"])
+    for rijen in uit.groupby(["methode", "horizon_dag"]).indices.values():
+        origins, tijden, scores = alle_origins[rijen], alle_tijden[rijen], alle_scores[rijen]
+        for origin in np.unique(origins):
+            bekend = _kalibratiescores(origins, tijden, scores, origin, venster)
+            if len(bekend) >= min_scores:
+                q[rijen[origins == origin]] = conformal_correctie(bekend, alpha)
+
+    uit["conformal_q"] = q
+    # het interval mag de mediaan niet kruisen
+    uit["p10_kal"] = np.minimum(uit["p10"] - q, uit["p50"])
+    uit["p90_kal"] = np.maximum(uit["p90"] + q, uit["p50"])
     return uit
 
 
-def pas_aci_toe(voorsp: pd.DataFrame, venster_dagen: int, gamma: float = 0.02, alpha: float = 0.2,
+def pas_aci_toe(voorsp: pd.DataFrame, venster_dagen: int, gamma: float = ACI_GAMMA, alpha: float = 0.2,
                 min_scores: int = MIN_SCORES, alpha_min: float = 0.01, alpha_max: float = 0.5) -> pd.DataFrame:
     """Adaptive Conformal Inference (Gibbs en Candès 2021) bovenop de rolling conformal-correctie.
 
@@ -89,45 +98,37 @@ def pas_aci_toe(voorsp: pd.DataFrame, venster_dagen: int, gamma: float = 0.02, a
     Voegt p10_aci, p90_aci en alpha_aci toe.
     """
     uit = voorsp.copy()
-    uit["alpha_aci"] = alpha
-    uit["p10_aci"] = uit["p10"]
-    uit["p90_aci"] = uit["p90"]
-    score = conformal_score(uit["doel"], uit["p10"], uit["p90"])
-    venster = pd.Timedelta(days=venster_dagen)
+    alle_scores = conformal_score(uit["doel"], uit["p10"], uit["p90"])
+    alle_origins, alle_tijden = _tijdassen(uit)
+    venster = np.timedelta64(venster_dagen, "D")
+    q = np.zeros(len(uit))
+    alpha_per_rij = np.full(len(uit), alpha)
 
-    for idx in uit.groupby(["methode", "horizon_dag"]).groups.values():
-        g = uit.loc[idx]
-        origins = pd.to_datetime(g["origin"]).to_numpy()
-        tijden = pd.DatetimeIndex(g["time_utc"]).tz_convert("UTC").tz_localize(None).to_numpy()
-        sc = score[uit.index.get_indexer(idx)]
-        pos = {D: np.flatnonzero(origins == D) for D in np.unique(origins)}
-        q_per_origin: dict = {}
-        a_t = alpha
-        verwerkt: set = set()
-        for D in sorted(pos):
-            D_ts = pd.Timestamp(D)
-            grens = bekend_tot(D_ts.date()).tz_convert("UTC").tz_localize(None).to_datetime64()
-            # update alpha met alle eerdere voorspelmomenten waarvan nu alle uren bekend zijn
-            for D2 in sorted(pos):
-                if D2 >= D or D2 in verwerkt or D2 not in q_per_origin:
-                    continue
-                rows = pos[D2]
-                if not (tijden[rows] < grens).all():
-                    continue
-                err = float(np.nanmean(sc[rows] > q_per_origin[D2]))
-                a_t = float(np.clip(a_t + gamma * (alpha - err), alpha_min, alpha_max))
-                verwerkt.add(D2)
-            mask = (origins >= (D_ts - venster).to_datetime64()) & (origins < D_ts.to_datetime64()) \
-                & (tijden < grens) & ~np.isnan(sc)
-            if mask.sum() < min_scores:
-                q = 0.0
-            else:
-                q = conformal_correctie(sc[mask], a_t)
-            q_per_origin[D] = q
-            rows = idx[pos[D]]
-            uit.loc[rows, "alpha_aci"] = a_t
-            uit.loc[rows, "p10_aci"] = uit.loc[rows, "p10"] - q
-            uit.loc[rows, "p90_aci"] = uit.loc[rows, "p90"] + q
-    uit["p10_aci"] = np.minimum(uit["p10_aci"], uit["p50"])
-    uit["p90_aci"] = np.maximum(uit["p90_aci"], uit["p50"])
+    for rijen in uit.groupby(["methode", "horizon_dag"]).indices.values():
+        origins, tijden, scores = alle_origins[rijen], alle_tijden[rijen], alle_scores[rijen]
+        alpha_t = alpha
+        # eerdere voorspelmomenten waarvan de uitkomst nog niet in alpha_t verwerkt is: (positie in de groep, eigen q)
+        wachtend: list[tuple[np.ndarray, float]] = []
+        for origin in np.unique(origins):
+            grens = _bekend_tot_utc(origin)
+            # stuur alpha bij met elk eerder voorspelmoment waarvan nu alle uren bekend zijn, oudste eerst
+            nog_wachtend = []
+            for eerder, q_eerder in wachtend:
+                if (tijden[eerder] < grens).all():
+                    fout = float(np.nanmean(scores[eerder] > q_eerder))
+                    alpha_t = float(np.clip(alpha_t + gamma * (alpha - fout), alpha_min, alpha_max))
+                else:
+                    nog_wachtend.append((eerder, q_eerder))
+            wachtend = nog_wachtend
+
+            bekend = _kalibratiescores(origins, tijden, scores, origin, venster)
+            q_origin = conformal_correctie(bekend, alpha_t) if len(bekend) >= min_scores else 0.0
+            eigen = np.flatnonzero(origins == origin)
+            q[rijen[eigen]] = q_origin
+            alpha_per_rij[rijen[eigen]] = alpha_t
+            wachtend.append((eigen, q_origin))
+
+    uit["alpha_aci"] = alpha_per_rij
+    uit["p10_aci"] = np.minimum(uit["p10"] - q, uit["p50"])
+    uit["p90_aci"] = np.maximum(uit["p90"] + q, uit["p50"])
     return uit

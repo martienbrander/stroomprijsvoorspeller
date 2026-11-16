@@ -15,8 +15,7 @@ import pandas as pd
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import stats
 from stroomprijsvoorspeller.evaluation.blocks import goedkoopste_blok
-from stroomprijsvoorspeller.evaluation.metrics import pinball
-from stroomprijsvoorspeller.model.calibration import dekking
+from stroomprijsvoorspeller.evaluation.metrics import dekking, pinball
 from stroomprijsvoorspeller.pipeline import archive
 from stroomprijsvoorspeller.processing.features import DOEL
 from stroomprijsvoorspeller.timeutil import TZ, local_date

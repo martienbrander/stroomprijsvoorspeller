@@ -17,8 +17,7 @@ import yaml
 
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import reliability
-from stroomprijsvoorspeller.evaluation.metrics import mae
-from stroomprijsvoorspeller.model.calibration import dekking
+from stroomprijsvoorspeller.evaluation.metrics import dekking, mae
 from stroomprijsvoorspeller.pipeline import archive
 from stroomprijsvoorspeller.processing import dataset
 from stroomprijsvoorspeller.processing.dagsoort import Dagsoorten, dag_effecten
