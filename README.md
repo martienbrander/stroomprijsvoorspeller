@@ -93,9 +93,9 @@ epv evalueer-verversingen   # wat leveren de verversingen op? -> reports/ververs
 epv historie-export         # compacte backtest-historie voor online gebruik
 ```
 
-## Dagelijks gebruik op deze pc
+## Dagelijks gebruik op je eigen pc
 
-Twee bestanden in de projectmap (geen taakplanner, besluit 49):
+Wie de code zelf draait (Windows), heeft twee bestanden in de projectmap (geen taakplanner, besluit 49):
 
 - `ververs.bat`: maakt een nieuwe voorspelling. Haalt prijzen en weer op, haalt gemiste dagen in, traint het model
   opnieuw als het ouder is dan een week, voorspelt 7 dagen vooruit en schrijft `site/data/forecast.json`.
@@ -138,8 +138,8 @@ oud de laatste voorspelling is. Zelf een run starten: Actions, "dagelijkse run",
 volgende run haalt alles opnieuw op (dat duurt dan een kwartier in plaats van twee minuten) en bouwt de kalibratie
 opnieuw op uit het runarchief dat verloren is, dus doe dat alleen als het echt moet.
 
-**Lokaal blijft werken.** `ververs.bat` en `epv serve` doen het nog steeds op deze pc. De lokale werkdata en de
-werkdata online zijn gescheiden en worden niet gesynchroniseerd; de online run is de bron voor de site.
+**Lokaal blijft werken.** `ververs.bat` en `epv serve` werken ook naast de online versie, op een eigen pc. De lokale
+werkdata en de werkdata online zijn gescheiden en worden niet gesynchroniseerd; de online run is de bron voor de site.
 
 ## Onderhoud en kosten
 
