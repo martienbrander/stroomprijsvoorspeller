@@ -542,7 +542,14 @@
   const MAX_STARTTEGELS = 3;
   const VEROUDERD_NA_UREN = 26;
   const KWARTIER_MS = 15 * 60 * 1000;
-  const NIEUW_KIJKEN_MS = 5 * 60 * 1000;   // zo vaak kijkt een open pagina of er een nieuwere voorspelling staat
+  // Hoe vaak een open pagina kijkt of er een nieuwere voorspelling staat (besluit 69): elk uur, en elke tien
+  // minuten in het middagvenster zolang de prijzen voor morgen er nog niet zijn.
+  const CONTROLE_UUR_MS = 60 * 60 * 1000;
+  const CONTROLE_MIDDAG_MS = 10 * 60 * 1000;
+  const MIDDAG_VAN = 13, MIDDAG_TOT = 15.5;      // uren, Nederlandse tijd
+  const PRIJZEN_VERWACHT = 13.25;                // de nieuwe prijzen staan meestal tussen 13:15 en 14:00 online
+  const VERVERSING_UTC_UREN = [18, 0, 6];        // de geplande verversingen in daily.yml, vijf over het uur (UTC)
+  const VERTRAGING_MIN = 55;                     // GitHub start geplande runs ruwweg een uur te laat
   // op de eigen pc (lokale server, wifi-adres of bestand) of online op een statische host (besluit 68);
   // met ?online in het adres gedraagt de pagina zich ook op de pc als online, om dat te kunnen bekijken
   const OP_EIGEN_PC = !new URLSearchParams(location.search).has('online') && (location.protocol === 'file:' ||
@@ -557,7 +564,8 @@
 
   function render() {
     model = SP.verwerk(forecast, tarief, laad, resolutie, apparaten);
-    el('bijgewerkt').textContent = `Bijgewerkt ${SP.gegenereerdTekst(model.gegenereerd)}${runLabel()}`;
+    el('bijgewerkt').textContent = `Bijgewerkt ${SP.gegenereerdTekst(model.gegenereerd)}${runLabel()}` +
+      (OP_EIGEN_PC ? '' : ` · ${volgendeVersieTekst()}`);
     toonMelding();
     toonKop();
     toonStartadvies();
@@ -593,6 +601,48 @@
     const soort = RUN_LABEL[forecast.run_type] ? ` (${RUN_LABEL[forecast.run_type]})` : '';
     const urenOud = (Date.now() - new Date(forecast.gegenereerd_utc).getTime()) / 36e5;
     return urenOud > VEROUDERD_NA_UREN ? `${soort} · verouderd, ${Math.round(urenOud / 24)} dagen oud` : soort;
+  }
+
+  // ---------- wanneer komt de volgende versie, en wanneer kijkt de pagina opnieuw (besluit 69) ----------
+
+  const prijzenVoorMorgenBinnen = () => !!forecast.prijzen_bekend_tot && forecast.prijzen_bekend_tot >= SP.morgenLokaal();
+  // het uur van de dag (Nederlandse tijd) van een tijdstip, afgerond op een half uur: "20:00"
+  function rondeTijd(ms) {
+    const [uur, minuut] = new Date(ms)
+      .toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', hour12: false }).split(':').map(Number);
+    return fmtUur((Math.round(((uur % 24) + minuut / 60) * 2) / 2) % 24);
+  }
+  // het eerstvolgende moment waarop een verversing met nieuw weer online hoort te staan
+  function volgendeVerversing() {
+    const nu = Date.now();
+    const momenten = [];
+    [0, 1].forEach((dag) => VERVERSING_UTC_UREN.forEach((uur) => {
+      const t = new Date(nu);
+      t.setUTCDate(t.getUTCDate() + dag);
+      t.setUTCHours(uur, 5 + VERTRAGING_MIN, 0, 0);
+      if (t.getTime() > nu) momenten.push(t.getTime());
+    }));
+    return Math.min(...momenten);
+  }
+  // "volgende versie rond 20:00 (nieuw weer), komt vanzelf"
+  function volgendeVersieTekst() {
+    const uur = SP.nuLokaalUur();
+    const weer = volgendeVerversing();
+    if (!prijzenVoorMorgenBinnen() && uur < MIDDAG_TOT) {
+      const prijzen = Date.now() + (PRIJZEN_VERWACHT - uur) * 36e5;
+      if (uur >= 14) return 'volgende versie elk moment (prijzen voor morgen), komt vanzelf';
+      if (prijzen < weer) return 'volgende versie tussen 13:15 en 14:00 (prijzen voor morgen), komt vanzelf';
+    }
+    return `volgende versie rond ${rondeTijd(weer)} (nieuw weer), komt vanzelf`;
+  }
+  // milliseconden tot de pagina opnieuw kijkt
+  function wachtTotControle() {
+    if (prijzenVoorMorgenBinnen()) return CONTROLE_UUR_MS;
+    const uur = SP.nuLokaalUur();
+    if (uur >= MIDDAG_VAN && uur < MIDDAG_TOT) return CONTROLE_MIDDAG_MS;
+    // voor de middag: niet over het begin van het middagvenster heen wachten
+    if (uur < MIDDAG_VAN) return Math.min(CONTROLE_UUR_MS, (MIDDAG_VAN - uur) * 36e5 + 5 * 60 * 1000);
+    return CONTROLE_UUR_MS;
   }
 
   // melding boven de kop als de prijzen voor morgen er nog niet zijn, of als de voorspelling verouderd is
@@ -806,8 +856,8 @@
 
   // ---------- verversen (besluit 49) ----------
   // Draait de pagina via `epv serve`, dan start de knop de pipeline op de pc en volgt de voortgang. Op de eigen pc
-  // zonder die server legt de knop uit hoe het gaat. Online heet de knop "Herladen" en kijkt hij alleen of er een
-  // nieuwere voorspelling staat; dat doet de pagina ook zelf, elke vijf minuten (besluit 68).
+  // zonder die server legt de knop uit hoe het gaat. Online is er geen knop: de pagina haalt een nieuwere
+  // voorspelling zelf op en zegt naast "Bijgewerkt" wanneer de volgende versie komt (besluit 68, 69).
 
   const INSTRUCTIE = 'Deze pagina draait zonder lokale server. Nieuwe voorspelling maken: dubbelklik op ' +
     '<b>ververs.bat</b> in de projectmap en wacht tot het venster sluit (een paar minuten). Klik daarna op Herladen.';
@@ -848,7 +898,9 @@
     }, POLL_MS);
   }
   // Haalt de voorspelling opnieuw op; staat er een nieuwere, dan tekent de pagina opnieuw. Belooft true of false.
+  let laatsteControle = Date.now(), controleTimer = null;
   function haalNieuweVoorspelling() {
+    laatsteControle = Date.now();
     return SP.laadForecast('data/forecast.json').then((nieuw) => {
       if (!forecast || nieuw.gegenereerd_utc === forecast.gegenereerd_utc) return false;
       forecast = nieuw;
@@ -856,23 +908,13 @@
       return true;
     }).catch(() => false);
   }
-  function herlaadOnline() {
-    verversKnop.disabled = true;
-    haalNieuweVoorspelling().then((nieuw) => {
-      verversKnop.disabled = false;
-      toonPaneel(nieuw
-        ? 'Bijgewerkt: er stond een nieuwere voorspelling.'
-        : 'Dit is de nieuwste voorspelling. De site rekent elke dag opnieuw zodra de prijzen voor morgen er zijn ' +
-          '(meestal tussen 13:15 en 14:00) en ververst het weer rond 19:00, 01:00 en 07:00. Deze pagina werkt ' +
-          'zichzelf bij.');
-      setTimeout(() => { el('ververs-paneel').hidden = true; }, 8000);
-    });
+  // plant de volgende controle: elk uur, rond de publicatie van de prijzen elke tien minuten
+  function planControle() {
+    clearTimeout(controleTimer);
+    controleTimer = setTimeout(() => haalNieuweVoorspelling().then(planControle), wachtTotControle());
   }
   function ververs() {
-    if (!OP_EIGEN_PC) {
-      herlaadOnline();
-      return;
-    }
+    if (!OP_EIGEN_PC) return;
     if (!lokaleServer) {
       toonPaneel(`${INSTRUCTIE} ${HERLAADKNOP}`);
       return;
@@ -889,10 +931,7 @@
       });
   }
   verversKnop.addEventListener('click', ververs);
-  if (!OP_EIGEN_PC) {
-    verversKnop.textContent = 'Herladen';
-    verversKnop.title = 'Kijk of er een nieuwere voorspelling is';
-  }
+  verversKnop.hidden = !OP_EIGEN_PC;   // online werkt de pagina zichzelf bij
   vraagStatus().then((status) => {
     lokaleServer = !!(status && status.lokaal);
     if (status && status.bezig) {   // er liep al een run toen de pagina openging
@@ -931,9 +970,12 @@
       render();
       planDagwissel();
       setInterval(render, KWARTIER_MS);
-      // een open pagina haalt zelf een nieuwere voorspelling op: elke vijf minuten, en zodra het tabblad weer in beeld komt
-      setInterval(haalNieuweVoorspelling, NIEUW_KIJKEN_MS);
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) haalNieuweVoorspelling(); });
+      // een open pagina haalt zelf een nieuwere voorspelling op: volgens het ritme van planControle, en zodra het
+      // tabblad weer in beeld komt als de laatste controle meer dan tien minuten geleden is
+      planControle();
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && Date.now() - laatsteControle > CONTROLE_MIDDAG_MS) haalNieuweVoorspelling().then(planControle);
+      });
     })
     .catch((fout) => {
       el('kop').textContent = 'De voorspelling kon niet geladen worden.';

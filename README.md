@@ -122,8 +122,9 @@ De broncode staat op [github.com/martienbrander/stroomprijsvoorspeller](https://
 hetzelfde als `ververs.bat` lokaal: vijf pogingen tussen 12:20 en 15:20 (alleen de eerste poging waarin de prijzen voor
 morgen binnen zijn doet echt iets; GitHub rekent in UTC, vandaar de ruime marge voor zomer- en wintertijd) en drie
 verversingen per dag (19:05, 01:05, 07:05). Elke run haalt de werkdata van de branch `data`, draait `epv daily`, zet de
-nieuwe werkdata terug op die branch (één commit, geen geschiedenis) en publiceert `site/` via GitHub Pages. Een pagina die openstaat kijkt elke vijf minuten of er een nieuwere
-voorspelling staat en werkt zichzelf dan bij; de knop Herladen doet dat meteen. De
+nieuwe werkdata terug op die branch (één commit, geen geschiedenis) en publiceert `site/` via GitHub Pages. Een pagina die openstaat kijkt elk uur of er een nieuwere
+voorspelling staat, en tussen 13:00 en 15:30 elke tien minuten zolang de prijzen voor morgen er nog niet zijn. Naast
+"Bijgewerkt" staat wanneer de volgende versie komt. De
 workflow "wekelijkse evaluatie" schrijft op maandag `reports/verversingen.md` bij.
 
 **Waar staat wat, en wat kost het.** Code, dagelijkse run en hosting: GitHub (publieke repository, gratis). Domein en
