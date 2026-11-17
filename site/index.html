@@ -624,16 +624,16 @@
     }));
     return Math.min(...momenten);
   }
-  // "volgende versie rond 20:00 (nieuw weer), komt vanzelf"
+  // "volgende update rond 20:00 (weerupdate)" of "volgende update rond 13:30 (prijsupdate voor morgen)"
   function volgendeVersieTekst() {
     const uur = SP.nuLokaalUur();
     const weer = volgendeVerversing();
     if (!prijzenVoorMorgenBinnen() && uur < MIDDAG_TOT) {
       const prijzen = Date.now() + (PRIJZEN_VERWACHT - uur) * 36e5;
-      if (uur >= 14) return 'volgende versie elk moment (prijzen voor morgen), komt vanzelf';
-      if (prijzen < weer) return 'volgende versie tussen 13:15 en 14:00 (prijzen voor morgen), komt vanzelf';
+      if (uur >= 14) return 'volgende update elk moment (prijsupdate voor morgen)';
+      if (prijzen < weer) return 'volgende update rond 13:30 (prijsupdate voor morgen)';
     }
-    return `volgende versie rond ${rondeTijd(weer)} (nieuw weer), komt vanzelf`;
+    return `volgende update rond ${rondeTijd(weer)} (weerupdate)`;
   }
   // milliseconden tot de pagina opnieuw kijkt
   function wachtTotControle() {

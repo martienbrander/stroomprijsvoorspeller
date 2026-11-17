@@ -124,7 +124,7 @@ morgen binnen zijn doet echt iets; GitHub rekent in UTC, vandaar de ruime marge 
 verversingen per dag (19:05, 01:05, 07:05). Elke run haalt de werkdata van de branch `data`, draait `epv daily`, zet de
 nieuwe werkdata terug op die branch (één commit, geen geschiedenis) en publiceert `site/` via GitHub Pages. Een pagina die openstaat kijkt elk uur of er een nieuwere
 voorspelling staat, en tussen 13:00 en 15:30 elke tien minuten zolang de prijzen voor morgen er nog niet zijn. Naast
-"Bijgewerkt" staat wanneer de volgende versie komt. De
+"Bijgewerkt" staat wanneer de volgende update komt (weerupdate of prijsupdate voor morgen). De
 workflow "wekelijkse evaluatie" schrijft op maandag `reports/verversingen.md` bij.
 
 **Waar staat wat, en wat kost het.** Code, dagelijkse run en hosting: GitHub (publieke repository, gratis). Domein en
