@@ -66,13 +66,32 @@ onder dezelfde licentie doorgegeven met bronvermelding. Geen cookies, geen track
 Python 3.11 of hoger. Alles wordt bestuurd door één configbestand, `config.yaml` (weerpunten, horizon, kwantielen,
 trainingsvenster, LightGBM-parameters).
 
+Installeren op Windows:
+
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install -e ".[model,dev]"
+.venv\Scriptsctivate
+pip install -e ".[model,dev]"
+```
+
+Installeren op Mac of Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[model,dev]"
+```
+
+Daarna, op elk systeem:
+
+```bash
 epv daily      # alles in één keer: ophalen, gemiste dagen inhalen, trainen, voorspellen, archiveren, site-JSON
 epv serve      # lokale server voor de site (http://localhost:8766) met een ververs-knop
 pytest
 ```
+
+Er zijn geen sleutels of accounts nodig: de bronnen zijn vrij toegankelijk. De twee `.bat`-bestanden zijn een gemak
+voor Windows; op Mac en Linux doen `epv daily` en `epv serve` hetzelfde.
 
 De eerste `epv daily` haalt drie jaar prijzen en de weerhistorie vanaf maart 2024 op (enkele minuten), bouwt de
 featurematrix en traint het model. Daarna is een run één tot twee minuten, een verversing een halve minuut.
