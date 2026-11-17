@@ -71,8 +71,39 @@
 
   /* "Start je apparaat om ..." */
   .start { margin: .25rem 0 1.25rem; }
-  .start h2 { margin: 0 0 .5rem; font-size: clamp(1.25rem, 4vw, 1.6rem); font-weight: 700; letter-spacing: -0.01em; }
+  /* de drie hoofdkoppen van de pagina even groot */
+  .start h2, .kosten h2, #week h2 { margin: 0; font-size: clamp(1.15rem, 3.4vw, 1.35rem); font-weight: 700; letter-spacing: -0.01em; }
   .start-blokjes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+  /* kop van een sectie met rechts een knop of schakelaar */
+  .sectiekop { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem 1rem; flex-wrap: wrap; }
+  .sectiekop .sub { margin: .1rem 0 .6rem; font-size: .9rem; }
+  .aanpas-knop {
+    font: inherit; font-size: .85rem; padding: .35rem .85rem; border-radius: .4rem; border: 1px solid var(--rand);
+    background: var(--vlak); color: var(--tekst); cursor: pointer;
+  }
+  .aanpas-knop[aria-expanded=true] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .aanpas-knop[aria-expanded=true] { color: #111; } }
+  #instellingen-paneel h3 { font-size: 1rem; margin: 0 0 .2rem; }
+  #instellingen-paneel h3 + .paneel-uitleg { color: var(--zacht); font-size: .85rem; margin: 0 0 .5rem; }
+  #instellingen-paneel .apparaten-form { margin-bottom: 1.1rem; }
+  #week { margin-top: 2rem; }
+  .blokken-hint { font-size: .8rem; color: var(--zacht); margin: .6rem 0 .3rem; }
+  /* "Laden deze week": per laadapparaat het beste moment en de kosten per dag (besluit 73) */
+  .laadkaart { background: var(--vlak); border-radius: .75rem; padding: .7rem .85rem; margin: 0 0 .6rem; }
+  .laadkaart .lk-naam { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: baseline; font-size: .85rem; color: var(--zacht); }
+  .laadkaart .lk-naam b { color: var(--tekst); font-size: .95rem; }
+  .laadkaart .lk-naam a { color: var(--accent); }
+  .laadkaart .lk-moment { font-size: 1.15rem; font-weight: 700; margin: .15rem 0 .1rem; font-variant-numeric: tabular-nums; }
+  .laadkaart .lk-moment small { font-size: .8rem; font-weight: 400; color: var(--zacht); }
+  .lk-dagen { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.4rem, 1fr)); gap: .3rem; margin-top: .45rem; }
+  .lk-dag {
+    border: 1px solid var(--rand); border-radius: .45rem; padding: .25rem .2rem; text-align: center;
+    font-size: .72rem; color: var(--zacht); line-height: 1.3; background: var(--achtergrond);
+  }
+  .lk-dag b { display: block; font-size: .9rem; color: var(--tekst); font-variant-numeric: tabular-nums; }
+  .lk-dag.gekozen { border: 2px solid var(--accent); }
+  .lk-dag.zwak { opacity: .55; }
+  .laadkaart .advies { margin-top: .5rem; }
   .start-blok {
     display: flex; flex-direction: column; gap: .1rem; background: var(--vlak); border-radius: .75rem;
     padding: .7rem .8rem; min-width: 0; color: inherit; text-decoration: none;
@@ -247,7 +278,6 @@
   .kader { background: var(--vlak); border-radius: .75rem; padding: 1rem 1.1rem; margin-top: 1rem; }
   /* blok "wat kost het als ik het nu doe?" */
   .kosten { margin: 0 0 1.5rem; }
-  .kosten h2 { margin: 0 0 .15rem; font-size: 1.15rem; }
   .kosten .intro { color: var(--zacht); font-size: .9rem; margin: 0 0 .75rem; }
   .apparaat {
     display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; align-items: start; padding: .85rem 0;
@@ -262,7 +292,7 @@
   /* "Mijn apparaten" */
   .apparaten-form .app-rij {
     display: grid;
-    grid-template-columns: minmax(7rem, 2fr) minmax(3.5rem, .7fr) minmax(4.5rem, .8fr) minmax(5rem, .9fr) minmax(6.5rem, 1fr) minmax(6rem, 1fr) auto;
+    grid-template-columns: minmax(6rem, 1.4fr) minmax(3rem, .5fr) minmax(4.2rem, .6fr) minmax(4.4rem, .7fr) minmax(9.2rem, 1.3fr) minmax(5.4rem, .9fr) minmax(5.4rem, .9fr) auto;
     gap: .5rem; align-items: end; margin: .5rem 0;
   }
   .apparaten-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--zacht); }
@@ -372,26 +402,62 @@
   <p class="melding" id="melding" hidden></p>
   <h1 id="kop">Even laden…</h1>
   <p class="sub" id="sub"></p>
-  <section class="start" id="start" hidden aria-labelledby="start-kop">
-    <h2 id="start-kop">Start je apparaat om …</h2>
-    <p class="sub" style="margin-bottom:.6rem">Nu aanzetten, of loont wachten? Je ziet het eerste moment dat de
-      moeite waard is, binnen het uitstel dat je per apparaat toestaat (standaard 8 uur).</p>
+  <section class="start" id="start" aria-labelledby="start-kop">
+    <div class="sectiekop">
+      <div>
+        <h2 id="start-kop">Start je apparaat om …</h2>
+        <p class="sub">Vandaag of morgen: nu aanzetten, of loont een paar uur uitstel?</p>
+      </div>
+      <button type="button" class="aanpas-knop" id="aanpas-knop" aria-expanded="false"
+        aria-controls="instellingen-paneel">Aanpassen</button>
+    </div>
     <div class="start-blokjes" id="start-blokjes"></div>
+    <p class="sub" id="start-leeg" hidden>Nog geen apparaat om vandaag te starten. Voeg er een toe via Aanpassen.</p>
+
+    <div class="kader" id="instellingen-paneel" hidden>
+      <h3 id="apparaten-instellingen">Mijn apparaten</h3>
+      <p class="paneel-uitleg">Per apparaat: hoe lang het duurt, hoeveel stroom het per beurt gebruikt, en of u het
+        vandaag wilt starten (met uitstel) of deze week wilt laden (op de goedkoopste dag). Dit blijft in uw eigen
+        browser.</p>
+      <div class="apparaten-form" id="apparaten-form"></div>
+      <h3 id="instellingen">Mijn auto</h3>
+      <p class="paneel-uitleg">Standaard 30 kWh in een laadblok van 3 uur. Vul uw laadsnelheid en de hoeveelheid in
+        voor uw eigen laadbeurt, en hoeveel dagen u vooruit wilt kijken.</p>
+    <form class="tarief" id="tarief">
+      <fieldset class="laad">
+        <legend>Auto laden</legend>
+        <label>Laadvermogen<select name="kw"><option value="">kies…</option><option value="2.3">2,3 kW
+          (stopcontact)</option><option value="3.7">3,7 kW</option><option value="7.4">7,4 kW</option><option
+          value="11">11 kW</option><option value="22">22 kW</option><option
+          value="anders">anders…</option></select></label>
+        <label class="kw-anders" hidden>Vermogen in kW<input type="number" name="kw-anders" step="0.1" min="0.5"
+          inputmode="decimal"></label>
+        <label>Te laden (kWh)<input type="number" name="kwh" step="1" min="1" placeholder="30"
+          inputmode="decimal"></label>
+        <label>Vooruitkijken<select name="horizon"></select></label>
+        <p class="laad-uitleg"></p>
+      </fieldset>
+      <button type="submit">Toepassen</button>
+    </form>
+    </div>
   </section>
 
-  <section class="kosten" aria-labelledby="kosten-kop">
-    <h2 id="kosten-kop">De auto: nu of later?</h2>
-    <p class="intro" id="kosten-intro">Wat een laadbeurt kost en of wachten loont. In euro, met uw eigen
-      instellingen.</p>
-    <div id="apparaten"></div>
-    <p class="voet" id="kosten-voet">Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto
-      raden we wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen
-      lopen.</p>
+  <section class="kosten" id="laden" aria-labelledby="laden-kop">
+    <h2 id="laden-kop">Laden deze week</h2>
+    <p class="intro">Welke dag en welk blok is het goedkoopst? Per dag wat de laadbeurt kost in het goedkoopste
+      blok, zo ver vooruit als u instelt.</p>
+    <div id="laadkaarten"></div>
+    <p class="voet" id="kosten-voet"></p>
   </section>
 
-  <section aria-label="Overzicht">
-    <div class="grafiek-scroll"><canvas id="grafiek"></canvas></div>
-    <p class="schuifhint">Schuif opzij voor alle 7 dagen.</p>
+  <section id="week" aria-labelledby="week-kop">
+    <div class="sectiekop">
+      <h2 id="week-kop">De week vooruit</h2>
+      <div class="segment" role="group" aria-label="Grafiek of blokken" id="weergave">
+        <button type="button" data-weergave="grafiek" aria-pressed="true">Grafiek</button>
+        <button type="button" data-weergave="blokken" aria-pressed="false">Blokken</button>
+      </div>
+    </div>
     <div class="resolutie prijsstand">
       <div class="segment" role="group" aria-label="Prijzen per uur of per kwartier" id="resolutie">
         <button type="button" data-resolutie="kwartier" aria-pressed="true">Per kwartier</button>
@@ -404,6 +470,35 @@
       </div>
       <span class="noot tarief-uitleg"></span>
     </div>
+
+    <div id="weergave-grafiek">
+      <div class="grafiek-scroll"><canvas id="grafiek"></canvas></div>
+      <p class="schuifhint">Schuif opzij voor alle 7 dagen.</p>
+    <ul class="legenda">
+      <li><span class="vak" style="background:var(--accent)"></span>bekend</li>
+      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0"></span>verwacht</li>
+      <li><span class="vak" style="background:var(--accent);opacity:.25"></span>marge: in 8 van de 10 gevallen valt de
+        prijs hierbinnen</li>
+      <li><span class="vak spits"></span>netspits 16–21 uur</li>
+      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0;opacity:.4"></span>lichter: minder
+        betrouwbaar</li>
+      <li><span class="vak" style="background:var(--zacht);opacity:.35"></span>grijs: voorbij</li>
+    </ul>
+    </div>
+
+    <div id="weergave-blokken" hidden>
+      <p class="noot blokken-hint">Klik op een dag voor het beste moment per apparaat.</p>
+      <ul class="legenda" style="margin-bottom:.6rem">
+        <li><span class="vak sl-goedkoop" style="background:var(--sl-g-a)"></span>▼ goedkoop</li>
+        <li><span class="vak" style="background:var(--sl-m-a)"></span>■ gemiddeld</li>
+        <li><span class="vak" style="background:var(--sl-d-a)"></span>▲ duur</li>
+        <li>t.o.v. de hele periode</li>
+        <li>bleker: minder betrouwbaar</li>
+        <li><span class="vak spits"></span>netspits 16–21 uur</li>
+      </ul>
+      <ul class="tijdlijn" id="tijdlijn"></ul>
+    </div>
+
     <details class="tarief-details">
       <summary><svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
         stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Mijn tarief <span class="info"
@@ -427,42 +522,19 @@
       </form>
     </details>
     <p class="noot resolutie-noot">Kwartierprijzen alleen voor dagen met bekende prijzen; de verwachting is per uur.</p>
-
-    <ul class="legenda">
-      <li><span class="vak" style="background:var(--accent)"></span>bekend</li>
-      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0"></span>verwacht</li>
-      <li><span class="vak" style="background:var(--accent);opacity:.25"></span>marge: in 8 van de 10 gevallen valt de
-        prijs hierbinnen</li>
-      <li><span class="vak spits"></span>netspits 16–21 uur</li>
-      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0;opacity:.4"></span>lichter: minder
-        betrouwbaar</li>
-      <li><span class="vak" style="background:var(--zacht);opacity:.35"></span>grijs: voorbij</li>
-    </ul>
     <details class="tabel"><summary>Dezelfde cijfers als tabel</summary><div id="tabel"></div></details>
   </section>
 
-  <h2>Dag voor dag <small style="font-weight:400;color:var(--zacht)">(klik op een dag voor het beste
-    moment)</small></h2>
-  <ul class="legenda" style="margin-bottom:.6rem">
-    <li><span class="vak sl-goedkoop" style="background:var(--sl-g-a)"></span>▼ goedkoop</li>
-    <li><span class="vak" style="background:var(--sl-m-a)"></span>■ gemiddeld</li>
-    <li><span class="vak" style="background:var(--sl-d-a)"></span>▲ duur</li>
-    <li>t.o.v. de hele periode</li>
-    <li>bleker: minder betrouwbaar</li>
-    <li><span class="vak spits"></span>netspits 16–21 uur</li>
-  </ul>
-  <ul class="tijdlijn" id="tijdlijn"></ul>
-
   <div class="kader">
     <h2 style="margin-top:0">Hoe zeker is dit?</h2>
-    <p><b>Dagen met bekende prijzen</b> (op de tijdlijn "zeker") staan vast: die prijzen komen van de stroombeurs en
+    <p><b>Dagen met bekende prijzen</b> (met het label "zeker") staan vast: die prijzen komen van de stroombeurs en
       veranderen niet meer. Meestal zijn dat de dag van de voorspelling en de dag erna.</p>
     <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen
       dagen. Bij elke verwachting staat hoeveel de prijs naar boven (+) en naar beneden (−) kan afwijken. In ongeveer
       8 van de 10 gevallen blijft de echte prijs binnen die marge.</p>
     <p><b>Dag 4 en verder</b> zijn grof. De grafiek toont ze wel per uur, voor het overzicht van de week, maar
       hoe lichter de lijn, hoe minder betrouwbaar: het niveau van de dag klopt meestal, het exacte uur kan schuiven.
-      Op de tijdlijn zijn die dagen daarom bleker. Klap een dag uit voor het oordeel per dagdeel: een goedkoop
+      In de blokkenweergave zijn die dagen daarom bleker. Klap een dag uit voor het oordeel per dagdeel: een goedkoop
       dagdeel blijft meestal goedkoop.</p>
     <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Het label bij elke dag zegt
       hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
@@ -473,36 +545,6 @@
       omdat het stroomnet dan het drukst is. Dat staat los van de prijs; het advies op deze site gaat over de
       prijs.</p>
     <div id="scores"></div>
-  </div>
-
-  <div class="kader">
-    <h2 style="margin-top:0" id="apparaten-instellingen">Mijn apparaten</h2>
-    <p style="color:var(--zacht)">Hoe lang doet een apparaat erover, hoeveel stroom gebruikt het per beurt en
-      hoeveel uitstel wilt u hooguit? Dan zoeken we het eerste goedkope moment om het aan te zetten. Dit blijft in
-      uw eigen browser.</p>
-    <div class="apparaten-form" id="apparaten-form"></div>
-  </div>
-
-  <div class="kader">
-    <h2 style="margin-top:0" id="instellingen">Mijn auto</h2>
-    <p style="color:var(--zacht)">Standaard 30 kWh in een laadblok van 3 uur. Vul uw laadsnelheid (vermogen) en de
-      hoeveelheid in voor uw eigen laadbeurt; de laadduur wordt dan op een kwartier afgerond. Dit blijft in uw eigen
-      browser.</p>
-    <form class="tarief" id="tarief">
-      <fieldset class="laad">
-        <legend>Auto laden</legend>
-        <label>Laadvermogen<select name="kw"><option value="">kies…</option><option value="2.3">2,3 kW
-          (stopcontact)</option><option value="3.7">3,7 kW</option><option value="7.4">7,4 kW</option><option
-          value="11">11 kW</option><option value="22">22 kW</option><option
-          value="anders">anders…</option></select></label>
-        <label class="kw-anders" hidden>Vermogen in kW<input type="number" name="kw-anders" step="0.1" min="0.5"
-          inputmode="decimal"></label>
-        <label>Te laden (kWh)<input type="number" name="kwh" step="1" min="1" placeholder="30"
-          inputmode="decimal"></label>
-        <p class="laad-uitleg"></p>
-      </fieldset>
-      <button type="submit">Toepassen</button>
-    </form>
   </div>
 
   <footer>
@@ -519,7 +561,7 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=7"></script>
+<script src="gedeeld.js?v=8"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
@@ -556,12 +598,14 @@
   // met ?online in het adres gedraagt de pagina zich ook op de pc als online, om dat te kunnen bekijken
   const OP_EIGEN_PC = !new URLSearchParams(location.search).has('online') && (location.protocol === 'file:' ||
     /^(localhost$|127\.|192\.168\.|10\.|\[::1\]$)/.test(location.hostname));
-  const DREMPEL_UITLEG = 'Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto raden we ' +
-    'wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen lopen.';
+  const DREMPEL_UITLEG = 'Bij de auto zeggen we onder de 50 cent verschil: laad wanneer het uitkomt, en raden we ' +
+    'wachten alleen aan als het ook in het slechte geval loont. Een laadblok van de auto mag over middernacht lopen.';
 
   // wat de pagina toont: de voorspelling uit de JSON, de instellingen van de gebruiker en het model dat daaruit volgt
   let forecast = null, model = null, grafiek = null;
   let tarief = null, laad = null, apparaten = null, resolutie = 'kwartier';
+  let weergave = 'grafiek';   // wat "De week vooruit" toont: 'grafiek' of 'blokken' (besluit 73)
+  const WEERGAVE_SLEUTEL = 'stroomprijs-weergave-v1';
   const open = {};   // dagindex -> is de rij op de tijdlijn uitgeklapt
 
   function render() {
@@ -571,7 +615,7 @@
     toonMelding();
     toonKop();
     toonStartadvies();
-    toonLaadkaart();
+    toonLaadkaarten();
     if (grafiek) grafiek.update(model);
     else grafiek = SP.tekenGrafiek(el('grafiek'), model, { hoogte: 200, compact: true });
     SP.maakTabel(el('tabel'), model);
@@ -590,8 +634,6 @@
       `${fmtUur(blok.start)} en ${fmtUur(blok.eind)} uur${totDag}`;
     el('sub').textContent = `Dan ${fmt(blok.p50)} ct/kWh, ${fmt(blok.marge)} ct onder het daggemiddelde. ` +
       `Prijs in ${model.eenheidLabel}.`;
-    el('kosten-intro').textContent = `Wat een laadbeurt op ${naam.toLowerCase()} kost en of wachten loont. ` +
-      'In euro, met uw eigen instellingen.';
     const zekerheid = dag.bekend
       ? `${naam} is zeker, de dagen erna zijn een verwachting. `
       : `De prijzen voor ${naam.toLowerCase()} zijn nog niet bekend, dus die dag is ook nog een verwachting. `;
@@ -668,9 +710,11 @@
 
   function toonStartadvies() {
     const nu = SP.nuLokaalUur();
-    const tegels = model.apparaten.slice(0, MAX_STARTTEGELS).map((a) => startTegelHtml(a, nu)).join('');
+    // alleen de apparaten die je vandaag of morgen start; laadapparaten staan onder "Laden deze week"
+    const tegels = model.apparaten.filter((a) => a.soort !== 'laden').slice(0, MAX_STARTTEGELS)
+      .map((a) => startTegelHtml(a, nu)).join('');
     el('start-blokjes').innerHTML = tegels;
-    el('start').hidden = !tegels;
+    el('start-leeg').hidden = !!tegels;
   }
   function startTegelHtml(apparaat, nu) {
     const advies = SP.startAdvies(model, apparaat, nu);
@@ -709,36 +753,74 @@
     ].join('');
   }
 
-  // ---------- "De auto: nu of later?": wat een laadbeurt kost en of wachten loont ----------
+  // ---------- "Laden deze week": per laadapparaat de beste dag binnen de horizon (besluit 73) ----------
 
-  function bedragHtml(label, euro, toelichting) {
-    return `<div class="bedrag"><span class="l">${label}</span><span class="e">${fmtEuro(euro)}</span>` +
-      `<span class="w">${toelichting}</span></div>`;
-  }
-  function toonLaadkaart() {
-    const advies = SP.laadAdvies(model);
-    const dag = dagNaam(advies.morgen, false);
-    const zekerheid = (blok) => `${blokTijd(blok)}${blok.bekend ? ', zeker' : ', deels verwacht'}`;
-    const snelheid = model.laad.inst && model.laad.inst.kw
-      ? `laadsnelheid ${fmtKort(model.laad.inst.kw)} kW, duurt `
-      : 'laadsnelheid niet ingesteld, blok van ';
-    const later = advies.beste;
-    const marge = later && SP.plusMinEuro(later.euroHoog - later.euro, later.euro - later.euroLaag);
-    const laterWanneer = later && `${dagNaam(later.dag, false)} ${blokTijd(later.blok)}, ${marge}`;
-    el('apparaten').innerHTML = [
-      `<div class="apparaat">${ICOON_LADEN}`,
-      `<div class="naam">Standaardlaadbeurt <small>${fmtKort(model.laad.kwh)} kWh te laden, ${snelheid}`,
-      `${duurTekst(advies.uren)}</small> <a href="#instellingen">aanpassen</a></div>`,
-      '<div class="bedragen">',
-      bedragHtml(`${dag}, goedkoopst`, advies.zeker.euro, zekerheid(advies.zeker.blok)),
-      bedragHtml(`${dag}, duurst`, advies.duurste.euro, zekerheid(advies.duurste.blok)),
-      later ? bedragHtml('Later deze week', later.euro, laterWanneer) : '',
-      '</div>',
+  function laadkaartHtml(apparaat, nu) {
+    const advies = SP.weekAdvies(model, apparaat, nu);
+    if (!advies) return '';
+    const gekozen = advies.gekozen;
+    const snelheid = apparaat.auto && model.laad.inst && model.laad.inst.kw
+      ? `, ${fmtKort(model.laad.inst.kw)} kW` : '';
+    const anker = apparaat.auto ? '#instellingen' : '#apparaten-instellingen';
+    const dagen = advies.dagen.map((d) => {
+      const klassen = ['lk-dag', d === gekozen ? 'gekozen' : '', d.zwak ? 'zwak' : ''].filter(Boolean).join(' ');
+      const marge = d.zeker ? 'zeker' : SP.plusMinEuro(d.euroHoog - d.euro, d.euro - d.euroLaag);
+      return `<div class="${klassen}" title="${dagNaam(d.dag, true)} ${blokTijd(d.blok)}: ${fmtEuro(d.euro)} (${marge})">` +
+        `${dagNaam(d.dag, false)}<b>${fmtEuro(d.euro)}</b>${fmtUur(d.blok.start)}</div>`;
+    }).join('');
+    return [
+      '<div class="laadkaart">',
+      `<div class="lk-naam"><b>${esc(apparaat.naam)}</b><span>${fmtKort(apparaat.kwh)} kWh${snelheid}, `,
+      `duurt ${duurTekst(apparaat.uren)} · kijkt ${apparaat.horizon} dagen vooruit</span>`,
+      `<a href="${anker}">aanpassen</a></div>`,
+      `<div class="lk-moment">${dagNaam(gekozen.dag, false)}, ${blokTijd(gekozen.blok)} · ${fmtEuro(gekozen.euro)} `,
+      `<small>${gekozen.zeker ? 'zeker' : 'verwacht'}</small></div>`,
+      `<div class="lk-dagen">${dagen}</div>`,
       `<div class="advies ${advies.soort}"><span class="ic" aria-hidden="true">${ADVIES_ICOON[advies.soort]}</span>`,
       `<span>${advies.advies}</span></div>`,
       '</div>',
     ].join('');
   }
+  function toonLaadkaarten() {
+    const nu = SP.nuLokaalUur();
+    el('laadkaarten').innerHTML = SP.laadApparaten(model).map((a) => laadkaartHtml(a, nu)).join('');
+  }
+
+  // ---------- "De week vooruit": grafiek of blokken ----------
+
+  function toonWeergave() {
+    el('weergave-grafiek').hidden = weergave !== 'grafiek';
+    el('weergave-blokken').hidden = weergave !== 'blokken';
+    document.querySelectorAll('#weergave [data-weergave]').forEach((knop) => {
+      knop.setAttribute('aria-pressed', knop.dataset.weergave === weergave ? 'true' : 'false');
+    });
+    if (weergave === 'grafiek' && grafiek) grafiek.teken();   // een verborgen canvas heeft geen breedte
+  }
+  function koppelWeergave() {
+    try { if (localStorage.getItem(WEERGAVE_SLEUTEL) === 'blokken') weergave = 'blokken'; } catch (e) { /* geen opslag */ }
+    el('weergave').addEventListener('click', (ev) => {
+      const knop = ev.target.closest('[data-weergave]');
+      if (!knop) return;
+      weergave = knop.dataset.weergave === 'blokken' ? 'blokken' : 'grafiek';
+      try { localStorage.setItem(WEERGAVE_SLEUTEL, weergave); } catch (e) { /* geen opslag */ }
+      toonWeergave();
+    });
+    toonWeergave();
+  }
+
+  // ---------- "Aanpassen": het paneel met de apparaten en de auto ----------
+
+  function zetPaneel(open) {
+    el('instellingen-paneel').hidden = !open;
+    el('aanpas-knop').setAttribute('aria-expanded', open ? 'true' : 'false');
+    el('aanpas-knop').textContent = open ? 'Sluiten' : 'Aanpassen';
+  }
+  el('aanpas-knop').addEventListener('click', () => zetPaneel(el('instellingen-paneel').hidden));
+  // elke link naar de instellingen (tegels, "aanpassen" op een laadkaart) klapt het paneel eerst open
+  document.addEventListener('click', (ev) => {
+    const link = ev.target.closest('a[href="#apparaten-instellingen"], a[href="#instellingen"]');
+    if (link) zetPaneel(true);
+  });
 
   // ---------- tijdlijn: per dag een strook met de prijskleur per uur of dagdeel, uit te klappen ----------
 
@@ -962,7 +1044,9 @@
       laad = SP.koppelLaadinstellingen(el('tarief'), (nieuw) => { laad = nieuw; render(); });
       apparaten = SP.koppelApparaten(el('apparaten-form'), (nieuw) => { apparaten = nieuw; render(); });
       resolutie = SP.koppelResolutie(el('resolutie'), (nieuw) => { resolutie = nieuw; render(); });
+      koppelWeergave();
       render();
+      toonWeergave();
       planDagwissel();
       setInterval(render, KWARTIER_MS);
       // een open pagina haalt zelf een nieuwere voorspelling op: volgens het ritme van planControle, en zodra het
