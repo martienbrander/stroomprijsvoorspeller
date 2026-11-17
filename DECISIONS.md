@@ -108,8 +108,6 @@ Stand 17 november 2026, na versie 0.2.0.
   dichter maken (elke 10 minuten in plaats van elke 20).
 - **Wanneer versie 1.0 (#75).** Voorstel: als de scores op de site een maand of twee kloppen met de backtest en de
   indeling van de pagina stabiel is. De opdrachtgever bepaalt het moment.
-- **Link vanaf martienbrander.nl.** Nog niet gedaan. Een pagina of menu-item op de eigen site dat naar
-  stroomprijsvoorspeller.nl verwijst; dat doet de opdrachtgever zelf in WordPress.
 - **Mailrecords bij dds.nl (#70).** De drie MX-records van de doorstuurdienst staan nog. Dat is onschuldig; wie ze weg
   wil, zet bij dds het doorsturen van mail voor dit domein uit.
 
@@ -120,4 +118,5 @@ Technisch nog te onderzoeken, zonder vraag aan de opdrachtgever:
   samenvatting per fase wel genoemd; wie er een wil herzien, kan dat per nummer aangeven.
 
 Afgehandeld sinds de vorige versie van deze lijst: online zetten (#62), het eigen domein (#70), de vakantievlag
-(#53: niet nodig), de batterijplanner (#73: niet bouwen) en de doorkijk van twee weken (afgeraden, niet gebouwd).
+(#53: niet nodig), de batterijplanner (#73: niet bouwen), de doorkijk van twee weken (afgeraden, niet gebouwd) en
+een link vanaf martienbrander.nl (niet nodig, opdrachtgever 17 november 2026).
