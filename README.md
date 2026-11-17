@@ -8,7 +8,7 @@ De dag van de voorspelling en de dag erna staan vast (die prijzen komen van de b
 de weersverwachting (wind op zee en land, zon, temperatuur) en de prijzen van de afgelopen dagen. Bij elke verwachting
 hoort een onder- en bovengrens; hoe verder vooruit, hoe breder die band en hoe minder detail de site laat zien.
 
-Status: versie 0.1.0, nieuw. Fase 1 tot en met 5 zijn klaar (data, modellen, backtest, dagelijkse run met site,
+Status: versie 0.2.0, de eerste publieke versie. Fase 1 tot en met 5 zijn klaar (data, modellen, backtest, dagelijkse run met site,
 publicatie) en de site staat online. De voorspellingen worden elke dag naast de echte prijzen gelegd; de scores van
 de laatste 30 dagen staan op de site. Suggesties zijn welkom via
 [GitHub](https://github.com/martienbrander/stroomprijsvoorspeller/issues). Zie [PLAN.md](PLAN.md) voor de fasen en
