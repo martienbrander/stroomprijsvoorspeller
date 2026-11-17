@@ -114,8 +114,8 @@ voorwaarden in [API.md](API.md).
 
 ## Online
 
-De site staat op [martienbrander.github.io/stroomprijsvoorspeller](https://martienbrander.github.io/stroomprijsvoorspeller/)
-en verhuist naar [stroomprijsvoorspeller.nl](https://stroomprijsvoorspeller.nl) zodra de DNS-records bij dds.nl staan.
+De site staat op [stroomprijsvoorspeller.nl](https://stroomprijsvoorspeller.nl) (sinds 17 november 2026; het oude adres
+martienbrander.github.io/stroomprijsvoorspeller stuurt door).
 De broncode staat op [github.com/martienbrander/stroomprijsvoorspeller](https://github.com/martienbrander/stroomprijsvoorspeller).
 
 **Wat er draait** (besluit 47, 54, 62). De workflow "dagelijkse run" in `.github/workflows/daily.yml` doet online
