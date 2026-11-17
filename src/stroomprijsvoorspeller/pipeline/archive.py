@@ -202,9 +202,14 @@ def historie(cfg: Config, methode: str, prijzen: pd.DataFrame, dagen: int = 120,
     return h[h["origin"] >= grens].sort_values(["methode", "origin", "time_utc"]).reset_index(drop=True)
 
 
+KOUDE_START_DAGEN = 60   # eerste run zonder enige historie: zoveel dagen achteraf narekenen (besluit 76)
+
+
 def ontbrekende_origins(cfg: Config, methode: str, tot: date, max_dagen: int = 120) -> list[date]:
     """Voorspelmomenten vóór `tot` zonder hoofd- of inhaalrun: vanaf de dag na het einde van de backtest, of anders
-    vanaf de eerste archiefrun; hoogstens `max_dagen` terug (besluit 50)."""
+    vanaf de eerste archiefrun; hoogstens `max_dagen` terug (besluit 50). Is er nog helemaal niets (een nieuwe
+    installatie), dan de laatste KOUDE_START_DAGEN dagen: zonder die historie is de onzekerheidsmarge niet
+    gekalibreerd en zijn er geen scores (besluit 76)."""
     runs = lees_runs(cfg, HISTORIE_TYPES)
     bt = backtest_historie(cfg, methode)
     if not bt.empty:
@@ -212,7 +217,7 @@ def ontbrekende_origins(cfg: Config, methode: str, tot: date, max_dagen: int = 1
     elif not runs.empty:
         start = runs["origin"].min()
     else:
-        return []
+        start = pd.Timestamp(tot) - pd.Timedelta(days=KOUDE_START_DAGEN)
     einde = pd.Timestamp(tot) - pd.Timedelta(days=1)
     start = max(start, pd.Timestamp(tot) - pd.Timedelta(days=max_dagen))
     gedaan = {d.date() for d in pd.DatetimeIndex(runs["origin"]).unique()}

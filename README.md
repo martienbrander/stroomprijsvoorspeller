@@ -93,8 +93,11 @@ pytest
 Er zijn geen sleutels of accounts nodig: de bronnen zijn vrij toegankelijk. De twee `.bat`-bestanden zijn een gemak
 voor Windows; op Mac en Linux doen `epv daily` en `epv serve` hetzelfde.
 
-De eerste `epv daily` haalt drie jaar prijzen en de weerhistorie vanaf maart 2024 op (enkele minuten), bouwt de
-featurematrix en traint het model. Daarna is een run één tot twee minuten, een verversing een halve minuut.
+De eerste `epv daily` duurt ongeveer een kwartier: hij haalt drie jaar prijzen en de weerhistorie vanaf maart 2024
+op, bouwt de featurematrix, traint het model en rekent de laatste 60 dagen achteraf na. Dat narekenen is nodig om de
+onzekerheidsmarge te ijken en de scores te vullen; zonder die historie is de marge veel te smal. Daarna is een run één
+tot twee minuten, een verversing een halve minuut. Dit is getest op een lege map met een verse kopie van GitHub
+(17 november 2026): het prijsniveau, de marge en de scores kwamen overeen met de online versie.
 
 De losse stappen, voor wie wil kijken of meten:
 

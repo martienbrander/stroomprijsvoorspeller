@@ -256,3 +256,16 @@ def test_overgeslagen_runs_tellen_niet_als_mislukt(tmp_path):
     assert t.loc["hoofd", "runs"] == 1 and t.loc["hoofd", "gelukt"] == 1
     assert t.loc["19:00", "gelukt"] == 0
     assert t.loc["middag overgeslagen", "runs"] == 1
+
+
+def test_nieuwe_installatie_rekent_zestig_dagen_na(tmp_path):
+    cfg = maak_config(tmp_path)
+    vandaag = date(2026, 11, 17)
+    # geen backtest en geen runs: de laatste 60 dagen moeten achteraf worden nagerekend (besluit 76)
+    ontbreekt = archive.ontbrekende_origins(cfg, "lightgbm", vandaag)
+    assert len(ontbreekt) == archive.KOUDE_START_DAGEN
+    assert ontbreekt[0] == vandaag - timedelta(days=60) and ontbreekt[-1] == vandaag - timedelta(days=1)
+    # staat er eenmaal een run, dan telt alleen wat sinds de eerste run ontbreekt
+    eerste = vandaag - timedelta(days=3)
+    archive.schrijf_run(cfg, _run_rijen(eerste, "inhaal", "2026-11-14T12:15:00Z", 0, 3), pd.Timestamp("2026-11-14T12:15:00Z"), "inhaal")
+    assert archive.ontbrekende_origins(cfg, "lightgbm", vandaag) == [vandaag - timedelta(days=2), vandaag - timedelta(days=1)]
