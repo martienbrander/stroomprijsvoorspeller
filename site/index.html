@@ -542,6 +542,11 @@
   const MAX_STARTTEGELS = 3;
   const VEROUDERD_NA_UREN = 26;
   const KWARTIER_MS = 15 * 60 * 1000;
+  const NIEUW_KIJKEN_MS = 5 * 60 * 1000;   // zo vaak kijkt een open pagina of er een nieuwere voorspelling staat
+  // op de eigen pc (lokale server, wifi-adres of bestand) of online op een statische host (besluit 68);
+  // met ?online in het adres gedraagt de pagina zich ook op de pc als online, om dat te kunnen bekijken
+  const OP_EIGEN_PC = !new URLSearchParams(location.search).has('online') && (location.protocol === 'file:' ||
+    /^(localhost$|127\.|192\.168\.|10\.|\[::1\]$)/.test(location.hostname));
   const DREMPEL_UITLEG = 'Onder de 50 cent verschil zeggen we: doe het wanneer het uitkomt. Bij de auto raden we ' +
     'wachten alleen aan als het ook in het slechte geval loont. Een laadblok mag over middernacht heen lopen.';
 
@@ -597,10 +602,14 @@
     const morgen = SP.morgenLokaal();
     melding.hidden = !(bekendTot && bekendTot < morgen);
     if (melding.hidden) return;
-    melding.textContent = bekendTot < SP.vandaagLokaal()
-      ? `Deze voorspelling is verouderd: de prijzen zijn bekend tot en met ${SP.datumTekst(bekendTot)}. Klik op Ververs.`
-      : `De prijzen voor ${SP.datumTekst(morgen)} zijn nog niet bekend; die komen meestal tussen 13:00 en 14:00. ` +
-        'Klik daarna op Ververs.';
+    const verouderd = bekendTot < SP.vandaagLokaal();
+    const wat = verouderd
+      ? `Deze voorspelling is verouderd: de prijzen zijn bekend tot en met ${SP.datumTekst(bekendTot)}.`
+      : `De prijzen voor ${SP.datumTekst(morgen)} zijn nog niet bekend; die komen meestal tussen 13:00 en 14:00.`;
+    let doen;
+    if (OP_EIGEN_PC) doen = verouderd ? 'Klik op Ververs.' : 'Klik daarna op Ververs.';
+    else doen = verouderd ? 'De dagelijkse run loopt achter.' : 'De site rekent daarna opnieuw; deze pagina werkt zichzelf bij.';
+    melding.textContent = `${wat} ${doen}`;
   }
 
   // ---------- "Start je apparaat om ...": per apparaat het uitstel dat je nu instelt (besluit 58) ----------
@@ -796,8 +805,9 @@
   }
 
   // ---------- verversen (besluit 49) ----------
-  // Draait de pagina via `epv serve`, dan start de knop de pipeline op de pc en volgt de voortgang. Op een
-  // statische host (online) bestaat dat eindpunt niet; de knop legt dan uit hoe het lokaal gaat.
+  // Draait de pagina via `epv serve`, dan start de knop de pipeline op de pc en volgt de voortgang. Op de eigen pc
+  // zonder die server legt de knop uit hoe het gaat. Online heet de knop "Herladen" en kijkt hij alleen of er een
+  // nieuwere voorspelling staat; dat doet de pagina ook zelf, elke vijf minuten (besluit 68).
 
   const INSTRUCTIE = 'Deze pagina draait zonder lokale server. Nieuwe voorspelling maken: dubbelklik op ' +
     '<b>ververs.bat</b> in de projectmap en wacht tot het venster sluit (een paar minuten). Klik daarna op Herladen.';
@@ -837,7 +847,32 @@
       });
     }, POLL_MS);
   }
+  // Haalt de voorspelling opnieuw op; staat er een nieuwere, dan tekent de pagina opnieuw. Belooft true of false.
+  function haalNieuweVoorspelling() {
+    return SP.laadForecast('data/forecast.json').then((nieuw) => {
+      if (!forecast || nieuw.gegenereerd_utc === forecast.gegenereerd_utc) return false;
+      forecast = nieuw;
+      render();
+      return true;
+    }).catch(() => false);
+  }
+  function herlaadOnline() {
+    verversKnop.disabled = true;
+    haalNieuweVoorspelling().then((nieuw) => {
+      verversKnop.disabled = false;
+      toonPaneel(nieuw
+        ? 'Bijgewerkt: er stond een nieuwere voorspelling.'
+        : 'Dit is de nieuwste voorspelling. De site rekent elke dag opnieuw zodra de prijzen voor morgen er zijn ' +
+          '(meestal tussen 13:15 en 14:00) en ververst het weer rond 19:00, 01:00 en 07:00. Deze pagina werkt ' +
+          'zichzelf bij.');
+      setTimeout(() => { el('ververs-paneel').hidden = true; }, 8000);
+    });
+  }
   function ververs() {
+    if (!OP_EIGEN_PC) {
+      herlaadOnline();
+      return;
+    }
     if (!lokaleServer) {
       toonPaneel(`${INSTRUCTIE} ${HERLAADKNOP}`);
       return;
@@ -854,6 +889,10 @@
       });
   }
   verversKnop.addEventListener('click', ververs);
+  if (!OP_EIGEN_PC) {
+    verversKnop.textContent = 'Herladen';
+    verversKnop.title = 'Kijk of er een nieuwere voorspelling is';
+  }
   vraagStatus().then((status) => {
     lokaleServer = !!(status && status.lokaal);
     if (status && status.bezig) {   // er liep al een run toen de pagina openging
@@ -892,6 +931,9 @@
       render();
       planDagwissel();
       setInterval(render, KWARTIER_MS);
+      // een open pagina haalt zelf een nieuwere voorspelling op: elke vijf minuten, en zodra het tabblad weer in beeld komt
+      setInterval(haalNieuweVoorspelling, NIEUW_KIJKEN_MS);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) haalNieuweVoorspelling(); });
     })
     .catch((fout) => {
       el('kop').textContent = 'De voorspelling kon niet geladen worden.';
