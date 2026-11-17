@@ -1,4 +1,5 @@
-# Wekelijks: evaluatie van de verversingsruns (PLAN.md, besluit 33) uit het runarchief op de branch `data`.
+# Wekelijks: evaluatie van de verversingsruns (PLAN.md, besluit 33) uit het runarchief op de branch `data`, en
+# bewaking van de leeftijd van de leverancierstabel (besluit 77).
 name: wekelijkse evaluatie
 
 on:
@@ -39,3 +40,38 @@ jobs:
           git add reports/verversingen.md
           git diff --cached --quiet || git commit -qm "Wekelijkse evaluatie verversingsruns"
           git push
+
+  # Bewaakt de leeftijd van data/leveranciers.yaml (besluit 77). Na de eerste dag van een kwartaal moet de peildatum
+  # van de lijst op of na die dag liggen; anders opent deze job een issue, toegewezen aan de eigenaar. Staat er al
+  # een open issue met dezelfde titel, dan komt er geen tweede bij.
+  leverancierstabel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+      - name: Leeftijd controleren, zo nodig een issue openen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EIGENAAR: ${{ github.repository_owner }}
+          TITEL: Leverancierstabel controleren
+        run: |
+          code=0
+          epv leveranciers-status --strikt > melding.txt || code=$?
+          cat melding.txt
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          if [ "$code" -ne 3 ]; then exit "$code"; fi
+          open=$(gh issue list --state open --limit 200 --json title --jq '[.[] | select(.title == env.TITEL)] | length')
+          if [ "$open" -eq 0 ]; then
+            gh issue create --title "$TITEL" --body-file melding.txt --assignee "$EIGENAAR"
+          else
+            echo "Er staat al een open issue met deze titel; er komt geen tweede bij."
+          fi

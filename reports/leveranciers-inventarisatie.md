@@ -131,6 +131,7 @@ Automatische toegang geweigerd: klantenservice.frankenergie.nl (403), support.en
 
 ## Onderhoudsadvies
 
+- **Bewaking (sinds 18 november 2026, besluit 77).** Vaste controledata: 1 januari, 1 april, 1 juli en 1 oktober. Na zo'n datum moet `peildatum_lijst` op of na die datum liggen, ook als er niets is veranderd. `epv leveranciers-status` toont de stand. De wekelijkse workflow op GitHub opent het issue "Leverancierstabel controleren" als de lijst niet is nagelopen. Een geplande taak in de Claude-app van de opdrachtgever doet de ronde op de eerste dag van elk kwartaal en legt de wijzigingen voor.
 - **Frequentie.** Elk kwartaal een volledige ronde; daarnaast per 1 januari (nieuwe tarieven, energiebelasting) en per 1 juli (veel leveranciers wijzigen halfjaarlijks). EnergyZero en Vattenfall mogen tot vier keer per jaar wijzigen; GroenPand wijzigt maandelijks.
 - **Snelle check (een uur).** Open jeroen.nl/dynamische-energie/aanbieders en salderingswijzer.nl/dynamische-energie/inkoopvergoeding en vergelijk met de kolom incl. respectievelijk excl. btw. Een afwijking is een signaal om de eigen site te openen. Let op dat jeroen.nl bedragen incl. btw toont.
 - **Diepe check (een dag).** Per leverancier de bron_url in de yaml openen. Voor de 18 bevestigde bedragen is dat de eigen pagina of pdf; voor de 19 vergelijkerswaarden eerst kijken of de leverancier het bedrag inmiddels wel publiceert, dan status ophogen.

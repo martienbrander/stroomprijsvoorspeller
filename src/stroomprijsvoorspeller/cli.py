@@ -1,7 +1,8 @@
 """Commandoregel: `epv <commando>` of `python -m stroomprijsvoorspeller <commando>`.
 
 Dagelijks gebruik: daily (alles in één keer), refresh, serve. De rest zijn de losse stappen en de evaluatie:
-fetch, build, status, features, compare, backtest, train, predict, site, historie-export, evalueer-verversingen.
+fetch, build, status, features, compare, backtest, train, predict, site, historie-export, evalueer-verversingen,
+leveranciers-status.
 Elk commando is een functie `cmd_<naam>(args)` die een exitcode teruggeeft; `main` onderaan koppelt ze aan argparse.
 
 Zware modules (LightGBM, matplotlib) worden pas geladen in het commando dat ze nodig heeft, zodat `epv status` en
@@ -185,6 +186,17 @@ def cmd_evalueer_verversingen(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_leveranciers_status(args: argparse.Namespace) -> int:
+    """Leeftijd van de leverancierstabel. Met --strikt is de exitcode 3 als de lijst toe is aan controle."""
+    from stroomprijsvoorspeller.pipeline import leveranciers
+
+    cfg = load_config(args.config)
+    vandaag = _datum(args.datum) or date.today()
+    stand = leveranciers.bepaal_stand(cfg, vandaag)
+    print(leveranciers.melding(stand, vandaag))
+    return 3 if (stand.verouderd and args.strikt) else 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     ruw = energy_charts.lees_ruw(cfg.raw_dir)
@@ -276,6 +288,11 @@ def main(argv: list[str] | None = None) -> int:
 
     ev = sub.add_parser("evalueer-verversingen", help="rapport over de waarde van de verversingsruns -> reports/verversingen.md")
     ev.set_defaults(func=cmd_evalueer_verversingen)
+
+    ls = sub.add_parser("leveranciers-status", help="leeftijd van data/leveranciers.yaml: is de lijst toe aan controle?")
+    ls.add_argument("--strikt", action="store_true", help="exitcode 3 als de lijst toe is aan controle (voor de workflow)")
+    ls.add_argument("--datum", help="reken met deze dag als vandaag, YYYY-MM-DD (om te testen)")
+    ls.set_defaults(func=cmd_leveranciers_status)
 
     args = p.parse_args(argv)
     _logging(args.verbose)

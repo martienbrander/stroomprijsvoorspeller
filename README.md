@@ -56,7 +56,8 @@ hetzelfde zegt over de software.
   historische verwachtingen zoals die destijds waren, zodat de backtest geen kennis van later gebruikt.
 - Kalender: Nederlandse feestdagen via het Python-package `holidays`.
 - Leveranciers: met de hand bijgehouden lijst in `data/leveranciers.yaml`, nagelopen tegen het ACM-register;
-  zie [reports/leveranciers-inventarisatie.md](reports/leveranciers-inventarisatie.md).
+  zie [reports/leveranciers-inventarisatie.md](reports/leveranciers-inventarisatie.md). De lijst wordt elk kwartaal
+  nagelopen; `epv leveranciers-status` toont of hij toe is aan controle (besluit 77).
 
 Code: MIT, zie [LICENSE](LICENSE). De gepubliceerde cijfers (JSON) zijn afgeleid van CC BY 4.0-bronnen en worden
 onder dezelfde licentie doorgegeven met bronvermelding. Geen cookies, geen tracking, geen persoonsgegevens.
@@ -112,6 +113,7 @@ epv train      # operationeel model trainen (config: lightgbm_d2, venster 365 da
 epv predict    # voorspellen met de actuele weersverwachting
 epv refresh    # lichte verversing: nieuw weer, opnieuw voorspellen met het bestaande model
 epv evalueer-verversingen   # wat leveren de verversingen op? -> reports/verversingen.md
+epv leveranciers-status     # hoe oud is de leverancierstabel, en wanneer is de volgende controle?
 epv historie-export         # compacte backtest-historie voor online gebruik
 ```
 
@@ -148,7 +150,9 @@ verversingen per dag (19:05, 01:05, 07:05). Elke run haalt de werkdata van de br
 nieuwe werkdata terug op die branch (één commit, geen geschiedenis) en publiceert `site/` via GitHub Pages. Een pagina die openstaat kijkt elk uur of er een nieuwere
 voorspelling staat, en tussen 13:00 en 15:30 elke tien minuten zolang de prijzen voor morgen er nog niet zijn. Naast
 "Bijgewerkt" staat wanneer de volgende update komt (weerupdate of prijsupdate voor morgen). De
-workflow "wekelijkse evaluatie" schrijft op maandag `reports/verversingen.md` bij.
+workflow "wekelijkse evaluatie" schrijft op maandag `reports/verversingen.md` bij en bewaakt de leverancierstabel: is
+die sinds de eerste dag van het kwartaal niet nagelopen, dan opent de workflow het issue "Leverancierstabel
+controleren" (besluit 77).
 
 **Waar staat wat, en wat kost het.** Code, dagelijkse run en hosting: GitHub (publieke repository, gratis). Domein en
 DNS: dds.nl (ongeveer 36 euro per jaar). Mail: geen; het domein verstuurt geen mail en de DNS zegt dat ook.
