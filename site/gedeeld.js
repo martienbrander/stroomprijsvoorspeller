@@ -885,10 +885,10 @@
       titel.textContent = `${dagNaam(dag, true)}${feestdag} (${betrouwbaarheidTekst(dag, true)})`;
       container.appendChild(titel);
 
-      const eersteKolom = dag.perUur ? (dag.perKwartier ? 'Kwartier' : 'Uur') : 'Dagdeel';
+      const eersteKolom = dag.perKwartier ? 'Kwartier' : 'Uur';   // alle dagen per uur, zoals de grafiek (besluit 72)
       const prijsKoppen = dag.bekend ? kop('Prijs') : kop('Ondergrens') + kop('Verwacht') + kop('Bovengrens');
-      const rijen = (dag.perUur ? dag.reeks : dag.dagdelen).map((r) => {
-        const naam = dag.perUur ? fmtUur(r.uur) : `${r.label} ${fmtUur(r.van)}–${fmtUur(r.tot)}`;
+      const rijen = dag.reeks.map((r) => {
+        const naam = fmtUur(r.uur);
         const prijzen = dag.bekend ? cel(fmt(r.p50)) : cel(fmt(r.p10)) + cel(fmt(r.p50)) + cel(fmt(r.p90));
         const stoplicht = STOPLICHT[r.stoplicht];
         return `<tr><th scope="row">${naam}</th>${prijzen}${cel(`${stoplicht.icoon} ${stoplicht.label}`)}</tr>`;

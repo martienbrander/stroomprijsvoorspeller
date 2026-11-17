@@ -167,7 +167,8 @@
     display: grid; grid-template-columns: repeat(24, 1fr); gap: 1px; height: 2.6rem; border-radius: .4rem;
     overflow: hidden;
   }
-  .uren.blokken { grid-template-columns: repeat(4, 1fr); gap: 3px; }
+  .uren.mate-redelijk { opacity: .75; }   /* bleker naarmate de dag minder betrouwbaar is (besluit 72) */
+  .uren.mate-laag { opacity: .45; }
   .cel {
     display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 600; min-width: 0;
   }
@@ -175,9 +176,6 @@
   .cel.sl-gemiddeld { background: var(--sl-m-a); color: var(--sl-m-t); }
   .cel.sl-duur { background: var(--sl-d-a); color: var(--sl-d-t); }
   .cel.voorbij { filter: grayscale(1); opacity: .45; }   /* de uren van vandaag die voorbij zijn */
-  .cel.blok { flex-direction: column; line-height: 1.15; gap: .1rem; }
-  .cel.blok .lbl { font-weight: 500; font-size: .68rem; opacity: .85; }
-  .cel.blok .sl-icoon { font-size: .6em; margin-right: .2em; }
   .assen {
     display: flex; justify-content: space-between; font-size: .68rem; color: var(--zacht); margin-top: .2rem;
     font-variant-numeric: tabular-nums;
@@ -212,7 +210,6 @@
     .datum .status { font-size: .68rem; }
     .detail { padding-left: 0; }
     .cel { font-size: .62rem; }
-    .cel.blok .lbl { display: none; }
   }
 
   /* stoplicht en betrouwbaarheid */
@@ -451,6 +448,7 @@
     <li><span class="vak" style="background:var(--sl-m-a)"></span>■ gemiddeld</li>
     <li><span class="vak" style="background:var(--sl-d-a)"></span>▲ duur</li>
     <li>t.o.v. de hele periode</li>
+    <li>bleker: minder betrouwbaar</li>
     <li><span class="vak spits"></span>netspits 16–21 uur</li>
   </ul>
   <ul class="tijdlijn" id="tijdlijn"></ul>
@@ -464,7 +462,8 @@
       8 van de 10 gevallen blijft de echte prijs binnen die marge.</p>
     <p><b>Dag 4 en verder</b> zijn grof. De grafiek toont ze wel per uur, voor het overzicht van de week, maar
       hoe lichter de lijn, hoe minder betrouwbaar: het niveau van de dag klopt meestal, het exacte uur kan schuiven.
-      Op de tijdlijn staan die dagen daarom per dagdeel. Een goedkoop dagdeel blijft meestal goedkoop.</p>
+      Op de tijdlijn zijn die dagen daarom bleker. Klap een dag uit voor het oordeel per dagdeel: een goedkoop
+      dagdeel blijft meestal goedkoop.</p>
     <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Het label bij elke dag zegt
       hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
     <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen. Daarom
@@ -520,7 +519,7 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=6"></script>
+<script src="gedeeld.js?v=7"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
@@ -745,27 +744,20 @@
 
   const dagdelenTekst = (dag) => dag.dagdelen.map((deel) => `${deel.label.toLowerCase()} ${deel.stoplicht}`).join(', ');
 
-  // de gekleurde strook: de eerste dagen een cel per uur of kwartier, daarna vier blokken per dagdeel
+  // de gekleurde strook: een cel per uur (of kwartier op bekende dagen), voor alle dagen
   function strookHtml(dag) {
     const beschrijving = `role="img" aria-label="${dagNaam(dag, true)}: ${dagdelenTekst(dag)}"`;
-    if (dag.perUur) {
-      // vandaag: wat voorbij is wordt grijs (besluit 66)
-      const nu = dag.datum === SP.vandaagLokaal() ? SP.nuLokaalUur() : -1;
-      const cellen = dag.reeks.map((u) => {
-        const voorbij = u.uur + u.duur <= nu + 1e-9;
-        return `<div class="cel ${SP.STOPLICHT[u.stoplicht].klasse}${voorbij ? ' voorbij' : ''}" ` +
-          `title="${fmtUur(u.uur)}: ${bandZin(u.p10, u.p50, u.p90, u.bekend)}${voorbij ? ' (voorbij)' : ''}"></div>`;
-      }).join('');
-      return `<div class="uren${dag.perKwartier ? ' fijn' : ''}" ` +
-        `style="grid-template-columns:repeat(${dag.reeks.length},1fr)" ${beschrijving}>${cellen}</div>`;
-    }
-    const blokken = dag.dagdelen.map((deel) => {
-      const stoplicht = SP.STOPLICHT[deel.stoplicht];
-      return `<div class="cel blok ${stoplicht.klasse}" title="${deel.label} ${deel.van}–${deel.tot} u: ` +
-        `${bandZin(deel.p10, deel.p50, deel.p90, false)}"><span class="lbl">${deel.label}</span>` +
-        `<span><span class="sl-icoon" aria-hidden="true">${stoplicht.icoon}</span>${stoplicht.label}</span></div>`;
+    // vandaag: wat voorbij is wordt grijs (besluit 66)
+    const nu = dag.datum === SP.vandaagLokaal() ? SP.nuLokaalUur() : -1;
+    const cellen = dag.reeks.map((u) => {
+      const voorbij = u.uur + u.duur <= nu + 1e-9;
+      return `<div class="cel ${SP.STOPLICHT[u.stoplicht].klasse}${voorbij ? ' voorbij' : ''}" ` +
+        `title="${fmtUur(u.uur)}: ${bandZin(u.p10, u.p50, u.p90, u.bekend)}${voorbij ? ' (voorbij)' : ''}"></div>`;
     }).join('');
-    return `<div class="uren blokken" ${beschrijving}>${blokken}</div>`;
+    // elke dag per uur (besluit 72); hoe minder betrouwbaar de dag, hoe bleker de strook
+    const klassen = ['uren', dag.perKwartier ? 'fijn' : '', `mate-${dag.betrouwbaarheid.code}`].filter(Boolean).join(' ');
+    return `<div class="${klassen}" style="grid-template-columns:repeat(${dag.reeks.length},1fr)" ` +
+      `${beschrijving}>${cellen}</div>`;
   }
   // het haakje boven de strook dat het goedkoopste laadblok aanwijst
   function laadMarkeringHtml(blok) {
