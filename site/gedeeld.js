@@ -909,6 +909,12 @@
     nu: ['--g-nu', '#d9480f'], vlak: ['--g-vlak', '#ffffff'],
   };
   const GRAFIEK_FONT = 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  // hoe stevig een verwachte dag getekend wordt, per betrouwbaarheid (besluit 71): dekking van lijn en band, lijndikte
+  const LIJNSTERKTE = {
+    hoog: { lijn: 1, band: 0.22, dikte: 2 },
+    redelijk: { lijn: 0.7, band: 0.18, dikte: 2 },
+    laag: { lijn: 0.4, band: 0.13, dikte: 1.5 },
+  };
 
   function grafiekKleuren(canvas) {
     const stijl = getComputedStyle(canvas);
@@ -945,9 +951,10 @@
    * tekenGrafiek(canvas, model, opties) -> { teken(), update(model) }
    * opties: { maxDagen, hoogte, compact }
    *
-   * Alle dagen naast elkaar op één tijdas. De eerste vier dagen per uur (of kwartier): een bekende dag als gevuld
-   * vlak onder een trapjeslijn, een verwachte dag als band (P10-P90) met een gestreepte lijn (P50). Daarna
-   * blokken per dagdeel. De netspits is gearceerd. Bewegen of aanraken toont een leeslijn met de prijs.
+   * Alle dagen naast elkaar op één tijdas, allemaal per uur (besluit 71): een bekende dag als gevuld vlak onder
+   * een trapjeslijn (per kwartier als dat gekozen is), een verwachte dag als band (P10-P90) met een gestreepte
+   * lijn (P50). Hoe minder betrouwbaar de dag, hoe lichter lijn en band. De netspits is gearceerd. Bewegen of
+   * aanraken toont een leeslijn met de prijs.
    */
   function tekenGrafiek(canvas, model, opties = {}) {
     let dagen, totaalUren;
@@ -985,7 +992,7 @@
       // y-as: vanaf 0, of lager als er negatieve prijzen zijn; alleen wat getekend wordt telt mee
       let ymin = 0, ymax = 1;
       dagen.forEach((dag) => {
-        (dag.perUur ? dag.uren : dag.dagdelen).forEach((u) => {
+        dag.uren.forEach((u) => {
           ymin = Math.min(ymin, u.p10);
           ymax = Math.max(ymax, u.p90);
         });
@@ -1065,8 +1072,7 @@
       tekenDaglabel(t, dag, xBegin, xEind);
     }
     function tekenPrijzen(t, dag, eersteUur, xBegin, xEind) {
-      if (!dag.perUur) tekenDagdelen(t, dag, eersteUur);
-      else if (dag.bekend) tekenBekendeDag(t, dag, eersteUur, xBegin, xEind);
+      if (dag.bekend) tekenBekendeDag(t, dag, eersteUur, xBegin, xEind);
       else tekenVerwachteDag(t, dag, eersteUur, xBegin, xEind);
     }
     // x-positie van 'nu' als deze dag vandaag is, anders null; `pos` telt goed op dagen met 23 of 25 uur
@@ -1128,9 +1134,11 @@
       ctx.stroke();
     }
 
-    // verwachte dag: band van P10 tot P90 met de gestreepte P50-lijn erdoor, punten midden in elk uur
+    // verwachte dag: band van P10 tot P90 met de gestreepte P50-lijn erdoor, punten midden in elk uur.
+    // De betrouwbaarheid van de dag bepaalt hoe stevig lijn en band zijn (besluit 71).
     function tekenVerwachteDag(t, dag, eersteUur, xBegin, xEind) {
       const ctx = t.ctx;
+      const sterkte = LIJNSTERKTE[dag.betrouwbaarheid.code] || LIJNSTERKTE.hoog;
       const uren = dag.uren;
       const laatste = uren[uren.length - 1];
       const midden = (i) => t.x(eersteUur + i) + t.uurBreed / 2;
@@ -1145,27 +1153,15 @@
       for (let i = uren.length - 1; i >= 0; i--) ctx.lineTo(midden(i), t.y(uren[i].p10));
       ctx.lineTo(xBegin, t.y(uren[0].p10));
       ctx.closePath();
-      ctx.globalAlpha = 0.22; ctx.fillStyle = t.kleur.band; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.globalAlpha = sterkte.band; ctx.fillStyle = t.kleur.band; ctx.fill();
 
-      ctx.strokeStyle = t.kleur.lijn; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+      ctx.globalAlpha = sterkte.lijn;
+      ctx.strokeStyle = t.kleur.lijn; ctx.lineWidth = sterkte.dikte; ctx.setLineDash([5, 4]);
       ctx.beginPath();
       lijnLangs('p50');
       ctx.stroke();
       ctx.setLineDash([]);
-    }
-
-    // dag per dagdeel: een lichte rechthoek voor de band (hoogte = onzekerheid) met een streep op de P50
-    function tekenDagdelen(t, dag, eersteUur) {
-      const ctx = t.ctx;
-      dag.dagdelen.forEach((deel) => {
-        const x = t.x(eersteUur + deel.van) + 2;
-        const breedte = (deel.tot - deel.van) * t.uurBreed - 4;
-        ctx.globalAlpha = 0.22; ctx.fillStyle = t.kleur.band;
-        afgerondeRechthoek(ctx, x, t.y(deel.p90), breedte, Math.max(2, t.y(deel.p10) - t.y(deel.p90)), 3);
-        ctx.fill();
-        ctx.globalAlpha = 1; ctx.fillStyle = t.kleur.lijn;
-        ctx.fillRect(x, t.y(deel.p50) - 1.5, breedte, 3);
-      });
+      ctx.globalAlpha = 1;
     }
 
     // onder de as: de dag en daaronder de betrouwbaarheid, ingekort als het niet past
@@ -1205,19 +1201,12 @@
       lijn(ctx, x, t.boven, x, t.onder);
       ctx.setLineDash([]);
 
-      let regel1, regel2;
-      if (dag.perUur) {
-        regel1 = `${dagNaam(dag, false)} ${fmtUur(u.uur)}–${fmtUur(u.uur + u.duur)}`;
-        regel2 = u.bekend
-          ? `${fmt(u.p50)} ct/kWh`
-          : `verwacht ${fmt(u.p50)} (${plusMinCt(u.p90 - u.p50, u.p50 - u.p10)})`;
-        ctx.fillStyle = t.kleur.nu;
-        ctx.beginPath(); ctx.arc(x, t.y(u.p50), 4, 0, Math.PI * 2); ctx.fill();
-      } else {
-        const deel = dag.dagdelen.find((d) => u.uur >= d.van && u.uur < d.tot);
-        regel1 = `${dagNaam(dag, false)}, ${deel.label.toLowerCase()} ${fmtUur(deel.van)}–${fmtUur(deel.tot)}`;
-        regel2 = `verwacht ${fmt(deel.p50)} (${plusMinCt(deel.p90 - deel.p50, deel.p50 - deel.p10)})`;
-      }
+      const regel1 = `${dagNaam(dag, false)} ${fmtUur(u.uur)}–${fmtUur(u.uur + u.duur)}`;
+      const regel2 = u.bekend
+        ? `${fmt(u.p50)} ct/kWh`
+        : `verwacht ${fmt(u.p50)} (${plusMinCt(u.p90 - u.p50, u.p50 - u.p10)})`;
+      ctx.fillStyle = t.kleur.nu;
+      ctx.beginPath(); ctx.arc(x, t.y(u.p50), 4, 0, Math.PI * 2); ctx.fill();
       // tekstvak rechts van de lijn, of links als het rechts niet past
       ctx.font = (t.compact ? 11 : 12) + GRAFIEK_FONT;
       const vakBreed = Math.max(ctx.measureText(regel1).width, ctx.measureText(regel2).width) + 16;

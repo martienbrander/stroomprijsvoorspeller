@@ -437,6 +437,8 @@
       <li><span class="vak" style="background:var(--accent);opacity:.25"></span>marge: in 8 van de 10 gevallen valt de
         prijs hierbinnen</li>
       <li><span class="vak spits"></span>netspits 16–21 uur</li>
+      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0;opacity:.4"></span>lichter: minder
+        betrouwbaar</li>
       <li><span class="vak" style="background:var(--zacht);opacity:.35"></span>grijs: voorbij</li>
     </ul>
     <details class="tabel"><summary>Dezelfde cijfers als tabel</summary><div id="tabel"></div></details>
@@ -460,8 +462,9 @@
     <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen
       dagen. Bij elke verwachting staat hoeveel de prijs naar boven (+) en naar beneden (−) kan afwijken. In ongeveer
       8 van de 10 gevallen blijft de echte prijs binnen die marge.</p>
-    <p><b>Dag 4 en verder</b> zijn grof: alleen dagdelen, geen losse uren. Een goedkoop dagdeel blijft meestal
-      goedkoop, het exacte uur kan schuiven.</p>
+    <p><b>Dag 4 en verder</b> zijn grof. De grafiek toont ze wel per uur, voor het overzicht van de week, maar
+      hoe lichter de lijn, hoe minder betrouwbaar: het niveau van de dag klopt meestal, het exacte uur kan schuiven.
+      Op de tijdlijn staan die dagen daarom per dagdeel. Een goedkoop dagdeel blijft meestal goedkoop.</p>
     <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Het label bij elke dag zegt
       hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
     <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen. Daarom
@@ -517,7 +520,7 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=5"></script>
+<script src="gedeeld.js?v=6"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
