@@ -157,10 +157,10 @@ controleren" (besluit 77).
 **Waar staat wat, en wat kost het.** Code, dagelijkse run en hosting: GitHub (publieke repository, gratis). Domein en
 DNS: dds.nl (ongeveer 36 euro per jaar). Mail: geen; het domein verstuurt geen mail en de DNS zegt dat ook.
 
-**Als de weerbron hapert.** Antwoordt Open-Meteo niet, dan probeert een verversing het drie keer, wacht 20 minuten
-en begint opnieuw, hoogstens drie rondes. Lukt het dan nog niet, dan slaat de verversing over zonder foutmelding en
-blijft de vorige voorspelling staan; de volgende run haalt het nieuwe weer op. Alleen een mislukte hoofdrun geeft een
-rode run en een mail van GitHub.
+**Als de weerbron hapert.** Antwoordt Open-Meteo niet, dan probeert de run het drie keer, wacht 20 minuten en begint
+opnieuw, hoogstens drie rondes. Lukt het dan nog niet, dan slaat een verversing over zonder foutmelding en blijft de
+vorige voorspelling staan; de volgende run haalt het nieuwe weer op. Een hoofdrun die na drie rondes nog geen weer
+heeft, geeft wel een rode run en een mail van GitHub.
 
 **Als een run mislukt.** Kijk onder "Actions" naar de rode run en open de stap "Run"; daar staat de foutmelding van
 `epv daily`. Een gemiste dag is geen ramp: de volgende run haalt de gemiste dagen in (besluit 50) en de site toont hoe

@@ -79,7 +79,7 @@ jobs:
             esac
           fi
           echo "type: $TYPE"
-          # een verversing wacht bij een storing van de weerbron: drie rondes met 20 minuten ertussen (besluit 78)
+          # bij een storing van de weerbron wacht de run: drie rondes met 20 minuten ertussen (besluit 78)
           epv daily --type "$TYPE" --weer-rondes 3 --weer-wacht 20 | tee run.log
           if grep -q "^run overgeslagen" run.log; then echo "overgeslagen=true" >> "$GITHUB_OUTPUT"; fi
 

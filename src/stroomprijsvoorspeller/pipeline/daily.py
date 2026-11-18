@@ -323,17 +323,17 @@ def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fet
         bundel, ingehaald = laad_model(cfg), []
         if bundel is None:
             raise RuntimeError("geen getraind model; draai eerst een hoofdrun (`epv daily --type hoofd`)")
-    if fetch:
-        # alleen een verversing wacht op de weerbron; de hoofdrun heeft al meerdere geplande pogingen (besluit 54)
-        rondes = weer_rondes if run_type == "verversing" else 1
-        if not haal_weer_op(cfg, rondes, weer_wacht_minuten):
-            reden = "weerbron niet bereikbaar"
-            if run_type != "verversing":
-                raise BronNietBereikbaar(f"{reden}: de hoofdrun kan niet zonder de actuele weersverwachting")
-            # een verversing zonder nieuw weer voegt niets toe: overslaan zonder fout, wel in het logboek
-            archive.log_run(cfg, nu, run_type, origin, time.time() - t0, "geen_weer", reden)
-            return {"run_type": "overgeslagen", "origin": origin, "archief": None, "json": None, "ingehaald": [],
-                    "duur_s": time.time() - t0, "model_getraind": None, "reden": reden}
+    # Ook de hoofdrun wacht in rondes: anders gaat bij een haperende weerbron het werk van de hele run verloren
+    # (features, trainen) en moet de volgende geplande poging alles opnieuw doen (besluit 78).
+    if fetch and not haal_weer_op(cfg, weer_rondes, weer_wacht_minuten):
+        reden = "weerbron niet bereikbaar"
+        if run_type != "verversing":
+            # een hoofdrun zonder weer is een fout: dan mist de site de prijzen voor morgen
+            raise BronNietBereikbaar(f"{reden}: de hoofdrun kan niet zonder de actuele weersverwachting")
+        # een verversing zonder nieuw weer voegt niets toe: overslaan zonder fout, wel in het logboek
+        archive.log_run(cfg, nu, run_type, origin, time.time() - t0, "geen_weer", reden)
+        return {"run_type": "overgeslagen", "origin": origin, "archief": None, "json": None, "ingehaald": [],
+                "duur_s": time.time() - t0, "model_getraind": None, "reden": reden}
 
     alles = _stel_run_samen(cfg, bundel, prijzen, origin, nu, run_type)
     archief_pad = archive.schrijf_run(cfg, alles, nu, run_type)
