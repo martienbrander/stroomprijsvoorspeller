@@ -9,7 +9,11 @@ import requests
 
 log = logging.getLogger(__name__)
 
-USER_AGENT = "stroomprijsvoorspeller/0.1 (open source; https://github.com/)"
+USER_AGENT = "stroomprijsvoorspeller/0.2 (open source; https://github.com/martienbrander/stroomprijsvoorspeller)"
+
+
+class BronNietBereikbaar(RuntimeError):
+    """De bron gaf na alle pogingen geen bruikbaar antwoord (storing, time-out of te veel verzoeken)."""
 
 
 def get_json(url: str, params: dict, *, session: requests.Session | None = None,
@@ -33,7 +37,10 @@ def get_json(url: str, params: dict, *, session: requests.Session | None = None,
             status = getattr(getattr(e, "response", None), "status_code", None)
             if status is not None and 400 <= status < 500 and status != 429:
                 raise
+            if poging == retries - 1:   # na de laatste poging niet meer wachten
+                log.warning("poging %d/%d mislukt voor %s: %s", poging + 1, retries, url, e)
+                break
             log.warning("poging %d/%d mislukt voor %s: %s; wacht %.0fs", poging + 1, retries, url, e, wacht)
             time.sleep(wacht)
             wacht = min(wacht * 2, 60)
-    raise RuntimeError(f"opgegeven na {retries} pogingen: {url}") from laatste
+    raise BronNietBereikbaar(f"opgegeven na {retries} pogingen: {url}") from laatste

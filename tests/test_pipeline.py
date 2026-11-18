@@ -269,3 +269,38 @@ def test_nieuwe_installatie_rekent_zestig_dagen_na(tmp_path):
     eerste = vandaag - timedelta(days=3)
     archive.schrijf_run(cfg, _run_rijen(eerste, "inhaal", "2026-11-14T12:15:00Z", 0, 3), pd.Timestamp("2026-11-14T12:15:00Z"), "inhaal")
     assert archive.ontbrekende_origins(cfg, "lightgbm", vandaag) == [vandaag - timedelta(days=2), vandaag - timedelta(days=1)]
+
+
+def test_weer_ophalen_in_rondes(tmp_path, monkeypatch):
+    from stroomprijsvoorspeller.sources.http import BronNietBereikbaar
+
+    cfg = maak_config(tmp_path)
+    aanroepen, gewacht = [], []
+
+    def hapert_twee_keer(_cfg):
+        aanroepen.append(1)
+        if len(aanroepen) < 3:
+            raise BronNietBereikbaar("opgegeven na 3 pogingen")
+
+    monkeypatch.setattr(daily.open_meteo, "store_forecasts", hapert_twee_keer)
+    # derde ronde lukt: twee keer 20 minuten gewacht
+    assert daily.haal_weer_op(cfg, rondes=3, wacht_minuten=20, slaap=gewacht.append) is True
+    assert len(aanroepen) == 3 and gewacht == [1200, 1200]
+
+    # blijft de bron weg, dan na de laatste ronde False, zonder daarna nog te wachten
+    aanroepen.clear(); gewacht.clear()
+    monkeypatch.setattr(daily.open_meteo, "store_forecasts", lambda _cfg: (_ for _ in ()).throw(BronNietBereikbaar("weg")))
+    assert daily.haal_weer_op(cfg, rondes=3, wacht_minuten=20, slaap=gewacht.append) is False
+    assert gewacht == [1200, 1200]
+    # lokaal is de standaard een ronde: meteen False, niet wachten
+    gewacht.clear()
+    assert daily.haal_weer_op(cfg, slaap=gewacht.append) is False and gewacht == []
+
+
+def test_verversing_zonder_weer_telt_als_niet_gelukt(tmp_path):
+    cfg = maak_config(tmp_path)
+    archive.log_run(cfg, pd.Timestamp("2026-11-18T07:16:00Z"), "verversing", date(2026, 11, 17), 2700.0, "geen_weer", "weerbron niet bereikbaar")
+    archive.log_run(cfg, pd.Timestamp("2026-11-18T01:11:00Z"), "verversing", date(2026, 11, 17), 20.0, "ok")
+    t = refresh.betrouwbaarheid_runs(cfg).set_index("slot")
+    assert t.loc["07:00", "runs"] == 1 and t.loc["07:00", "gelukt"] == 0
+    assert t.loc["01:00", "gelukt"] == 1

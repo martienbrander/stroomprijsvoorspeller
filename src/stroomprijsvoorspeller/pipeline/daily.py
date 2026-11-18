@@ -36,6 +36,7 @@ from stroomprijsvoorspeller.pipeline import archive, site_export
 from stroomprijsvoorspeller.processing import dataset
 from stroomprijsvoorspeller.processing.features import DOEL, PRIJS, bouw_features, origins_in_bereik
 from stroomprijsvoorspeller.sources import energy_charts, open_meteo
+from stroomprijsvoorspeller.sources.http import BronNietBereikbaar
 from stroomprijsvoorspeller.timeutil import (
     MIN_UREN_PER_DAG,
     TZ,
@@ -272,9 +273,29 @@ def _stel_run_samen(cfg: Config, bundel: dict, prijzen: pd.DataFrame, origin: da
     return alles
 
 
-def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fetch: bool = True) -> dict:
-    """Voert een run uit en geeft een korte samenvatting terug. Bij type `middag` kan de uitkomst `overgeslagen` zijn:
-    dan is er niets gearchiveerd en niets voor de site geschreven."""
+def haal_weer_op(cfg: Config, rondes: int = 1, wacht_minuten: float = 20.0, slaap=time.sleep) -> bool:
+    """Haalt de actuele weersverwachting op. Elke ronde doet een paar snelle pogingen (zie open_meteo); mislukt een
+    ronde omdat de bron niet antwoordt, dan wachten we `wacht_minuten` en proberen het opnieuw, hoogstens `rondes`
+    keer (besluit 78). Geeft False terug als het na alle rondes niet gelukt is."""
+    for ronde in range(1, rondes + 1):
+        try:
+            open_meteo.store_forecasts(cfg)
+            return True
+        except BronNietBereikbaar as fout:
+            if ronde == rondes:
+                log.warning("weerbron niet bereikbaar na %d ronde(n): %s", rondes, fout)
+                return False
+            log.warning("weerbron niet bereikbaar (ronde %d van %d): %s; over %.0f minuten opnieuw",
+                        ronde, rondes, fout, wacht_minuten)
+            slaap(wacht_minuten * 60)
+    return False
+
+
+def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fetch: bool = True,
+        weer_rondes: int = 1, weer_wacht_minuten: float = 20.0) -> dict:
+    """Voert een run uit en geeft een korte samenvatting terug. De uitkomst kan `overgeslagen` zijn: bij type `middag`
+    als er niets nieuws is, en bij een verversing als de weerbron na `weer_rondes` rondes niet antwoordt. Dan is er
+    niets gearchiveerd en niets voor de site geschreven."""
     t0 = time.time()
     nu = nu or utc_now()
     vandaag = nu.tz_convert(TZ).date()
@@ -303,7 +324,16 @@ def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fet
         if bundel is None:
             raise RuntimeError("geen getraind model; draai eerst een hoofdrun (`epv daily --type hoofd`)")
     if fetch:
-        open_meteo.store_forecasts(cfg)
+        # alleen een verversing wacht op de weerbron; de hoofdrun heeft al meerdere geplande pogingen (besluit 54)
+        rondes = weer_rondes if run_type == "verversing" else 1
+        if not haal_weer_op(cfg, rondes, weer_wacht_minuten):
+            reden = "weerbron niet bereikbaar"
+            if run_type != "verversing":
+                raise BronNietBereikbaar(f"{reden}: de hoofdrun kan niet zonder de actuele weersverwachting")
+            # een verversing zonder nieuw weer voegt niets toe: overslaan zonder fout, wel in het logboek
+            archive.log_run(cfg, nu, run_type, origin, time.time() - t0, "geen_weer", reden)
+            return {"run_type": "overgeslagen", "origin": origin, "archief": None, "json": None, "ingehaald": [],
+                    "duur_s": time.time() - t0, "model_getraind": None, "reden": reden}
 
     alles = _stel_run_samen(cfg, bundel, prijzen, origin, nu, run_type)
     archief_pad = archive.schrijf_run(cfg, alles, nu, run_type)

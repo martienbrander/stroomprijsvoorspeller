@@ -128,7 +128,8 @@ def cmd_daily(args: argparse.Namespace) -> int:
     from stroomprijsvoorspeller.pipeline import daily
 
     cfg = load_config(args.config)
-    uit = daily.run(cfg, run_type=args.type, fetch=not args.geen_fetch)
+    uit = daily.run(cfg, run_type=args.type, fetch=not args.geen_fetch,
+                    weer_rondes=args.weer_rondes, weer_wacht_minuten=args.weer_wacht)
     if uit["run_type"] == "overgeslagen":
         print(f"run overgeslagen: {uit['reden']} (voorspelmoment {uit['origin']})")
         return 0
@@ -267,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="auto = hoofdrun als die er vandaag nog niet is, anders verversing; middag = hoofdrun zodra de prijzen "
                         "voor morgen binnen zijn, anders niets doen (rooster online)")
     d.add_argument("--geen-fetch", action="store_true", help="niets ophalen, alleen met de data die er is")
+    d.add_argument("--weer-rondes", type=int, default=1,
+                   help="hoe vaak een verversing de weerbron opnieuw probeert als die niet antwoordt (standaard 1: niet wachten)")
+    d.add_argument("--weer-wacht", type=float, default=20.0, help="minuten wachten tussen twee rondes (standaard 20)")
     d.set_defaults(func=cmd_daily)
 
     r = sub.add_parser("refresh", help="lichte verversing: nieuw weer, opnieuw voorspellen met het bestaande model")

@@ -27,6 +27,10 @@ log = logging.getLogger(__name__)
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
 PAUZE_SECONDEN = 0.6  # netjes blijven binnen de gratis limieten (600 calls per minuut)
+# De actuele verwachting: drie snelle pogingen met 30 seconden wachten op antwoord (besluit 78). Een gezond antwoord
+# komt binnen een seconde; een storing lossen meer snelle pogingen niet op, daarvoor zijn de rondes in pipeline/daily.
+FORECAST_POGINGEN = 3
+FORECAST_TIMEOUT_SECONDEN = 30
 
 
 def prev_run_var(variabele: str, lead: int) -> str:
@@ -60,7 +64,8 @@ def fetch_forecast(punt: Weerpunt, variabelen: tuple[str, ...], dagen: int, mode
         "forecast_days": dagen, "timezone": "UTC", "wind_speed_unit": "ms",
         "models": model,
     }
-    payload = get_json(FORECAST_URL, params, session=session)
+    payload = get_json(FORECAST_URL, params, session=session, retries=FORECAST_POGINGEN,
+                       timeout=FORECAST_TIMEOUT_SECONDEN)
     df = parse_hourly(payload)
     df.insert(1, "punt", punt.naam)
     df.insert(2, "uitgegeven_utc", utc_now())
