@@ -16,3 +16,6 @@ __pycache__/
 # geheimen
 .env
 site/api/
+
+# aflevermap met aangeleverde bestanden; niet onderdeel van de repository
+sitebestanden_cowork/
