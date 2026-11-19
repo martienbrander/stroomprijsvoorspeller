@@ -937,7 +937,7 @@
 
   const GRAFIEK_KLEUREN = {   // CSS-variabele op het canvas -> terugval als die ontbreekt
     tekst: ['--g-tekst', '#333'], zacht: ['--g-zacht', '#777'], raster: ['--g-raster', '#e5e5e5'],
-    lijn: ['--g-lijn', '#1f5fbf'], bekend: ['--g-bekend', '#1f5fbf'], band: ['--g-band', '#1f5fbf'],
+    lijn: ['--g-lijn', '#17335c'], bekend: ['--g-bekend', '#17335c'], band: ['--g-band', '#17335c'],
     nu: ['--g-nu', '#d9480f'], vlak: ['--g-vlak', '#ffffff'],
   };
   const GRAFIEK_FONT = 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
