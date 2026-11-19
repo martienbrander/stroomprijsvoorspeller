@@ -57,14 +57,30 @@ INHAAL_MINUTEN_NA_PUBLICATIE = 15   # een inhaalrun krijgt als tijdstip: publica
 
 def laatste_bekende_dag(prijzen: pd.DataFrame) -> date:
     """Laatste lokale dag waarvoor (vrijwel) alle uurprijzen bekend zijn."""
+    if prijzen.empty:
+        raise RuntimeError("geen prijsdata in data/raw; draai eerst `epv fetch`")
     bekend = prijzen.dropna(subset=[PRIJS])
     uren_per_dag = pd.Series(1, index=local_date(pd.DatetimeIndex(bekend["time_utc"]))).groupby(level=0).sum()
-    return uren_per_dag[uren_per_dag >= MIN_UREN_PER_DAG].index.max()
+    volledig = uren_per_dag[uren_per_dag >= MIN_UREN_PER_DAG]
+    if volledig.empty:
+        raise RuntimeError("geen enkele dag met (vrijwel) alle uurprijzen in data/raw")
+    return volledig.index.max()
 
 
 def bepaal_origin(prijzen: pd.DataFrame, vandaag: date) -> date:
     """Voorspelmoment: de dag waarop de laatst bekende dag bekend werd (laatst bekende dag - 1), nooit later dan vandaag."""
     return min(laatste_bekende_dag(prijzen) - timedelta(days=1), vandaag)
+
+
+def kies_bron(cfg: Config, origin: date) -> str:
+    """Welke prijsbron de run gebruikt: de fallback alleen voor NL en alleen als die prijzen voor morgen heeft."""
+    if cfg.biedzone == "NL":
+        for kandidaat in (entsoe, energyzero):
+            if kandidaat.beschikbaar() and not kandidaat.fetch_prices(
+                    pd.Timestamp(origin, tz="UTC") + pd.Timedelta(days=1),
+                    pd.Timestamp(origin, tz="UTC") + pd.Timedelta(days=2), bzn="NL").empty:
+                return "entsoe" if kandidaat is entsoe else "energyzero"
+    return "energy_charts"
 
 
 def kies_type(cfg: Config, origin: date) -> str:
