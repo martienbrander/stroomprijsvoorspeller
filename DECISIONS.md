@@ -110,6 +110,10 @@ Stand 17 november 2026, na versie 0.2.0.
 - **Rooster van de hoofdrun (#54, #68).** GitHub start geplande runs 45 tot 70 minuten te laat; de nieuwe prijzen
   staan daardoor rond 13:35 online. Na een week kijken of dat vaak later wordt; zo ja, het rooster rond de middag
   dichter maken (elke 10 minuten in plaats van elke 20).
+- **Reageren zonder GitHub: mailto-link of mailformulier (besluit 79, vervolg).** De regel "Heb je suggesties? Deel ze
+  op GitHub" staat nu in de voet. Een mailto-link ernaast is bewust nog niet toegevoegd: de opdrachtgever wil daarmee
+  wachten en moet zelf het e-mailadres kiezen. Een formulier via een externe dienst blijft uitgesloten (geen externe
+  scripts of diensten).
 - **Wanneer versie 1.0 (#75).** Voorstel: als de scores op de site een maand of twee kloppen met de backtest en de
   indeling van de pagina stabiel is. De opdrachtgever bepaalt het moment.
 
