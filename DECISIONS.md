@@ -122,6 +122,11 @@ Technisch nog te onderzoeken, zonder vraag aan de opdrachtgever:
 - **`dag_van_jaar` (#45).** Testen of dit kenmerk weg kan of beter een seizoensfunctie wordt.
 - **Besluiten met status "aanname".** Die zijn bij het bouwen ingevuld en nooit apart voorgelegd. Ze zijn in de
   samenvatting per fase wel genoemd; wie er een wil herzien, kan dat per nummer aangeven.
+- **Automatische terugval naar ENTSO-E (besluit 79, vervolg).** De terugvalbron `entsoe.py` bestaat, maar wordt alleen
+  op verzoek gebruikt (`bron: entsoe`, token nodig) en springt niet vanzelf in als Energy-Charts een 404 geeft, zoals
+  op 19 november 2026 voor de prijzen van 20 november. Afwegen of de verversing bij een mislukte ophaling automatisch
+  moet terugvallen; dat vraagt een `ENTSOE_TOKEN` (gratis, aanvragen op transparency.entsoe.eu) in `.env` en een
+  wijziging in de workflow.
 
 Afgehandeld sinds de vorige versie van deze lijst: online zetten (#62), het eigen domein (#70), de vakantievlag
 (#53: niet nodig), de batterijplanner (#73: niet bouwen), de doorkijk van twee weken (afgeraden, niet gebouwd) en
