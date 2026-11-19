@@ -172,10 +172,25 @@ evaluatie niet mee.
 Tijdstip van de laatste run en of het een hoofdrun of verversing was. In de uitleg: "Prijzen voor morgen worden
 rond 13:00 bekend. Daarna werken we de verwachting een paar keer per dag bij met het nieuwste weer."
 
+## Actieplan / open punten
+
+Concrete stappen die uit de open vragen en risico's volgen, in volgorde:
+
+1. **Verversingsrun van 18:05 UTC (19 nov 2026) afwachten.** De eerstvolgende geplande run. Levert Energy-Charts
+   weer, dan komen de prijzen voor 20 nov en de commits `f3ccb1f` (mailto-link) en `f3c9b53` (deze backlog) vanzelf
+   online. Geen actie nodig tenzij ook die run een 404 krijgt.
+2. **Besluit opdrachtgever: automatische terugval bouwen?** Zo ja: opdrachtgever registreert zich op
+   transparency.entsoe.eu en vraagt per mail een API-token aan (`ENTSOE_TOKEN`), zet dat lokaal in `.env` en als
+   secret in de GitHub-repository; daarna `epv fetch`/`epv daily` laten terugvallen op `entsoe.py` bij een mislukte
+   Energy-Charts-ophaling, plus tests en een regel in README/DECISIONS (besluit 79 → "besloten").
+3. **Mailformulier in plaats van mailto (besluit 78, vervolg).** Nog niet gebouwd; vraagt een besluit over externe
+   dienst versus alleen de mailto-link (zie besluit 78).
+
 ## Belangrijkste risico's
 
 - Previous-runs weerdata begint maart 2024: de eerlijke backtest dekt dus ca. sept 2024 t/m nu (na 180 dagen
   trainingsvenster). Prijzen van voor maart 2024 gebruiken we niet voor het hoofdmodel. Zie DECISIONS.md.
 - GitHub Actions cron loopt in UTC en kan 10-30 min laat zijn. Oplossing: twee runs plannen, script controleert
   of morgen al volledig bekend is en slaat anders over.
-- Energy-Charts geeft geen garanties op beschikbaarheid. ENTSO-E is de fallback, alleen met token.
+- Energy-Charts geeft geen garanties op beschikbaarheid. ENTSO-E is de fallback, alleen met token (nog aan te vragen,
+  zie actieplan).
