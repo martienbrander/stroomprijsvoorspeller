@@ -25,6 +25,7 @@ from datetime import date, timedelta
 import joblib
 import numpy as np
 import pandas as pd
+import requests
 
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import blocks
@@ -35,12 +36,14 @@ from stroomprijsvoorspeller.model.calibration import pas_aci_toe, pas_conformal_
 from stroomprijsvoorspeller.pipeline import archive, site_export
 from stroomprijsvoorspeller.processing import dataset
 from stroomprijsvoorspeller.processing.features import DOEL, PRIJS, bouw_features, origins_in_bereik
-from stroomprijsvoorspeller.sources import energy_charts, open_meteo
+from stroomprijsvoorspeller.processing.prices import naar_uur
+from stroomprijsvoorspeller.sources import energy_charts, entsoe, open_meteo
 from stroomprijsvoorspeller.sources.http import BronNietBereikbaar
 from stroomprijsvoorspeller.timeutil import (
     MIN_UREN_PER_DAG,
     TZ,
     local_date,
+    local_day_bounds,
     local_hour_range,
     publication_cutoff,
     utc_now,
@@ -51,6 +54,7 @@ log = logging.getLogger(__name__)
 FEATURES_HERBOUW_DAGEN = 9   # doeluren van D+2..D+7 worden tot 8 dagen na D bekend; 9 voor de zekerheid
 KALIBRATIE_HISTORIE_DAGEN = 120   # zoveel voorspelmomenten terug wordt de kalibratie elke run doorgerekend (besluit 51)
 INHAAL_MINUTEN_NA_PUBLICATIE = 15   # een inhaalrun krijgt als tijdstip: publicatiemoment van die dag plus een kwartier
+TERUGVAL_MAX_DAGEN = 7   # zo ver terug vult de terugvalbron hoogstens aan; oudere gaten blijven werk voor Energy-Charts
 
 
 # ---------- voorspelmoment en soort run ----------
@@ -72,14 +76,67 @@ def bepaal_origin(prijzen: pd.DataFrame, vandaag: date) -> date:
     return min(laatste_bekende_dag(prijzen) - timedelta(days=1), vandaag)
 
 
-def kies_bron(cfg: Config, origin: date) -> str:
-    """Welke prijsbron de run gebruikt: de fallback alleen voor NL en alleen als die prijzen voor morgen heeft."""
-    if cfg.biedzone == "NL":
-        for kandidaat in (entsoe, energyzero):
-            if kandidaat.beschikbaar() and not kandidaat.fetch_prices(
-                    pd.Timestamp(origin, tz="UTC") + pd.Timedelta(days=1),
-                    pd.Timestamp(origin, tz="UTC") + pd.Timedelta(days=2), bzn="NL").empty:
-                return "entsoe" if kandidaat is entsoe else "energyzero"
+def verwachte_dag(cfg: Config, nu: pd.Timestamp) -> date:
+    """Laatste lokale dag waarvan de day-ahead prijzen op `nu` gepubliceerd horen te zijn: morgen vanaf het
+    publicatiemoment, daarvoor vandaag."""
+    vandaag = nu.tz_convert(TZ).date()
+    na_publicatie = nu >= publication_cutoff(vandaag, cfg.publicatie_uur_lokaal)
+    return vandaag + timedelta(days=1) if na_publicatie else vandaag
+
+
+def vul_aan_met_entsoe(cfg: Config, ruw: pd.DataFrame, laatste: date, doel: date) -> bool:
+    """Vult de dagen na `laatste` tot en met `doel` aan met prijzen van ENTSO-E en zegt of er iets bij kwam.
+
+    Alleen voor een biedzone die ENTSO-E hier kent (NL) en alleen met `ENTSOE_TOKEN`. Waar Energy-Charts al een waarde
+    heeft blijft die staan, en zodra Energy-Charts de dag later zelf levert, overschrijft die de aanvulling weer
+    (`update_prices` haalt de laatste dagen steeds opnieuw op). Een haperende terugval is nooit een fout van de run.
+    """
+    if cfg.biedzone not in entsoe.EIC or not entsoe.beschikbaar():
+        return False
+    eerste = max(laatste + timedelta(days=1), doel - timedelta(days=TERUGVAL_MAX_DAGEN - 1))
+    start, einde = local_day_bounds(eerste)[0], local_day_bounds(doel)[1]
+    try:
+        nieuw = entsoe.fetch_prices(start, einde, bzn=cfg.biedzone)
+    except Exception as fout:  # noqa: BLE001 - zie de docstring: de terugval mag de run nooit slechter maken
+        log.warning("terugval naar ENTSO-E mislukt: %s", fout)
+        return False
+    nieuw = nieuw.dropna(subset=[PRIJS])
+    nieuw = nieuw[(nieuw["time_utc"] >= start) & (nieuw["time_utc"] < einde) & ~nieuw["time_utc"].isin(ruw["time_utc"])]
+    if nieuw.empty:
+        log.info("ENTSO-E heeft ook geen nieuwe prijzen voor %s t/m %s", eerste, doel)
+        return False
+    samen = pd.concat([ruw, nieuw], ignore_index=True).sort_values("time_utc").reset_index(drop=True)
+    samen.to_parquet(cfg.raw_dir / energy_charts.RUW_BESTAND, index=False)
+    log.info("prijzen aangevuld met ENTSO-E: %d rijen, %s .. %s", len(nieuw),
+             nieuw["time_utc"].min(), nieuw["time_utc"].max())
+    return True
+
+
+def werk_prijzen_bij(cfg: Config, nu: pd.Timestamp | None = None) -> str:
+    """Haalt de prijzen op bij Energy-Charts en valt terug op ENTSO-E als daar iets ontbreekt (besluit 81).
+
+    Terugval is aan de orde als Energy-Charts niet antwoordt, of als een dag ontbreekt die al gepubliceerd hoort te
+    zijn (`verwachte_dag`). Geeft terug waar de nieuwste prijzen vandaan komen: "energy_charts" of "entsoe".
+    Zonder token, of als ENTSO-E de dag ook niet heeft, is het gedrag als voorheen: een fout van Energy-Charts blijft
+    een fout, en een dag die nog niet binnen is laat de run met de bekende prijzen doorgaan.
+    """
+    nu = nu or utc_now()
+    fout: Exception | None = None
+    try:
+        energy_charts.update_prices(cfg.raw_dir, cfg.data_start, bzn=cfg.biedzone)
+    except (BronNietBereikbaar, requests.RequestException) as e:
+        fout = e
+        log.warning("Energy-Charts leverde geen prijzen: %s", e)
+    ruw = energy_charts.lees_ruw(cfg.raw_dir)
+    if ruw.empty:   # eerste keer ophalen: de hele historie komt van Energy-Charts, daar is geen terugval voor
+        if fout:
+            raise fout
+        return "energy_charts"
+    laatste, doel = laatste_bekende_dag(naar_uur(ruw)), verwachte_dag(cfg, nu)
+    if laatste < doel and vul_aan_met_entsoe(cfg, ruw, laatste, doel):
+        return "entsoe"
+    if fout and laatste < doel:
+        raise fout
     return "energy_charts"
 
 
@@ -316,7 +373,7 @@ def run(cfg: Config, run_type: str = "auto", nu: pd.Timestamp | None = None, fet
     nu = nu or utc_now()
     vandaag = nu.tz_convert(TZ).date()
     if fetch:
-        energy_charts.update_prices(cfg.raw_dir, cfg.data_start, bzn=cfg.biedzone)
+        werk_prijzen_bij(cfg, nu)
     prijzen = dataset.bouw_prijzen(cfg)
     log.info("prijzen bekend t/m %s", prijzen.dropna(subset=[PRIJS])["time_utc"].max().tz_convert(TZ))
     origin = bepaal_origin(prijzen, vandaag)

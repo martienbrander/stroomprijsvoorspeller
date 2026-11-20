@@ -14,13 +14,14 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
-from stroomprijsvoorspeller.sources.http import USER_AGENT
+from stroomprijsvoorspeller.sources.http import USER_AGENT, BronNietBereikbaar
 
 log = logging.getLogger(__name__)
 
 BASE_URL = "https://web-api.tp.entsoe.eu/api"
 EIC = {"NL": "10YNL----------L"}
 RESOLUTIE = {"PT60M": pd.Timedelta(hours=1), "PT15M": pd.Timedelta(minutes=15), "PT30M": pd.Timedelta(minutes=30)}
+DAY_AHEAD = "A01"   # contract_MarketAgreement.type; A07 is de intraday-veiling en hoort hier niet bij
 
 
 def token() -> str | None:
@@ -43,11 +44,19 @@ def _utc(tekst: str) -> pd.Timestamp:
 
 
 def parse_xml(tekst: str) -> pd.DataFrame:
-    """Zet een A44-document om naar time_utc / prijs_eur_mwh. Ontbrekende posities (curve type A03) worden doorgetrokken."""
+    """Zet een A44-document om naar time_utc / prijs_eur_mwh. Ontbrekende posities (curve type A03) worden doorgetrokken.
+
+    Alleen day-ahead reeksen tellen mee: reeksen van de intraday-veiling (contract A07) slaan we over. Staat een uur
+    er in meer dan één resolutie in, dan wint de fijnste (kwartier boven uur), zodat een uurprijs nooit de plaats van
+    een kwartierprijs inneemt.
+    """
     root = ET.fromstring(tekst)
-    rijen: list[tuple[pd.Timestamp, float]] = []
+    rijen: list[tuple[pd.Timestamp, float, pd.Timedelta]] = []
     for ts in root.iter():
         if _strip_ns(ts.tag) != "TimeSeries":
+            continue
+        contract = ts.find("./{*}contract_MarketAgreement.type")
+        if contract is not None and contract.text != DAY_AHEAD:
             continue
         for periode in ts.iter():
             if _strip_ns(periode.tag) != "Period":
@@ -69,8 +78,12 @@ def parse_xml(tekst: str) -> pd.DataFrame:
                 if pos in punten:
                     laatste = punten[pos]
                 if laatste is not None:
-                    rijen.append((start + (pos - 1) * stap, laatste))
-    df = pd.DataFrame(rijen, columns=["time_utc", "prijs_eur_mwh"])
+                    rijen.append((start + (pos - 1) * stap, laatste, stap))
+    df = pd.DataFrame(rijen, columns=["time_utc", "prijs_eur_mwh", "stap"])
+    if not df.empty:
+        uur = df["time_utc"].dt.floor("h")
+        df = df[df["stap"] == df.groupby(uur)["stap"].transform("min")]
+    df = df.drop(columns="stap")
     return df.sort_values("time_utc").drop_duplicates("time_utc", keep="last").reset_index(drop=True)
 
 
@@ -90,8 +103,13 @@ def fetch_prices(start: pd.Timestamp, end: pd.Timestamp, *, bzn: str = "NL",
             "periodStart": t.strftime("%Y%m%d%H%M"), "periodEnd": t_eind.strftime("%Y%m%d%H%M"),
         }
         log.info("ENTSO-E %s: %s .. %s", bzn, t.date(), t_eind.date())
-        r = s.get(BASE_URL, params=params, timeout=120, headers={"User-Agent": USER_AGENT})
-        r.raise_for_status()
+        # De foutmeldingen van requests bevatten de URL, en daarin staat het token. Daarom eigen meldingen zonder URL.
+        try:
+            r = s.get(BASE_URL, params=params, timeout=120, headers={"User-Agent": USER_AGENT})
+        except requests.RequestException as fout:
+            raise BronNietBereikbaar(f"ENTSO-E niet bereikbaar ({type(fout).__name__})") from None
+        if r.status_code != 200:
+            raise BronNietBereikbaar(f"ENTSO-E gaf HTTP {r.status_code}")
         delen.append(parse_xml(r.text))
         t = t_eind
     if not delen:

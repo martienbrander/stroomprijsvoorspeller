@@ -10,7 +10,7 @@ import pytest
 from stroomprijsvoorspeller.evaluation import refresh
 from stroomprijsvoorspeller.pipeline import archive, daily, site_export
 from stroomprijsvoorspeller.processing.features import DOEL, PRIJS
-from stroomprijsvoorspeller.timeutil import local_hour_range, publication_cutoff
+from stroomprijsvoorspeller.timeutil import local_date, local_day_bounds, local_hour_range, publication_cutoff
 from tests.conftest import maak_config
 
 
@@ -304,3 +304,109 @@ def test_verversing_zonder_weer_telt_als_niet_gelukt(tmp_path):
     t = refresh.betrouwbaarheid_runs(cfg).set_index("slot")
     assert t.loc["07:00", "runs"] == 1 and t.loc["07:00", "gelukt"] == 0
     assert t.loc["01:00", "gelukt"] == 1
+
+
+# ---------- terugval naar ENTSO-E (besluit 81) ----------
+
+VANDAAG = date(2026, 11, 19)
+NA_PUBLICATIE = pd.Timestamp("2026-11-19T14:00:00Z")    # 15:00 lokaal: de prijzen voor morgen horen er te zijn
+VOOR_PUBLICATIE = pd.Timestamp("2026-11-19T09:00:00Z")  # 10:00 lokaal
+
+
+def _kwartieren(eerste: date, laatste: date, prijs: float) -> pd.DataFrame:
+    start, einde = local_day_bounds(eerste)[0], local_day_bounds(laatste)[1]
+    tijden = pd.date_range(start, einde, freq="15min", inclusive="left")
+    return pd.DataFrame({"time_utc": tijden, "prijs_eur_mwh": prijs})
+
+
+def _terugval_opzet(tmp_path, monkeypatch, *, token=True, energy_charts_fout=None, entsoe_antwoord=None):
+    """Ruwe prijzen t/m vandaag; Energy-Charts levert niets nieuws. Geeft (cfg, aanroepen van ENTSO-E) terug."""
+    cfg = maak_config(tmp_path)
+    cfg.raw_dir.mkdir(parents=True)
+    _kwartieren(VANDAAG - timedelta(days=5), VANDAAG, 80.0).to_parquet(
+        cfg.raw_dir / daily.energy_charts.RUW_BESTAND, index=False)
+    aanroepen = []
+
+    def update_prices(*_args, **_kwargs):
+        if energy_charts_fout:
+            raise energy_charts_fout
+
+    def fetch_prices(start, einde, **_kwargs):
+        aanroepen.append((start, einde))
+        if isinstance(entsoe_antwoord, Exception):
+            raise entsoe_antwoord
+        return entsoe_antwoord
+
+    monkeypatch.setattr(daily.energy_charts, "update_prices", update_prices)
+    monkeypatch.setattr(daily.entsoe, "beschikbaar", lambda: token)
+    monkeypatch.setattr(daily.entsoe, "fetch_prices", fetch_prices)
+    return cfg, aanroepen
+
+
+def _ruw(cfg) -> pd.DataFrame:
+    return daily.energy_charts.lees_ruw(cfg.raw_dir)
+
+
+def test_verwachte_dag_volgt_het_publicatiemoment(tmp_path):
+    cfg = maak_config(tmp_path)
+    assert daily.verwachte_dag(cfg, VOOR_PUBLICATIE) == VANDAAG
+    assert daily.verwachte_dag(cfg, pd.Timestamp("2026-11-19T11:59:00Z")) == VANDAAG   # 12:59 lokaal
+    assert daily.verwachte_dag(cfg, pd.Timestamp("2026-11-19T12:00:00Z")) == VANDAAG + timedelta(days=1)
+
+
+def test_terugval_vult_morgen_aan_en_laat_energy_charts_staan(tmp_path, monkeypatch):
+    morgen = VANDAAG + timedelta(days=1)
+    # ENTSO-E geeft meer terug dan gevraagd: ook vandaag (andere prijs) en overmorgen
+    antwoord = _kwartieren(VANDAAG, morgen + timedelta(days=1), 55.0)
+    cfg, aanroepen = _terugval_opzet(tmp_path, monkeypatch, entsoe_antwoord=antwoord)
+
+    assert daily.werk_prijzen_bij(cfg, NA_PUBLICATIE) == "entsoe"
+    assert aanroepen == [local_day_bounds(morgen)]   # alleen de ontbrekende dag gevraagd
+    ruw = _ruw(cfg)
+    dag = local_date(pd.DatetimeIndex(ruw["time_utc"]))
+    assert (ruw.loc[dag == morgen, "prijs_eur_mwh"] == 55.0).all() and (dag == morgen).sum() == 96
+    assert (ruw.loc[dag == VANDAAG, "prijs_eur_mwh"] == 80.0).all()   # Energy-Charts blijft leidend
+    assert dag.max() == morgen                                         # niets buiten het gevraagde venster
+    assert ruw["time_utc"].is_monotonic_increasing and ruw["time_utc"].is_unique
+    # de run ziet morgen nu als bekend
+    assert daily.laatste_bekende_dag(daily.naar_uur(ruw)) == morgen
+
+
+def test_geen_terugval_zonder_token_of_voor_het_publicatiemoment(tmp_path, monkeypatch):
+    antwoord = _kwartieren(VANDAAG + timedelta(days=1), VANDAAG + timedelta(days=1), 55.0)
+    cfg, aanroepen = _terugval_opzet(tmp_path, monkeypatch, token=False, entsoe_antwoord=antwoord)
+    voor = _ruw(cfg)
+    assert daily.werk_prijzen_bij(cfg, NA_PUBLICATIE) == "energy_charts"
+    assert aanroepen == [] and _ruw(cfg).equals(voor)
+
+    monkeypatch.setattr(daily.entsoe, "beschikbaar", lambda: True)
+    assert daily.werk_prijzen_bij(cfg, VOOR_PUBLICATIE) == "energy_charts"   # er ontbreekt nog niets
+    assert aanroepen == [] and _ruw(cfg).equals(voor)
+
+
+@pytest.mark.parametrize("antwoord", [
+    pd.DataFrame(columns=["time_utc", "prijs_eur_mwh"]),   # ENTSO-E heeft de dag ook nog niet
+    RuntimeError("storing bij ENTSO-E"),                   # of antwoordt helemaal niet
+])
+def test_mislukte_terugval_is_geen_fout_van_de_run(tmp_path, monkeypatch, antwoord):
+    cfg, aanroepen = _terugval_opzet(tmp_path, monkeypatch, entsoe_antwoord=antwoord)
+    voor = _ruw(cfg)
+    assert daily.werk_prijzen_bij(cfg, NA_PUBLICATIE) == "energy_charts"
+    assert len(aanroepen) == 1 and _ruw(cfg).equals(voor)
+
+
+def test_storing_bij_energy_charts(tmp_path, monkeypatch):
+    from stroomprijsvoorspeller.sources.http import BronNietBereikbaar
+
+    morgen = VANDAAG + timedelta(days=1)
+    storing = BronNietBereikbaar("opgegeven na 5 pogingen")
+    # met ENTSO-E erbij gaat de run door
+    cfg, _ = _terugval_opzet(tmp_path / "a", monkeypatch, energy_charts_fout=storing,
+                             entsoe_antwoord=_kwartieren(morgen, morgen, 55.0))
+    assert daily.werk_prijzen_bij(cfg, NA_PUBLICATIE) == "entsoe"
+    # zonder token blijft de storing een fout, zoals voorheen
+    cfg, _ = _terugval_opzet(tmp_path / "b", monkeypatch, token=False, energy_charts_fout=storing)
+    with pytest.raises(BronNietBereikbaar):
+        daily.werk_prijzen_bij(cfg, NA_PUBLICATIE)
+    # ontbreekt er niets, dan is de storing geen reden om te stoppen
+    assert daily.werk_prijzen_bij(cfg, VOOR_PUBLICATIE) == "energy_charts"

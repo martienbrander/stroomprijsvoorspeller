@@ -179,10 +179,10 @@ Concrete stappen die uit de open vragen en risico's volgen, in volgorde:
 1. **Verversingsrun van 18:05 UTC (19 nov 2026) afwachten.** De eerstvolgende geplande run. Levert Energy-Charts
    weer, dan komen de prijzen voor 20 nov en de commits `f3ccb1f` (mailto-link) en `f3c9b53` (deze backlog) vanzelf
    online. Geen actie nodig tenzij ook die run een 404 krijgt.
-2. **Besluit opdrachtgever: automatische terugval bouwen?** Zo ja: opdrachtgever registreert zich op
-   transparency.entsoe.eu en vraagt per mail een API-token aan (`ENTSOE_TOKEN`), zet dat lokaal in `.env` en als
-   secret in de GitHub-repository; daarna `epv fetch`/`epv daily` laten terugvallen op `entsoe.py` bij een mislukte
-   Energy-Charts-ophaling, plus tests en een regel in README/DECISIONS (besluit 79 → "besloten").
+2. **Terugval naar ENTSO-E activeren (besluit 81).** De terugval is gebouwd; hij wacht op het token. Aangevraagd op
+   20 november 2026 (mail naar transparency@entsoe.eu, toekenning binnen drie werkdagen). Daarna: token aanmaken onder
+   "My Account" op transparency.entsoe.eu, als `ENTSOE_TOKEN=...` in `.env` zetten, één dag naast Energy-Charts leggen
+   en dan het secret `ENTSOE_TOKEN` in de GitHub-repository zetten.
 3. **Mailformulier in plaats van mailto (besluit 78, vervolg).** Nog niet gebouwd; vraagt een besluit over externe
    dienst versus alleen de mailto-link (zie besluit 78).
 
@@ -192,5 +192,5 @@ Concrete stappen die uit de open vragen en risico's volgen, in volgorde:
   trainingsvenster). Prijzen van voor maart 2024 gebruiken we niet voor het hoofdmodel. Zie DECISIONS.md.
 - GitHub Actions cron loopt in UTC en kan 10-30 min laat zijn. Oplossing: twee runs plannen, script controleert
   of morgen al volledig bekend is en slaat anders over.
-- Energy-Charts geeft geen garanties op beschikbaarheid. ENTSO-E is de fallback, alleen met token (nog aan te vragen,
+- Energy-Charts geeft geen garanties op beschikbaarheid. ENTSO-E is de terugval, alleen met token (aangevraagd,
   zie actieplan).

@@ -47,7 +47,8 @@ def cmd_fetch(args: argparse.Namespace) -> int:
             cfg.raw_dir.mkdir(parents=True, exist_ok=True)
             df.to_parquet(cfg.raw_dir / energy_charts.RUW_BESTAND, index=False)
         else:
-            energy_charts.update_prices(cfg.raw_dir, cfg.data_start, bzn=cfg.biedzone)
+            from stroomprijsvoorspeller.pipeline import daily
+            daily.werk_prijzen_bij(cfg)
     if args.alleen in (None, "weer"):
         open_meteo.update_previous_runs(cfg)
         if not args.geen_forecast:

@@ -69,6 +69,10 @@ jobs:
 
       - name: Run
         id: run
+        env:
+          # Terugval naar ENTSO-E als Energy-Charts de prijzen niet heeft (besluit 81). Zonder dit secret is de
+          # waarde leeg en slaat de run de terugval over.
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
         run: |
           set -o pipefail
           TYPE="${{ github.event.inputs.type }}"
