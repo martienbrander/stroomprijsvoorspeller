@@ -35,20 +35,12 @@ def _logging(verbose: bool) -> None:
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    """Prijzen (Energy-Charts, of ENTSO-E als dat in de config staat) en weer (Open-Meteo) ophalen."""
+    """Prijzen (ENTSO-E, met terugval naar Energy-Charts en EnergyZero) en weer (Open-Meteo) ophalen."""
     cfg = load_config(args.config)
     if args.alleen in (None, "prijzen"):
-        if cfg.prijsbron == "entsoe":
-            if not entsoe.beschikbaar():
-                print("prijsbron entsoe gekozen maar ENTSOE_TOKEN ontbreekt", file=sys.stderr)
-                return 2
-            start = pd.Timestamp(cfg.data_start, tz="UTC")
-            df = entsoe.fetch_prices(start, pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=2), bzn=cfg.biedzone)
-            cfg.raw_dir.mkdir(parents=True, exist_ok=True)
-            df.to_parquet(cfg.raw_dir / energy_charts.RUW_BESTAND, index=False)
-        else:
-            from stroomprijsvoorspeller.pipeline import daily
-            daily.werk_prijzen_bij(cfg)
+        from stroomprijsvoorspeller.pipeline import daily
+        bron = daily.werk_prijzen_bij(cfg)
+        print(f"prijzen bijgewerkt; de nieuwste komen van {bron}")
     if args.alleen in (None, "weer"):
         open_meteo.update_previous_runs(cfg)
         if not args.geen_forecast:

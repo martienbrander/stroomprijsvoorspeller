@@ -50,11 +50,12 @@ hetzelfde zegt over de software.
 
 ## Bronnen en licenties
 
-- Prijzen: [Energy-Charts](https://energy-charts.info) van Fraunhofer ISE (data: Bundesnetzagentur | SMARD.de,
-  CC BY 4.0). Terugval als Energy-Charts niet antwoordt of een dag mist die er al hoort te zijn: eerst het
-  ENTSO-E Transparency Platform (alleen met een gratis token: `ENTSOE_TOKEN` in `.env`, online als secret), en als
-  laatste redmiddel, vanaf twee uur na het publicatiemoment, de API van [EnergyZero](https://www.energyzero.nl)
-  (uurprijzen, geen sleutel nodig).
+- Prijzen: het [ENTSO-E Transparency Platform](https://transparency.entsoe.eu) (besluit 83; met een gratis token:
+  `ENTSOE_TOKEN` in `.env`, online als secret). De historie tot half november 2026 komt van
+  [Energy-Charts](https://energy-charts.info) van Fraunhofer ISE (data: Bundesnetzagentur | SMARD.de, CC BY 4.0).
+  Terugval als ENTSO-E niet antwoordt of een dag mist die er al hoort te zijn: eerst Energy-Charts, en als laatste
+  redmiddel, vanaf twee uur na het publicatiemoment, de API van [EnergyZero](https://www.energyzero.nl)
+  (uurprijzen, geen sleutel nodig). Zonder token is Energy-Charts de hoofdbron.
 - Weer: [Open-Meteo](https://open-meteo.com) (CC BY 4.0). Forecast API voor de komende dagen, Previous Runs API voor
   historische verwachtingen zoals die destijds waren, zodat de backtest geen kennis van later gebruikt.
 - Kalender: Nederlandse feestdagen via het Python-package `holidays`.
@@ -147,7 +148,7 @@ martienbrander.github.io/stroomprijsvoorspeller stuurt door).
 De broncode staat op [github.com/martienbrander/stroomprijsvoorspeller](https://github.com/martienbrander/stroomprijsvoorspeller).
 
 **Wat er draait** (besluit 47, 54, 62). De workflow "dagelijkse run" in `.github/workflows/daily.yml` doet online
-hetzelfde als `ververs.bat` lokaal: vijf pogingen tussen 12:20 en 15:20 (alleen de eerste poging waarin de prijzen voor
+hetzelfde als `ververs.bat` lokaal: pogingen om 10 en 30 over het uur, van 13:10 tot 15:10 (alleen de eerste poging waarin de prijzen voor
 morgen binnen zijn doet echt iets; GitHub rekent in UTC, vandaar de ruime marge voor zomer- en wintertijd) en drie
 verversingen per dag (19:05, 01:05, 07:05). Elke run haalt de werkdata van de branch `data`, draait `epv daily`, zet de
 nieuwe werkdata terug op die branch (één commit, geen geschiedenis) en publiceert `site/` via GitHub Pages. Een pagina die openstaat kijkt elk uur of er een nieuwere

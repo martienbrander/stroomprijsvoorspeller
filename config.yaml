@@ -9,7 +9,7 @@ data:
   processed_dir: data/processed
 
 prijzen:
-  bron: energy_charts          # energy_charts | entsoe (entsoe alleen met ENTSOE_TOKEN in .env)
+  bron: entsoe                 # entsoe | energy_charts; zonder ENTSOE_TOKEN neemt Energy-Charts het over
   kwartier_vanaf: "2025-10-01" # vanaf hier levert EPEX kwartierprijzen
 
 weer:

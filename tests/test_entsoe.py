@@ -71,13 +71,17 @@ def test_parse_xml_zonder_reeksen_is_leeg():
 
 
 class _Sessie:
-    def __init__(self, antwoord):
-        self.antwoord = antwoord
+    """Geeft de antwoorden op volgorde terug; het laatste blijft zich herhalen. Onthoudt de parameters per verzoek."""
 
-    def get(self, *_args, **_kwargs):
-        if isinstance(self.antwoord, Exception):
-            raise self.antwoord
-        return self.antwoord
+    def __init__(self, *antwoorden):
+        self.antwoorden, self.verzoeken = list(antwoorden), []
+
+    def get(self, *_args, params=None, **_kwargs):
+        self.verzoeken.append(params)
+        antwoord = self.antwoorden.pop(0) if len(self.antwoorden) > 1 else self.antwoorden[0]
+        if isinstance(antwoord, Exception):
+            raise antwoord
+        return antwoord
 
 
 class _Antwoord:
@@ -92,6 +96,7 @@ class _Antwoord:
 def test_foutmelding_bevat_het_token_niet(monkeypatch, antwoord):
     monkeypatch.setenv("ENTSOE_TOKEN", "geheim-token")
     monkeypatch.setattr(entsoe, "load_dotenv", lambda: None)
+    monkeypatch.setattr(entsoe, "PAUZE_SECONDEN", 0)
     with pytest.raises(BronNietBereikbaar) as fout:
         entsoe.fetch_prices(pd.Timestamp("2026-11-19T23:00Z"), pd.Timestamp("2026-11-20T23:00Z"),
                             session=_Sessie(antwoord))
@@ -99,3 +104,37 @@ def test_foutmelding_bevat_het_token_niet(monkeypatch, antwoord):
     # ook de oorspronkelijke fout (met de URL erin) hangt er niet meer aan
     assert fout.value.__cause__ is None
     assert fout.value.__context__ is None or fout.value.__suppress_context__
+
+
+LEEG_DOCUMENT = "<Acknowledgement_MarketDocument><Reason><text>No matching data found</text></Reason>" \
+                "</Acknowledgement_MarketDocument>"
+
+
+def test_storing_wordt_opnieuw_geprobeerd_een_afwijzing_niet(monkeypatch):
+    monkeypatch.setenv("ENTSOE_TOKEN", "geheim-token")
+    monkeypatch.setattr(entsoe, "load_dotenv", lambda: None)
+    monkeypatch.setattr(entsoe, "PAUZE_SECONDEN", 0)
+    venster = pd.Timestamp("2026-11-19T23:00Z"), pd.Timestamp("2026-11-20T23:00Z")
+    # de situatie van 20 november 2026: eerst HTTP 599, bij de volgende poging een gewoon antwoord
+    sessie = _Sessie(_Antwoord(599), requests.ConnectionError("weg"), _Antwoord(200, LEEG_DOCUMENT))
+    assert entsoe.fetch_prices(*venster, session=sessie).empty
+    assert len(sessie.verzoeken) == 3
+    # blijft de storing, dan houdt het na POGINGEN op
+    sessie = _Sessie(_Antwoord(503))
+    with pytest.raises(BronNietBereikbaar, match="HTTP 503"):
+        entsoe.fetch_prices(*venster, session=sessie)
+    assert len(sessie.verzoeken) == entsoe.POGINGEN
+    # een ongeldig token wordt van wachten niet beter
+    sessie = _Sessie(_Antwoord(401))
+    with pytest.raises(BronNietBereikbaar, match="HTTP 401"):
+        entsoe.fetch_prices(*venster, session=sessie)
+    assert len(sessie.verzoeken) == 1
+
+
+def test_venster_wordt_op_hele_uren_gevraagd(monkeypatch):
+    monkeypatch.setenv("ENTSOE_TOKEN", "geheim-token")
+    monkeypatch.setattr(entsoe, "load_dotenv", lambda: None)
+    sessie = _Sessie(_Antwoord(200, LEEG_DOCUMENT))
+    # zo komt het venster uit `update_prices`: het laatste kwartier min drie dagen
+    entsoe.fetch_prices(pd.Timestamp("2026-11-16T22:45Z"), pd.Timestamp("2026-11-22T00:00Z"), session=sessie)
+    assert [(v["periodStart"], v["periodEnd"]) for v in sessie.verzoeken] == [("202611162200", "202611220000")]

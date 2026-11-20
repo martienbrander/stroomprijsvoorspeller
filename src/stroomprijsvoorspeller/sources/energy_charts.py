@@ -67,10 +67,12 @@ def lees_ruw(raw_dir: Path) -> pd.DataFrame:
 
 
 def update_prices(raw_dir: Path, data_start: str, *, bzn: str = "NL", overlap_dagen: int = 3,
-                  session: requests.Session | None = None) -> pd.DataFrame:
+                  session: requests.Session | None = None, haal=None) -> pd.DataFrame:
     """Incrementeel: haalt alles op vanaf (laatste bekende tijdstip - overlap) tot overmorgen en voegt samen.
 
     De overlap zorgt dat late correcties en de nog niet gepubliceerde uren van gisteren alsnog goed komen.
+    `haal` is de functie die de prijzen ophaalt, met dezelfde vorm als `fetch_prices` hier. Zo beheert deze functie
+    het ruwe bestand ook als een andere bron de hoofdbron is (ENTSO-E, besluit 83).
     """
     raw_dir.mkdir(parents=True, exist_ok=True)
     bestaand = lees_ruw(raw_dir)
@@ -79,7 +81,7 @@ def update_prices(raw_dir: Path, data_start: str, *, bzn: str = "NL", overlap_da
     else:
         start = bestaand["time_utc"].max() - pd.Timedelta(days=overlap_dagen)
     einde = (utc_now() + pd.Timedelta(days=2)).normalize()
-    nieuw = fetch_prices(start, einde, bzn=bzn, session=session)
+    nieuw = (haal or fetch_prices)(start, einde, bzn=bzn, session=session)
     nieuw = nieuw.dropna(subset=["prijs_eur_mwh"])
     # Eerst ontdubbelen, dan sorteren: zo wint bij een dubbel tijdstip altijd de nieuw opgehaalde waarde. Andersom
     # hangt het van de sortering af welke van de twee overblijft, en bleef een oude waarde soms staan.

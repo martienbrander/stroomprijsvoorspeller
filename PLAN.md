@@ -5,7 +5,7 @@ Naam: **stroomprijsvoorspeller** (map `C:\ClaudeCode\stroomprijsvoorspeller`, pa
 ## Wat het wordt
 
 Een Python-pipeline die dagelijks de NL day-ahead prijs (EPEX, biedzone NL) voor dag 2 t/m 5 voorspelt met een
-80%-interval, en een statische site die dat toont. Alles draait op gratis bronnen (Energy-Charts, Open-Meteo) en
+80%-interval, en een statische site die dat toont. Alles draait op gratis bronnen (ENTSO-E, Energy-Charts, Open-Meteo) en
 gratis hosting (GitHub Actions + GitHub Pages).
 
 ## Fasen
@@ -30,7 +30,7 @@ stroomprijsvoorspeller/
 ├── LICENSE                    MIT
 ├── pyproject.toml             package, dependencies, `epv`-commando, pytest- en ruff-config
 ├── config.yaml                één configbestand: weerpunten, horizon, kwantielen, rolling venster, paden
-├── .env.example               ENTSOE_TOKEN= (optioneel)
+├── .env.example               ENTSOE_TOKEN= (hoofdbron prijzen; zonder token Energy-Charts)
 ├── .gitignore                 data/, models/, .env, site/data/*.json (gegenereerd)
 │
 ├── src/stroomprijsvoorspeller/   Python-package
@@ -40,7 +40,7 @@ stroomprijsvoorspeller/
 │   ├── sources/               databronnen; pure parse-functies (testbaar zonder netwerk) + fetch/update
 │   │   ├── http.py            retries, backoff, User-Agent
 │   │   ├── energy_charts.py   day-ahead prijzen NL, incrementeel, ruwe resolutie bewaard
-│   │   ├── entsoe.py          fallback, alleen actief met token in .env
+│   │   ├── entsoe.py          hoofdbron prijzen (besluit 83), alleen actief met token in .env
 │   │   ├── open_meteo.py      forecast (komende 7 dagen) + previous runs (lead 1-5 dagen), per weerpunt
 │   │   └── calendar.py        feestdagen (holidays), weekdag, uur, maand, seizoen
 │   ├── processing/
@@ -179,10 +179,9 @@ Concrete stappen die uit de open vragen en risico's volgen, in volgorde:
 1. **Verversingsrun van 18:05 UTC (19 nov 2026) afwachten.** De eerstvolgende geplande run. Levert Energy-Charts
    weer, dan komen de prijzen voor 20 nov en de commits `f3ccb1f` (mailto-link) en `f3c9b53` (deze backlog) vanzelf
    online. Geen actie nodig tenzij ook die run een 404 krijgt.
-2. **Terugval naar ENTSO-E activeren (besluit 81).** De terugval is gebouwd; hij wacht op het token. Aangevraagd op
-   20 november 2026 (mail naar transparency@entsoe.eu, toekenning binnen drie werkdagen). Daarna: token aanmaken onder
-   "My Account" op transparency.entsoe.eu, als `ENTSOE_TOKEN=...` in `.env` zetten, één dag naast Energy-Charts leggen
-   en dan het secret `ENTSOE_TOKEN` in de GitHub-repository zetten.
+2. **ENTSO-E als hoofdbron volgen (besluit 83 en 84).** Het token staat in `.env` en als secret `ENTSOE_TOKEN` op
+   GitHub (20 november 2026). Nog na te gaan in de logboeken van de eerste dagen: in welke middagpoging de prijzen
+   voor morgen bij ENTSO-E binnen zijn, en of het rooster van besluit 84 daar goed op aansluit.
 3. **Mailformulier in plaats van mailto (besluit 78, vervolg).** Nog niet gebouwd; vraagt een besluit over externe
    dienst versus alleen de mailto-link (zie besluit 78).
 
@@ -192,5 +191,6 @@ Concrete stappen die uit de open vragen en risico's volgen, in volgorde:
   trainingsvenster). Prijzen van voor maart 2024 gebruiken we niet voor het hoofdmodel. Zie DECISIONS.md.
 - GitHub Actions cron loopt in UTC en kan 10-30 min laat zijn. Oplossing: twee runs plannen, script controleert
   of morgen al volledig bekend is en slaat anders over.
-- Energy-Charts geeft geen garanties op beschikbaarheid. ENTSO-E is de terugval, alleen met token (aangevraagd,
-  zie actieplan); EnergyZero is het laatste redmiddel, met uurprijzen (besluit 82).
+- Geen enkele prijsbron geeft garanties op beschikbaarheid: op 20 november 2026 ontbraken de prijzen voor NL bij
+  ENTSO-E en bij Energy-Charts. Daarom de keten ENTSO-E, Energy-Charts, EnergyZero (besluit 83); EnergyZero is het
+  laatste redmiddel, met uurprijzen (besluit 82).

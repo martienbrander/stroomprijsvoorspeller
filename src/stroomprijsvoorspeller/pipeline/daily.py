@@ -25,7 +25,6 @@ from datetime import date, timedelta
 import joblib
 import numpy as np
 import pandas as pd
-import requests
 
 from stroomprijsvoorspeller.config import Config
 from stroomprijsvoorspeller.evaluation import blocks
@@ -54,7 +53,7 @@ log = logging.getLogger(__name__)
 FEATURES_HERBOUW_DAGEN = 9   # doeluren van D+2..D+7 worden tot 8 dagen na D bekend; 9 voor de zekerheid
 KALIBRATIE_HISTORIE_DAGEN = 120   # zoveel voorspelmomenten terug wordt de kalibratie elke run doorgerekend (besluit 51)
 INHAAL_MINUTEN_NA_PUBLICATIE = 15   # een inhaalrun krijgt als tijdstip: publicatiemoment van die dag plus een kwartier
-TERUGVAL_MAX_DAGEN = 7   # zo ver terug vult de terugvalbron hoogstens aan; oudere gaten blijven werk voor Energy-Charts
+TERUGVAL_MAX_DAGEN = 7   # zo ver terug vult de terugvalbron hoogstens aan; oudere gaten blijven werk voor de hoofdbron
 ENERGYZERO_WACHT_UREN = 2   # zo lang na het publicatiemoment wacht het laatste redmiddel op de andere bronnen
 
 
@@ -85,35 +84,54 @@ def verwachte_dag(cfg: Config, nu: pd.Timestamp) -> date:
     return vandaag + timedelta(days=1) if na_publicatie else vandaag
 
 
-def _terugvalbronnen(cfg: Config, doel: date, nu: pd.Timestamp) -> list:
-    """De terugvalbronnen die nu aan de beurt zijn, in volgorde.
+def _naam(bron) -> str:
+    return bron.__name__.rsplit(".", 1)[-1]
 
-    ENTSO-E is de bron zelf en mag meteen, maar alleen met `ENTSOE_TOKEN`. EnergyZero is het laatste redmiddel: het
-    levert alleen uurprijzen en komt pas in beeld als de dag `ENERGYZERO_WACHT_UREN` na het publicatiemoment nog
-    ontbreekt. Zo krijgt Energy-Charts op een gewone dag de tijd om de kwartierprijzen zelf te leveren.
+
+def hoofdbron(cfg: Config):
+    """De bron die de prijzen in de regel levert en bij een verschil altijd wint: ENTSO-E (besluit 83), of
+    Energy-Charts als dat in de config staat. Zonder `ENTSOE_TOKEN` neemt Energy-Charts het over, zodat een run
+    zonder token (bijvoorbeeld op een andere computer) gewoon blijft werken."""
+    if cfg.prijsbron == "entsoe":
+        if cfg.biedzone in entsoe.EIC and entsoe.beschikbaar():
+            return entsoe
+        log.warning("prijsbron entsoe gekozen maar ENTSOE_TOKEN ontbreekt: Energy-Charts neemt het over")
+    return energy_charts
+
+
+def _terugvalbronnen(cfg: Config, doel: date, nu: pd.Timestamp, hoofd) -> list:
+    """De terugvalbronnen die nu aan de beurt zijn, in volgorde: eerst de andere van ENTSO-E en Energy-Charts, dan
+    EnergyZero.
+
+    ENTSO-E doet alleen mee met `ENTSOE_TOKEN`. EnergyZero is het laatste redmiddel: het levert alleen uurprijzen en
+    komt pas in beeld als de dag `ENERGYZERO_WACHT_UREN` na het publicatiemoment nog ontbreekt. Zo krijgen de
+    andere bronnen op een gewone dag de tijd om de kwartierprijzen zelf te leveren.
     """
     bronnen = []
-    if cfg.biedzone in entsoe.EIC and entsoe.beschikbaar():
+    if hoofd is not entsoe and cfg.biedzone in entsoe.EIC and entsoe.beschikbaar():
         bronnen.append(entsoe)
+    if hoofd is not energy_charts:
+        bronnen.append(energy_charts)
     gepubliceerd = publication_cutoff(doel - timedelta(days=1), cfg.publicatie_uur_lokaal)
     if cfg.biedzone == "NL" and nu >= gepubliceerd + pd.Timedelta(hours=ENERGYZERO_WACHT_UREN):
         bronnen.append(energyzero)
     return bronnen
 
 
-def vul_prijzen_aan(cfg: Config, ruw: pd.DataFrame, laatste: date, doel: date, nu: pd.Timestamp) -> str | None:
+def vul_prijzen_aan(cfg: Config, ruw: pd.DataFrame, laatste: date, doel: date, nu: pd.Timestamp,
+                    hoofd=energy_charts) -> str | None:
     """Vult de dagen na `laatste` tot en met `doel` aan uit de terugvalbronnen. Geeft de bron terug die als laatste
-    iets toevoegde ("entsoe" of "energyzero"), of None als er niets bij kwam.
+    iets toevoegde ("entsoe", "energy_charts" of "energyzero"), of None als er niets bij kwam.
 
-    Waar Energy-Charts al een waarde heeft blijft die staan, en zodra Energy-Charts de dag later zelf levert,
+    Waar de hoofdbron al een waarde heeft blijft die staan, en zodra de hoofdbron de dag later zelf levert,
     overschrijft die de aanvulling weer (`update_prices` haalt de laatste dagen steeds opnieuw op). Een haperende
     terugvalbron is nooit een fout van de run: dan is de volgende bron aan de beurt.
     """
     eerste = max(laatste + timedelta(days=1), doel - timedelta(days=TERUGVAL_MAX_DAGEN - 1))
     start, einde = local_day_bounds(eerste)[0], local_day_bounds(doel)[1]
     gebruikt = None
-    for bron in _terugvalbronnen(cfg, doel, nu):
-        naam = bron.__name__.rsplit(".", 1)[-1]
+    for bron in _terugvalbronnen(cfg, doel, nu, hoofd):
+        naam = _naam(bron)
         try:
             nieuw = bron.fetch_prices(start, einde, bzn=cfg.biedzone)
         except Exception as fout:  # noqa: BLE001 - zie de docstring: de terugval mag de run nooit slechter maken
@@ -136,34 +154,37 @@ def vul_prijzen_aan(cfg: Config, ruw: pd.DataFrame, laatste: date, doel: date, n
 
 
 def werk_prijzen_bij(cfg: Config, nu: pd.Timestamp | None = None) -> str:
-    """Haalt de prijzen op bij Energy-Charts en valt terug op ENTSO-E en EnergyZero als daar iets ontbreekt
-    (besluit 81 en 82).
+    """Haalt de prijzen op bij de hoofdbron en valt terug op de andere bronnen als daar iets ontbreekt (besluit 81,
+    82 en 83). De volgorde is ENTSO-E, Energy-Charts, EnergyZero; staat Energy-Charts als hoofdbron in de config,
+    dan wisselen de eerste twee van plaats.
 
-    Terugval is aan de orde als Energy-Charts niet antwoordt, of als een dag ontbreekt die al gepubliceerd hoort te
-    zijn (`verwachte_dag`). Geeft terug waar de nieuwste prijzen vandaan komen: "energy_charts", "entsoe" of
-    "energyzero". Heeft geen enkele bron de dag, dan is het gedrag als voorheen: een fout van Energy-Charts blijft
-    een fout, en een dag die nog niet binnen is laat de run met de bekende prijzen doorgaan.
+    Terugval is aan de orde als de hoofdbron niet antwoordt of iets onleesbaars geeft, of als een dag ontbreekt die
+    al gepubliceerd hoort te zijn (`verwachte_dag`). Geeft terug waar de nieuwste prijzen vandaan komen: "entsoe",
+    "energy_charts" of "energyzero". Heeft geen enkele bron de dag, dan blijft een fout van de hoofdbron een fout,
+    en laat een dag die nog niet binnen is de run met de bekende prijzen doorgaan.
     """
     nu = nu or utc_now()
+    hoofd = hoofdbron(cfg)
     fout: Exception | None = None
     try:
-        energy_charts.update_prices(cfg.raw_dir, cfg.data_start, bzn=cfg.biedzone)
-    except (BronNietBereikbaar, requests.RequestException) as e:
+        # `update_prices` beheert het ruwe bestand; `haal` bepaalt bij welke bron de prijzen vandaan komen
+        energy_charts.update_prices(cfg.raw_dir, cfg.data_start, bzn=cfg.biedzone, haal=hoofd.fetch_prices)
+    except Exception as e:  # noqa: BLE001 - ook een onleesbaar antwoord is een reden voor terugval, geen eindpunt
         fout = e
-        log.warning("Energy-Charts leverde geen prijzen: %s", e)
+        log.warning("%s leverde geen prijzen: %s", _naam(hoofd), e)
     ruw = energy_charts.lees_ruw(cfg.raw_dir)
-    if ruw.empty:   # eerste keer ophalen: de hele historie komt van Energy-Charts, daar is geen terugval voor
+    if ruw.empty:   # eerste keer ophalen: de hele historie komt van de hoofdbron, daar is geen terugval voor
         if fout:
             raise fout
-        return "energy_charts"
+        return _naam(hoofd)
     laatste, doel = laatste_bekende_dag(naar_uur(ruw)), verwachte_dag(cfg, nu)
     if laatste < doel:
-        bron = vul_prijzen_aan(cfg, ruw, laatste, doel, nu)
+        bron = vul_prijzen_aan(cfg, ruw, laatste, doel, nu, hoofd)
         if bron:
             return bron
         if fout:
             raise fout
-    return "energy_charts"
+    return _naam(hoofd)
 
 
 def kies_type(cfg: Config, origin: date) -> str:

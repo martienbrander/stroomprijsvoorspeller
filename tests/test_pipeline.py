@@ -459,3 +459,97 @@ def test_energy_charts_overschrijft_de_aanvulling_later(tmp_path, monkeypatch):
     ruw = daily.energy_charts.update_prices(cfg.raw_dir, cfg.data_start)
     morgen = ruw[_dag(ruw) == MORGEN]
     assert len(morgen) == 96 and (morgen["prijs_eur_mwh"] == 60.0).all()
+
+
+# ---------- ENTSO-E als hoofdbron (besluit 83) ----------
+
+def _hoofdbron_opzet(tmp_path, monkeypatch, *, token=True, entsoe_antwoord=LEEG, energy_charts_antwoord=LEEG,
+                     energyzero_antwoord=LEEG):
+    """Config met `prijsbron: entsoe` en ruwe kwartierprijzen (80.0) t/m vandaag. Elke bron geeft zijn vaste antwoord;
+    `aanroepen` houdt bij wie in welke volgorde gevraagd is. Geen enkele bron gaat het internet op."""
+    cfg = maak_config(tmp_path, prijsbron="entsoe")
+    cfg.raw_dir.mkdir(parents=True)
+    _reeks(VANDAAG - timedelta(days=5), VANDAAG, 80.0).to_parquet(
+        cfg.raw_dir / daily.energy_charts.RUW_BESTAND, index=False)
+    aanroepen = []
+
+    def bron(naam, antwoord):
+        def fetch_prices(start, einde, **_kwargs):
+            aanroepen.append(naam)
+            if isinstance(antwoord, Exception):
+                raise antwoord
+            return antwoord
+        return fetch_prices
+
+    monkeypatch.setattr(daily.entsoe, "beschikbaar", lambda: token)
+    monkeypatch.setattr(daily.entsoe, "fetch_prices", bron("entsoe", entsoe_antwoord))
+    monkeypatch.setattr(daily.energy_charts, "fetch_prices", bron("energy_charts", energy_charts_antwoord))
+    monkeypatch.setattr(daily.energyzero, "fetch_prices", bron("energyzero", energyzero_antwoord))
+    return cfg, aanroepen
+
+
+def test_hoofdbron_volgt_de_config_en_het_token(tmp_path, monkeypatch):
+    monkeypatch.setattr(daily.entsoe, "beschikbaar", lambda: True)
+    assert daily.hoofdbron(maak_config(tmp_path, prijsbron="entsoe")) is daily.entsoe
+    assert daily.hoofdbron(maak_config(tmp_path, prijsbron="energy_charts")) is daily.energy_charts
+    # zonder token neemt Energy-Charts het over
+    monkeypatch.setattr(daily.entsoe, "beschikbaar", lambda: False)
+    assert daily.hoofdbron(maak_config(tmp_path, prijsbron="entsoe")) is daily.energy_charts
+
+
+def test_entsoe_als_hoofdbron_levert_en_wint(tmp_path, monkeypatch):
+    # ENTSO-E levert vandaag (andere prijs dan er stond) en morgen
+    cfg, aanroepen = _hoofdbron_opzet(tmp_path, monkeypatch, entsoe_antwoord=_reeks(VANDAAG, MORGEN, 55.0))
+    assert daily.werk_prijzen_bij(cfg, RUIM_NA_PUBLICATIE) == "entsoe"
+    assert aanroepen == ["entsoe"]   # de andere bronnen zijn niet nodig
+    ruw = _ruw(cfg)
+    dag = _dag(ruw)
+    assert (ruw.loc[dag >= VANDAAG, "prijs_eur_mwh"] == 55.0).all() and (dag == MORGEN).sum() == 96
+    assert (ruw.loc[dag < VANDAAG, "prijs_eur_mwh"] == 80.0).all()   # de historie blijft staan
+    assert ruw["time_utc"].is_monotonic_increasing and ruw["time_utc"].is_unique
+
+
+def test_energy_charts_vult_aan_als_entsoe_de_dag_mist(tmp_path, monkeypatch):
+    # Energy-Charts geeft ook vandaag terug, met een andere prijs: die mag de hoofdbron niet overschrijven
+    cfg, aanroepen = _hoofdbron_opzet(tmp_path, monkeypatch, entsoe_antwoord=_reeks(VANDAAG, VANDAAG, 55.0),
+                                      energy_charts_antwoord=_reeks(VANDAAG, MORGEN, 60.0))
+    assert daily.werk_prijzen_bij(cfg, RUIM_NA_PUBLICATIE) == "energy_charts"
+    assert aanroepen == ["entsoe", "energy_charts"]
+    ruw = _ruw(cfg)
+    dag = _dag(ruw)
+    assert (ruw.loc[dag == VANDAAG, "prijs_eur_mwh"] == 55.0).all()
+    assert (ruw.loc[dag == MORGEN, "prijs_eur_mwh"] == 60.0).all() and (dag == MORGEN).sum() == 96
+
+
+def test_volgorde_entsoe_energy_charts_energyzero(tmp_path, monkeypatch):
+    # de situatie van 20 november 2026: ENTSO-E en Energy-Charts missen de dag allebei
+    morgen = _reeks(MORGEN, MORGEN, 55.0, "h")
+    cfg, aanroepen = _hoofdbron_opzet(tmp_path / "a", monkeypatch, energyzero_antwoord=morgen)
+    assert daily.werk_prijzen_bij(cfg, RUIM_NA_PUBLICATIE) == "energyzero"
+    assert aanroepen == ["entsoe", "energy_charts", "energyzero"]
+    # kort na de publicatie wacht EnergyZero nog
+    cfg, aanroepen = _hoofdbron_opzet(tmp_path / "b", monkeypatch, energyzero_antwoord=morgen)
+    assert daily.werk_prijzen_bij(cfg, NET_GEPUBLICEERD) == "entsoe"
+    assert aanroepen == ["entsoe", "energy_charts"]
+    # zonder token is Energy-Charts de hoofdbron en komt ENTSO-E er niet aan te pas
+    cfg, aanroepen = _hoofdbron_opzet(tmp_path / "c", monkeypatch, token=False, energyzero_antwoord=morgen)
+    assert daily.werk_prijzen_bij(cfg, RUIM_NA_PUBLICATIE) == "energyzero"
+    assert aanroepen == ["energy_charts", "energyzero"]
+
+
+def test_storing_of_onleesbaar_antwoord_van_entsoe(tmp_path, monkeypatch):
+    from stroomprijsvoorspeller.sources.http import BronNietBereikbaar
+
+    morgen = _reeks(MORGEN, MORGEN, 60.0)
+    for nr, fout in enumerate([BronNietBereikbaar("ENTSO-E gaf HTTP 503"), KeyError("PT5M")]):
+        # met een terugvalbron erbij gaat de run door
+        cfg, aanroepen = _hoofdbron_opzet(tmp_path / f"a{nr}", monkeypatch, entsoe_antwoord=fout,
+                                          energy_charts_antwoord=morgen)
+        assert daily.werk_prijzen_bij(cfg, RUIM_NA_PUBLICATIE) == "energy_charts"
+        assert aanroepen == ["entsoe", "energy_charts"]
+        # heeft niemand de dag, dan blijft de fout van de hoofdbron een fout
+        cfg, _ = _hoofdbron_opzet(tmp_path / f"b{nr}", monkeypatch, entsoe_antwoord=fout)
+        with pytest.raises(type(fout)):
+            daily.werk_prijzen_bij(cfg, RUIM_NA_PUBLICATIE)
+        # ontbreekt er niets, dan is de fout geen reden om te stoppen
+        assert daily.werk_prijzen_bij(cfg, VOOR_PUBLICATIE) == "entsoe"

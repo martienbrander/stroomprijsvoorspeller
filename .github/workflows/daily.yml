@@ -1,25 +1,35 @@
 # Dagelijkse run online (besluit 47): dezelfde `epv daily` als lokaal, data bewaard op de branch `data`, site naar GitHub Pages.
 #
-# Tijden in UTC (GitHub kent geen zomertijd). De day-ahead prijzen komen rond 13:00-14:00 Nederlandse tijd bij
-# Energy-Charts binnen. Daarom vijf pogingen met `--type middag` (besluit 54): alleen de eerste poging waarin de prijzen
-# voor morgen binnen zijn doet een hoofdrun, de andere stoppen meteen. Verversingen (`--type auto`) rond 19:00, 01:00 en
-# 07:00 lokaal (besluit 33).
+# De day-ahead veiling sluit om 12:00 Nederlandse tijd; de uitslag komt vanaf 12:57 en bij vertraging uiterlijk 14:20
+# (noodprocedure van de marktkoppeling). ENTSO-E hoort de prijzen binnen een uur na sluiting te tonen. Daarom pogingen
+# met `--type middag` (besluit 54 en 84) om 10 en 30 over het uur, van 13:10 tot 15:10 lokaal: alleen de eerste poging
+# waarin de prijzen voor morgen binnen zijn doet een hoofdrun, de andere stoppen meteen. De pogingen vanaf 15:00 geven
+# ook EnergyZero een kans (besluit 82). Verversingen (`--type auto`) rond 19:00, 01:00 en 07:00 lokaal (besluit 33).
+#
+# Tijden in UTC (GitHub kent geen zomertijd), dus elk tijdstip staat er voor beide seizoenen in. Een poging voor het
+# publicatiemoment (in de winter de eerste twee) stopt meteen.
 #
 #   UTC    winter  zomer
-#   11:20  12:20   13:20
-#   11:40  12:40   13:40
-#   12:20  13:20   14:20
-#   12:40  13:40   14:40
-#   13:20  14:20   15:20  (laatste herkansing)
+#   11:10  12:10   13:10
+#   11:30  12:30   13:30
+#   12:10  13:10   14:10
+#   12:30  13:30   14:30
+#   13:10  14:10   15:10
+#   13:30  14:30   15:30
+#   14:10  15:10   16:10
+#
+# Let op: een tijd die met minuut 5 begint telt hieronder als verversing. Geef een middagpoging dus een andere minuut.
 name: dagelijkse run
 
 on:
   schedule:
-    - cron: "20 11 * * *"
-    - cron: "40 11 * * *"
-    - cron: "20 12 * * *"
-    - cron: "40 12 * * *"
-    - cron: "20 13 * * *"
+    - cron: "10 11 * * *"
+    - cron: "30 11 * * *"
+    - cron: "10 12 * * *"
+    - cron: "30 12 * * *"
+    - cron: "10 13 * * *"
+    - cron: "30 13 * * *"
+    - cron: "10 14 * * *"
     - cron: "5 18 * * *"    # verversing avond
     - cron: "5 0 * * *"     # verversing nacht
     - cron: "5 6 * * *"     # verversing ochtend
@@ -70,8 +80,8 @@ jobs:
       - name: Run
         id: run
         env:
-          # Terugval naar ENTSO-E als Energy-Charts de prijzen niet heeft (besluit 81). Zonder dit secret is de
-          # waarde leeg en slaat de run de terugval over.
+          # ENTSO-E is de hoofdbron voor de prijzen (besluit 83). Zonder dit secret is de waarde leeg en neemt
+          # Energy-Charts het over.
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
         run: |
           set -o pipefail
