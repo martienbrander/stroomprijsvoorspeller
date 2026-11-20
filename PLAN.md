@@ -193,4 +193,4 @@ Concrete stappen die uit de open vragen en risico's volgen, in volgorde:
 - GitHub Actions cron loopt in UTC en kan 10-30 min laat zijn. Oplossing: twee runs plannen, script controleert
   of morgen al volledig bekend is en slaat anders over.
 - Energy-Charts geeft geen garanties op beschikbaarheid. ENTSO-E is de terugval, alleen met token (aangevraagd,
-  zie actieplan).
+  zie actieplan); EnergyZero is het laatste redmiddel, met uurprijzen (besluit 82).

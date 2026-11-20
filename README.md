@@ -51,8 +51,10 @@ hetzelfde zegt over de software.
 ## Bronnen en licenties
 
 - Prijzen: [Energy-Charts](https://energy-charts.info) van Fraunhofer ISE (data: Bundesnetzagentur | SMARD.de,
-  CC BY 4.0). Terugval: ENTSO-E Transparency Platform, als Energy-Charts niet antwoordt of de prijzen voor
-  morgen na 13:00 nog niet heeft. Alleen met een (gratis) token: `ENTSOE_TOKEN` in `.env`, online als secret.
+  CC BY 4.0). Terugval als Energy-Charts niet antwoordt of een dag mist die er al hoort te zijn: eerst het
+  ENTSO-E Transparency Platform (alleen met een gratis token: `ENTSOE_TOKEN` in `.env`, online als secret), en als
+  laatste redmiddel, vanaf twee uur na het publicatiemoment, de API van [EnergyZero](https://www.energyzero.nl)
+  (uurprijzen, geen sleutel nodig).
 - Weer: [Open-Meteo](https://open-meteo.com) (CC BY 4.0). Forecast API voor de komende dagen, Previous Runs API voor
   historische verwachtingen zoals die destijds waren, zodat de backtest geen kennis van later gebruikt.
 - Kalender: Nederlandse feestdagen via het Python-package `holidays`.

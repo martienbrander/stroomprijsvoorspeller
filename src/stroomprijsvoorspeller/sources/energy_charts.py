@@ -81,8 +81,10 @@ def update_prices(raw_dir: Path, data_start: str, *, bzn: str = "NL", overlap_da
     einde = (utc_now() + pd.Timedelta(days=2)).normalize()
     nieuw = fetch_prices(start, einde, bzn=bzn, session=session)
     nieuw = nieuw.dropna(subset=["prijs_eur_mwh"])
+    # Eerst ontdubbelen, dan sorteren: zo wint bij een dubbel tijdstip altijd de nieuw opgehaalde waarde. Andersom
+    # hangt het van de sortering af welke van de twee overblijft, en bleef een oude waarde soms staan.
     samen = pd.concat([bestaand, nieuw], ignore_index=True)
-    samen = samen.sort_values("time_utc").drop_duplicates("time_utc", keep="last").reset_index(drop=True)
+    samen = samen.drop_duplicates("time_utc", keep="last").sort_values("time_utc").reset_index(drop=True)
     samen.to_parquet(raw_dir / RUW_BESTAND, index=False)
     log.info("prijzen: %d rijen, %s .. %s (+%d nieuw/bijgewerkt)", len(samen),
              samen["time_utc"].min(), samen["time_utc"].max(), len(nieuw))

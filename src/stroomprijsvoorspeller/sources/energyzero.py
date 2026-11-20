@@ -1,7 +1,9 @@
-"""Fallback: EnergyZero API, day-ahead prijzen NL (leveranciersprijzen via EnergyZero).
+"""Laatste redmiddel: EnergyZero API, day-ahead prijzen NL per uur. Geen sleutel nodig.
 
-Alleen een vangnet: wordt in `epv daily`/`epv fetch` gebruikt als ENTSO-E geen (nieuwere) prijzen
-levert, zodat de site de prijzen voor morgen toch kan tonen. Geen sleutel nodig.
+Alleen een vangnet (besluit 82): `pipeline.daily.werk_prijzen_bij` gebruikt het als Energy-Charts en ENTSO-E een
+dag allebei niet hebben, zodat de site de prijzen toch kan tonen. De uurprijzen zijn gelijk aan het uurgemiddelde
+van de kwartierprijzen van de beurs (nagegaan voor 19 november 2026). Kwartierprijzen (interval 5) geeft de API
+niet terug; daarom halen we hier alleen uren op.
 
 Endpoint: https://api.energyzero.nl/v1/energyprices?fromDate=...&tillDate=...&interval=4&usageType=1&inclBtw=false
 Antwoord: {"Prices": [{"readingDate": "...Z", "price": <EUR/kWh>}, ...]}.
@@ -13,7 +15,6 @@ van merkt.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
 
 import pandas as pd
 import requests
