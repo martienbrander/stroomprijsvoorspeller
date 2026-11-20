@@ -32,7 +32,8 @@ log = logging.getLogger(__name__)
 SCORE_DAGEN = 30           # de scores op de site gaan over zoveel voorspelmomenten terug
 SCORE_HISTORIE_MARGE = 10  # extra dagen historie, zodat het venster ook met ontbrekende dagen gevuld is
 FEESTDAG_EFFECT_DAGEN = 730
-BRONNEN = ("Prijzen: Energy-Charts (Fraunhofer ISE), data Bundesnetzagentur | SMARD.de, CC BY 4.0. "
+BRONNEN = ("Prijzen: Energy-Charts (Fraunhofer ISE), data Bundesnetzagentur | SMARD.de, CC BY 4.0; "
+           "ontbreekt daar een dag, dan komen de prijzen van ENTSO-E of EnergyZero. "
            "Weer: Open-Meteo, CC BY 4.0.")
 LEVERANCIER_VELDEN = ["naam", "inkoopvergoeding_ct_kwh_excl_btw", "vaste_kosten_maand_eur_incl_btw", "status",
                       "peildatum", "bron_url"]
