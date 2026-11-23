@@ -185,6 +185,13 @@
   .schakelaars { display: flex; flex-wrap: wrap; gap: .5rem .75rem; margin-top: .6rem; }
 
   footer { font-size: .78rem; color: var(--zacht); margin-top: 1.25rem; }
+  /* korte melding onder in beeld, bijvoorbeeld als een andere "klaar om" dezelfde prijs geeft */
+  .popup {
+    position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 10;
+    width: max-content; max-width: calc(100% - 2rem); text-align: center;
+    background: var(--tekst); color: var(--achtergrond); font-size: .85rem; line-height: 1.35;
+    padding: .55rem .9rem; border-radius: .6rem; box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+  }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 </style>
@@ -285,6 +292,7 @@
   <footer>
     <p>Hulpmiddel, geen garantie. <a href="uitleg.html">Uitleg, bronnen en data</a>.</p>
   </footer>
+  <div class="popup" id="popup" role="status" aria-live="polite" hidden></div>
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
@@ -530,11 +538,31 @@
     if (d.zwak) zinnen.push('Nog onzeker, kijk later opnieuw.');
     return zinnen.join(' ');
   }
+  // de drie dagen en bedragen van een auto zoals ze op de knoppen staan, als één tekst om te vergelijken
+  function laadBedragen(autoId) {
+    const x = laadAdviezen.find((y) => y.auto.id === autoId);
+    return x && x.advies ? x.advies.dagen.map((d) => `${d.dag.datum} ${fmtEuro(d.euro)}`).join(', ') : '';
+  }
+  // een korte melding onder in beeld die vanzelf verdwijnt
+  let popupTimer = null;
+  function toonPopup(tekst) {
+    const popup = el('popup');
+    popup.textContent = tekst;
+    popup.hidden = false;
+    clearTimeout(popupTimer);
+    popupTimer = setTimeout(() => { popup.hidden = true; }, 4000);
+  }
   // tik op een tijd: de auto moet dan klaar zijn; tik op een dag: die laaduren komen in de grafiek en de kleuren
   el('laadblokken').addEventListener('click', (ev) => {
     const tijd = ev.target.closest('[data-klaar]');
     if (tijd) {
+      if (tijd.getAttribute('aria-pressed') === 'true') return;
+      // blijven de dagen en bedragen gelijk, dan lijkt de schakelaar niets te doen: zeg waarom
+      const voor = laadBedragen(tijd.dataset.voor);
       autoKoppeling.zetKlaar(tijd.dataset.voor, Number(tijd.dataset.klaar));
+      if (voor && voor === laadBedragen(tijd.dataset.voor)) {
+        toonPopup('Zelfde prijs: de goedkoopste uren liggen in de nacht.');
+      }
       return;
     }
     const knop = ev.target.closest('[data-auto]');
