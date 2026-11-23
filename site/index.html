@@ -121,7 +121,7 @@
   .regel { font-size: .85rem; margin: .4rem 0 0; }
   .mini { font-size: .75rem; color: var(--zacht); margin: .35rem 0 0; }
 
-  /* schakelaar grafiek of kleuren, en de schakelaars in het paneel */
+  /* schakelaar grafiek of blokschema, en de schakelaars in het paneel */
   .segment { display: inline-flex; border: 1px solid var(--rand); border-radius: .5rem; overflow: hidden; }
   .segment button {
     font: inherit; font-size: .85rem; padding: .25rem .7rem; border: 0; background: transparent; color: var(--zacht);
@@ -138,7 +138,7 @@
   .legenda li { display: inline-flex; align-items: center; gap: .35em; }
   .vak { display: inline-block; width: 1.1em; height: .7em; border-radius: 2px; }
 
-  /* de week als kleuren: per dag een strook met een cel per uur of kwartier */
+  /* de week als blokschema: per dag een strook met een gekleurde cel per uur of kwartier */
   .tijdlijn { list-style: none; padding: 0; margin: 0; }
   .rij { display: grid; grid-template-columns: 4.3rem 1fr; gap: .5rem; align-items: center; margin-bottom: 3px; }
   .rij .datum { font-size: .78rem; color: var(--zacht); white-space: nowrap; }
@@ -229,9 +229,9 @@
   <section id="week" aria-labelledby="week-kop">
     <div class="sectiekop">
       <h2 id="week-kop">De week</h2>
-      <div class="segment" role="group" aria-label="Grafiek of kleuren" id="weergave">
+      <div class="segment" role="group" aria-label="Grafiek of blokschema" id="weergave">
         <button type="button" data-weergave="grafiek" aria-pressed="true">Grafiek</button>
-        <button type="button" data-weergave="blokken" aria-pressed="false">Kleuren</button>
+        <button type="button" data-weergave="blokken" aria-pressed="false">Blokschema</button>
       </div>
     </div>
     <div id="weergave-grafiek">
@@ -296,12 +296,12 @@
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=10"></script>
+<script src="gedeeld.js?v=11"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
  * Drie blokken (besluit 85): "Start om" (apparaten), per auto "klaar op welke dag?", en de week als grafiek of
- * kleuren. render() tekent alles opnieuw; dat gebeurt bij het laden, na elke wijziging van een instelling, elk
+ * blokschema. render() tekent alles opnieuw; dat gebeurt bij het laden, na elke wijziging van een instelling, elk
  * kwartier en na middernacht (de voorbije dag valt dan weg).
  */
 (function () {
@@ -552,7 +552,7 @@
     clearTimeout(popupTimer);
     popupTimer = setTimeout(() => { popup.hidden = true; }, 4000);
   }
-  // tik op een tijd: de auto moet dan klaar zijn; tik op een dag: die laaduren komen in de grafiek en de kleuren
+  // tik op een tijd: de auto moet dan klaar zijn; tik op een dag: die laaduren komen in de grafiek en het blokschema
   el('laadblokken').addEventListener('click', (ev) => {
     const tijd = ev.target.closest('[data-klaar]');
     if (tijd) {
@@ -571,7 +571,7 @@
     render();
   });
 
-  // ---------- "De week": grafiek of kleuren ----------
+  // ---------- "De week": grafiek of blokschema ----------
 
   function toonWeergave() {
     el('weergave-grafiek').hidden = weergave !== 'grafiek';
@@ -593,7 +593,7 @@
     toonWeergave();
   }
 
-  // de kleuren: per dag een strook met een cel per uur (of kwartier op dagen met vaste prijzen)
+  // het blokschema: per dag een strook met een gekleurde cel per uur (of kwartier op dagen met vaste prijzen)
   const dagdelenTekst = (dag) => dag.dagdelen.map((deel) => `${deel.label.toLowerCase()} ${deel.stoplicht}`).join(', ');
   const ASSEN_HTML = '<li class="rij" aria-hidden="true"><span></span><span class="assen"><span>0</span><span>6</span>' +
     '<span>12</span><span>18</span><span>24 u</span></span></li>';

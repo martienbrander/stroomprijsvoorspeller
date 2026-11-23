@@ -113,7 +113,7 @@
   function fmtEuro(x) {
     if (ontbreekt(x)) return '–';
     const bedrag = Math.abs(x);
-    return bedrag < 1 ? `${Math.round(bedrag * 100)} cent` : `€ ${bedrag.toFixed(2).replace('.', ',')}`;
+    return bedrag < 1 ? `${Math.round(bedrag * 100)}\u00a0cent` : `€\u00a0${bedrag.toFixed(2).replace('.', ',')}`;
   }
   // uren en minuten uit een aantal uren: 1.75 -> { uren: 1, minuten: 45 }
   function splitsUren(aantal) {
@@ -134,9 +134,9 @@
     return `${t.uren} uur ${t.minuten} min`;
   }
   // onzekerheid als plus- en minbedrag bij de verwachting, nooit 'tussen a en b' (besluit 56)
-  // ⁠ houdt het minteken bij het bedrag als de regel afbreekt
-  function plusMinCt(plus, min) { return `+${fmt(plus)} / −⁠${fmt(min)} ct`; }
-  function plusMinEuro(plus, min) { return `+${fmtEuro(plus)} / −⁠${fmtEuro(min)}`; }
+  // \u2060 houdt het plus- en minteken bij het bedrag als de regel afbreekt
+  function plusMinCt(plus, min) { return `+${fmt(plus)} / −${fmt(min)} ct`; }   // ook op het canvas: zonder
+  function plusMinEuro(plus, min) { return `+\u2060${fmtEuro(plus)} / −\u2060${fmtEuro(min)}`; }
 
   // 'YYYY-MM-DDTHH:MM:SS+01:00' -> lokale onderdelen. De tijd in de JSON is al Nederlandse tijd, dus we lezen de
   // cijfers zoals ze er staan en laten de tijdzone van de browser erbuiten.
