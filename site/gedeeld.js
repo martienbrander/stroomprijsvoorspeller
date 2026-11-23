@@ -593,11 +593,14 @@
         teken();
         bewaarEnMeld();
       } else if (ev.target.matches('.toevoegen')) {
-        // de nieuwe rij wordt pas bewaard als er iets in is ingevuld
-        lijst.push({ id: `app${Date.now()}`, naam: '', uren: 1, kwh: 1 });
+        // een nieuw apparaat staat er meteen, met standaardwaarden; de naam is geselecteerd om te overschrijven
+        lijst.push({
+          id: `app${Date.now()}`, naam: 'Apparaat', uren: 1, kwh: 1, stap: 1, maxUitstel: MAX_UITSTEL_STANDAARD,
+        });
         teken();
+        bewaarEnMeld();
         const naamVeld = container.querySelector('.app-rij:last-of-type [name=naam]');
-        if (naamVeld) naamVeld.focus();
+        if (naamVeld) { naamVeld.focus(); naamVeld.select(); }
       }
     });
     teken();

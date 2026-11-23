@@ -218,7 +218,7 @@
     <h2 id="start-kop">Start om</h2>
     <div class="tegels" id="start-tegels"></div>
     <p class="regel" id="start-regel" hidden></p>
-    <p class="regel" id="start-leeg" hidden>Nog geen apparaat. Voeg er een toe via Aanpassen.</p>
+    <p class="regel"><button type="button" class="tekstknop" id="apparaat-erbij">+ apparaat</button></p>
   </section>
 
   <div id="laden">
@@ -257,7 +257,7 @@
   <div class="onderregel">
     <span id="bijgewerkt"></span>
     <button type="button" class="knop" id="aanpas-knop" aria-expanded="false"
-      aria-controls="instellingen-paneel">Aanpassen</button>
+      aria-controls="instellingen-paneel">Pas keuzes aan</button>
   </div>
   <div class="kader" id="instellingen-paneel" hidden>
     <h3 id="apparaten-instellingen">Apparaten</h3>
@@ -310,7 +310,6 @@
   const el = (id) => document.getElementById(id);
 
   const RUN_LABEL = { hoofd: 'hoofdrun', verversing: 'verversing', inhaal: 'inhaalrun' };
-  const MAX_STARTTEGELS = 3;
   const VEROUDERD_NA_UREN = 26;
   const KWARTIER_MS = 15 * 60 * 1000;
   // Hoe vaak een open pagina kijkt of er een nieuwere voorspelling staat (besluit 69): elk uur, en elke tien
@@ -421,10 +420,9 @@
 
   function toonStart() {
     const nu = SP.nuLokaalUur();
-    const lijst = model.apparaten.slice(0, MAX_STARTTEGELS)
+    const lijst = model.apparaten
       .map((apparaat) => ({ apparaat: apparaat, advies: SP.startAdvies(model, apparaat, nu) }));
     el('start-tegels').innerHTML = lijst.map(startTegelHtml).join('');
-    el('start-leeg').hidden = lijst.length > 0;
     const open = lijst.find((x) => x.apparaat.id === openApparaat);
     el('start-regel').hidden = !open;
     el('start-regel').textContent = open ? startRegel(open.apparaat, open.advies) : '';
@@ -615,18 +613,24 @@
       `aria-label="${dagNaam(dag, true)}: ${dagdelenTekst(dag)}">${cellen}</div></li>`;
   }
 
-  // ---------- "Aanpassen": het paneel met apparaten, auto's en prijs ----------
+  // ---------- "Pas keuzes aan": het paneel met apparaten, auto's en prijs ----------
 
   function zetPaneel(open) {
     el('instellingen-paneel').hidden = !open;
     el('aanpas-knop').setAttribute('aria-expanded', open ? 'true' : 'false');
-    el('aanpas-knop').textContent = open ? 'Sluiten' : 'Aanpassen';
+    el('aanpas-knop').textContent = open ? 'Sluiten' : 'Pas keuzes aan';
   }
   el('aanpas-knop').addEventListener('click', () => {
     zetPaneel(el('instellingen-paneel').hidden);
     if (!el('instellingen-paneel').hidden) el('instellingen-paneel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
   // "+ auto": het paneel open en meteen een nieuwe auto erbij
+  // "+ apparaat": het paneel open en meteen een nieuw apparaat erbij
+  el('apparaat-erbij').addEventListener('click', () => {
+    zetPaneel(true);
+    el('apparaten-form').querySelector('.toevoegen').click();
+    el('apparaten-instellingen').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   el('auto-erbij').addEventListener('click', () => {
     zetPaneel(true);
     el('autos-form').querySelector('.toevoegen').click();
