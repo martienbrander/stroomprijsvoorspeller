@@ -8,10 +8,10 @@
  *   3. tarief                  de drie prijsstanden (besluit 35)
  *   4. model                   forecast.json omzetten naar dagen, uren, dagdelen en goedkoopste blokken
  *   5. zinnen                  teksten bij een blok of een dag
- *   6. instellingen            lezen, bewaren en de formulieren koppelen (resolutie, apparaten, auto, tarief)
+ *   6. instellingen            lezen, bewaren en de formulieren koppelen (resolutie, apparaten, auto's, tarief)
  *   7. tabel                   dezelfde cijfers als de grafiek, als tabel
  *   8. grafiek                 op een <canvas>, zonder bibliotheek
- *   9. advies                  "start je apparaat om ..." (besluit 58) en "de auto: nu of later?"
+ *   9. advies                  "start om ..." voor apparaten en "klaar op welke dag?" voor auto's (besluit 85)
  *  10. gegevens ophalen        forecast.json en leveranciers.json
  *
  * Geen afhankelijkheden, geen build-stap. Prijzen komen binnen in EUR/MWh en gaan de pagina op in ct/kWh.
@@ -64,33 +64,29 @@
   // bestaande instellingen van bezoekers moeten blijven werken.
   const TARIEF_SLEUTEL = 'stroomprijs-tarief-v2';       // { stand, inkoop, leverancier }
   const RESOLUTIE_SLEUTEL = 'stroomprijs-resolutie-v2'; // 'uur' of 'kwartier'
-  const LADEN_SLEUTEL = 'stroomprijs-laden-v1';         // { kw, kwh, horizon }
-  const APPARATEN_SLEUTEL = 'stroomprijs-apparaten-v1'; // [{ id, naam, uren, kwh, stap }]
+  const LADEN_SLEUTEL = 'stroomprijs-laden-v1';         // { kw, kwh, horizon }: de oude instelling van één auto
+  const APPARATEN_SLEUTEL = 'stroomprijs-apparaten-v1'; // [{ id, naam, uren, kwh, stap, maxUitstel }]
+  const AUTOS_SLEUTEL = 'stroomprijs-autos-v1';         // [{ id, naam, kwh, kw, vanaf, klaar }] (besluit 85)
 
   // eigen apparaten (besluit 55, 63)
   const APPARATEN_STANDAARD = [{ id: 'was', naam: 'Wasmachine', uren: 2, kwh: 1, stap: 1, maxUitstel: 8 }];
-  const MAX_UITSTEL_KEUZES = [4, 6, 8, 12, 16, 24];  // hoeveel uitstel iemand hooguit wil, per apparaat (besluit 67)
+  const MAX_UITSTEL_KEUZES = [4, 6, 8, 12];  // hoeveel uitstel iemand hooguit wil, per apparaat (besluit 67, 85)
   const MAX_UITSTEL_STANDAARD = 8;
-  // Twee soorten apparaten (besluit 73): 'start' = vandaag of morgen aanzetten met uitstel, 'laden' = deze week
-  // laden op de goedkoopste dag, met een horizon in dagen.
-  const HORIZON_KEUZES = [2, 3, 5, 7];
-  const HORIZON_STANDAARD = 5;
-  const WEEK_MIN_WINST_EURO = 0.10;   // eigen laadapparaat: wachten moet 10 cent ...
-  const WEEK_MIN_WINST_DEEL = 0.10;   // ... en 10% schelen; voor de auto geldt LAAD_DREMPEL_EURO
   const UITSTEL_STAPPEN = [1, 0.5, 0.25];  // waarin het uitstel op het apparaat is in te stellen (uren)
   const UITSTEL_LABELS = { 1: '1 uur', 0.5: 'half uur', 0.25: 'kwartier' };
   const MINUTEN_KEUZES = [0, 15, 30, 45];
   const KWARTIER = 0.25;
   const MAX_DUUR_UREN = 24;
 
-  // de auto (besluit 32, 63): zonder instellingen een blok van 3 uur en 30 kWh
-  const LAAD_STANDAARD_UREN = 3;
+  // auto's (besluit 85): zonder instellingen 30 kWh bijladen met 11 kW, aan de lader van 18:00 tot 08:00
   const LAAD_STANDAARD_KWH = 30;
-  const LAAD_KEUZES_KW = [2.3, 3.7, 7.4, 11, 22];
-  const LAAD_DREMPEL_EURO = 0.5;     // onder dit verschil: "doe het wanneer het uitkomt"
+  const LAAD_STANDAARD_KW = 11;
+  const LAAD_STANDAARD_VANAF = 18;
+  const LAAD_KLAAR_KEUZES = [8, 18]; // "klaar om": 's ochtends, of aan het eind van de middag (dan telt de dag mee)
+  const LAAD_DAGEN = 3;              // voor zoveel dagen laten we zien wat de laadbeurt kost
 
   // startadvies (besluit 58)
-  const MAX_UITSTEL_UREN = 24;       // verder dan 24 uur vooruit kijkt het advies nooit (besluit 66)
+  const MAX_UITSTEL_UREN = 12;       // verder dan 12 uur vooruit kijkt het advies nooit (besluit 85)
   const START_BIJNA_EURO = 0.02;     // 'bijna net zo goedkoop' als het goedkoopste moment: binnen 2 cent ...
   const START_BIJNA_DEEL = 0.05;     // ... of 5%; het eerste moment dat daaraan voldoet wint (besluit 67)
   const START_MIN_WINST_EURO = 0.05; // uitstel moet minstens 5 cent ...
@@ -112,11 +108,12 @@
   }
   // zonder overbodige nul: 30 -> '30', 7.4 -> '7,4'
   function fmtKort(x) { return fmt(x, x % 1 ? 1 : 0); }
-  // bedrag per handeling: onder de euro in centen, altijd zonder minteken
+  // bedrag per handeling: onder de euro in centen, altijd zonder minteken; met een vaste spatie, zodat het bedrag
+  // niet over twee regels breekt
   function fmtEuro(x) {
     if (ontbreekt(x)) return '–';
     const bedrag = Math.abs(x);
-    return bedrag < 1 ? `${Math.round(bedrag * 100)} cent` : `€ ${bedrag.toFixed(2).replace('.', ',')}`;
+    return bedrag < 1 ? `${Math.round(bedrag * 100)} cent` : `€ ${bedrag.toFixed(2).replace('.', ',')}`;
   }
   // uren en minuten uit een aantal uren: 1.75 -> { uren: 1, minuten: 45 }
   function splitsUren(aantal) {
@@ -137,8 +134,9 @@
     return `${t.uren} uur ${t.minuten} min`;
   }
   // onzekerheid als plus- en minbedrag bij de verwachting, nooit 'tussen a en b' (besluit 56)
-  function plusMinCt(plus, min) { return `+${fmt(plus)} / −${fmt(min)} ct`; }
-  function plusMinEuro(plus, min) { return `+${fmtEuro(plus)} / −${fmtEuro(min)}`; }
+  // ⁠ houdt het minteken bij het bedrag als de regel afbreekt
+  function plusMinCt(plus, min) { return `+${fmt(plus)} / −⁠${fmt(min)} ct`; }
+  function plusMinEuro(plus, min) { return `+${fmtEuro(plus)} / −⁠${fmtEuro(min)}`; }
 
   // 'YYYY-MM-DDTHH:MM:SS+01:00' -> lokale onderdelen. De tijd in de JSON is al Nederlandse tijd, dus we lezen de
   // cijfers zoals ze er staan en laten de tijdzone van de browser erbuiten.
@@ -266,25 +264,19 @@
   // ==================== 4. model ====================
 
   /*
-   * verwerk(forecast, tarief, laadInstellingen, resolutie, apparaten) -> model
+   * verwerk(forecast, tarief, resolutie, apparaten) -> model
    *
-   * model = { dagen, laad, apparaten, scores, gegenereerd, eenheidLabel }
+   * model = { dagen, apparaten, scores, gegenereerd, eenheidLabel }
    * dag   = { datum, weekdag, dagVdMaand, maand, index, feestdag, bekend, betrouwbaarheid,
    *           uren, kwartieren, reeks (wat getekend en doorzocht wordt), perKwartier, perUur,
-   *           gem, min, max, dagdelen, laden (goedkoopste laadblok), blokken (per apparaat-id) }
+   *           gem, min, max, dagdelen }
    * uur   = { uur, duur (in uren: 1 of 0,25), pos (uren vanaf het begin van de dag), bekend,
    *           p10, p50, p90 (ct/kWh in de gekozen stand), stoplicht }
    */
-  function verwerk(forecast, tarief, laadInstellingen, resolutie, apparaten) {
+  function verwerk(forecast, tarief, resolutie, apparaten) {
     tarief = netTarief(tarief);
-    apparaten = apparaten && apparaten.length ? apparaten : APPARATEN_STANDAARD;
+    apparaten = apparaten || [];
     const factor = tariefFactor(tarief);
-    const laad = {
-      inst: laadInstellingen || null,
-      uren: laadBlokUren(laadInstellingen),
-      kwh: laadKwh(laadInstellingen),
-      horizon: geldigeHorizon(laadInstellingen && laadInstellingen.horizon),
-    };
     const dagen = dagenUit(forecast, tarief);
     const infoPerDatum = {};
     (forecast.dagen || []).forEach((info) => { infoPerDatum[info.datum] = info; });
@@ -314,12 +306,10 @@
         };
       });
     });
-    dagen.forEach((dag, i) => { zoekBlokken(dag, dagen[i + 1], laad, apparaten); });
     zetStoplicht(dagen);
 
     return {
       dagen: dagen,
-      laad: laad,
       apparaten: apparaten,
       scores: scoresVan(forecast.scores || {}, factor),
       gegenereerd: forecast.gegenereerd_utc,
@@ -429,100 +419,8 @@
     });
   }
 
-  // ---------- goedkoopste blokken ----------
-
-  // De blokken van één dag: het laadblok van de auto en per eigen apparaat een blok ter lengte van de duur.
-  // Laden mag over middernacht doorlopen in de volgende dag; een apparaat blijft binnen de dag.
-  function zoekBlokken(dag, volgendeDag, laad, apparaten) {
-    const stap = dag.perKwartier ? KWARTIER : 1;
-    let vervolg = [];
-    if (volgendeDag) vervolg = stap === 1 ? volgendeDag.uren : naarKwartieren(volgendeDag.reeks);
-
-    dag.laden = goedkoopsteBlok(dag.reeks, Math.round(laad.uren / stap), vervolg);
-    if (dag.laden) {
-      dag.laden.onzekereDag = dag.betrouwbaarheid.code === 'laag';
-      [dag.laden, dag.laden.duurste].forEach((blok) => {
-        if (blok.volgendeDag) blok.eindDagNaam = dagNaam(volgendeDag, false);
-      });
-    }
-    dag.blokken = {};
-    apparaten.forEach((a) => {
-      dag.blokken[a.id] = goedkoopsteBlok(dag.reeks, Math.max(1, Math.round(a.uren / stap)));
-    });
-  }
-
-  // Goedkoopste aaneengesloten blok van n elementen (op P50) dat in `reeks` begint; het mag doorlopen in
-  // `vervolg` (het begin van de volgende dag). Het duurste blok van dezelfde lengte gaat mee, voor de
-  // vergelijking. null als er te weinig uren zijn.
-  function goedkoopsteBlok(reeks, n, vervolg = []) {
-    const alles = reeks.concat(vervolg);
-    if (!reeks.length || alles.length < n) return null;
-    let beste = null, duurste = null;
-    const laatsteStart = Math.min(reeks.length - 1, alles.length - n);
-    for (let i = 0; i <= laatsteStart; i++) {
-      const blok = maakBlok(alles.slice(i, i + n), i + n > reeks.length);
-      if (!beste || blok.p50 < beste.p50) beste = blok;
-      if (!duurste || blok.p50 > duurste.p50) duurste = blok;
-    }
-    const dagGemiddelde = gemiddeldeVan(reeks, 'p50');
-    beste.marge = dagGemiddelde - beste.p50;      // ct/kWh goedkoper dan het daggemiddelde (kan net negatief zijn)
-    beste.duurste = duurste;
-    beste.vsDuurste = duurste.p50 - beste.p50;    // ct/kWh goedkoper dan het duurste blok van dezelfde lengte
-    return beste;
-  }
-  function maakBlok(elementen, loopDoor) {
-    const laatste = elementen[elementen.length - 1];
-    const duur = elementen.reduce((som, u) => som + u.duur, 0);
-    const p10 = gemiddeldeVan(elementen, 'p10');
-    const p50 = gemiddeldeVan(elementen, 'p50');
-    const p90 = gemiddeldeVan(elementen, 'p90');
-    return {
-      start: elementen[0].uur, eind: laatste.uur + laatste.duur, n: Math.round(duur * 100) / 100,  // n = duur in uren
-      volgendeDag: !!loopDoor, eindDagNaam: null,
-      p10: p10, p50: p50, p90: p90, onzekerPlus: p90 - p50, onzekerMin: p50 - p10,
-      bekend: elementen.every((u) => u.bekend),
-    };
-  }
-  // kosten van een blok in euro voor `kwh` kilowattuur
-  function blokKosten(blok, kwh) {
-    const euro = (ct) => (ct * kwh) / 100;
-    return {
-      euro: euro(blok.p50), plus: euro(blok.onzekerPlus || 0), min: euro(blok.onzekerMin || 0),
-      vsDuurste: euro(blok.vsDuurste || 0), vsGem: euro(blok.marge || 0),
-    };
-  }
-
   // ==================== 5. zinnen ====================
 
-  // '23:45–02:45 (loopt door tot wo 18 nov)'
-  function blokTijd(blok) {
-    if (!blok) return '';
-    const tijd = `${fmtUur(blok.start)}–${fmtUur(blok.eind)}`;
-    if (!blok.volgendeDag) return tijd;
-    return `${tijd} (loopt door tot ${blok.eindDagNaam || 'de volgende dag'})`;
-  }
-  // "21,1 ct/kWh, € 6,33 voor 30 kWh. € 2,40 minder dan op het duurste moment, € 1,23 minder dan gemiddeld."
-  function laadZin(blok, kwh) {
-    if (!blok) return '';
-    const k = blokKosten(blok, kwh);
-    let tovGemiddeld = 'gelijk aan gemiddeld.';
-    if (k.vsGem > 0.005) tovGemiddeld = `${fmtEuro(k.vsGem)} minder dan gemiddeld.`;
-    else if (k.vsGem < -0.005) tovGemiddeld = `${fmtEuro(-k.vsGem)} meer dan gemiddeld.`;
-    let zin = `${fmt(blok.p50)} ct/kWh, ${fmtEuro(k.euro)} voor ${fmtKort(kwh)} kWh. ` +
-      `${fmtEuro(k.vsDuurste)} minder dan op het duurste moment, ${tovGemiddeld}`;
-    if (!blok.bekend) zin += ` Onzeker: ${plusMinEuro(k.plus, k.min)}.`;
-    if (blok.onzekereDag) zin += ' Nog onzeker, kijk een dag later opnieuw.';
-    return zin;
-  }
-  // "34,2 ct/kWh, 34 cent per beurt, 5 cent minder dan op het duurste moment."
-  function apparaatZin(blok, kwh) {
-    if (!blok) return '';
-    const k = blokKosten(blok, kwh);
-    let zin = `${fmt(blok.p50)} ct/kWh, ${fmtEuro(k.euro)} per beurt`;
-    if (k.vsDuurste > 0.005) zin += `, ${fmtEuro(k.vsDuurste)} minder dan op het duurste moment`;
-    if (!blok.bekend) zin += ` (${plusMinEuro(k.plus, k.min)})`;
-    return `${zin}.`;
-  }
   // "38,2 ct/kWh" of "verwacht 38,2 ct/kWh (+2,1 / −1,8 ct)"
   function bandZin(p10, p50, p90, bekend) {
     if (bekend) return `${fmt(p50)} ct/kWh`;
@@ -536,15 +434,6 @@
     else if (b.afwijking !== null) tekst += `, gemiddeld ${fmt(b.afwijking)} ct/kWh afwijking`;
     return metDag && dag.index >= 2 ? `Dag ${b.horizon}: ${tekst}` : tekst;
   }
-  function betrouwbaarheidHtml(dag) {
-    const b = dag.betrouwbaarheid;
-    return `<span class="btr ${b.klasse}"><span class="btr-icoon" aria-hidden="true">${b.icoon}</span>` +
-      `${betrouwbaarheidTekst(dag, false)}</span>`;
-  }
-  function stoplichtHtml(kleur) {
-    const s = STOPLICHT[kleur];
-    return `<span class="sl ${s.klasse}"><span class="sl-icoon" aria-hidden="true">${s.icoon}</span>${s.label}</span>`;
-  }
   const dagdelenTekst = (dag) => dag.dagdelen.map((deel) => `${deel.label.toLowerCase()} ${deel.stoplicht}`).join(', ');
 
   // de hele voorspelling in woorden, voor schermlezers (als beschrijving van de grafiek)
@@ -554,7 +443,6 @@
       if (dag.bekend) zin += `bekend, gemiddeld ${fmt(dag.gem)} ct/kWh, van ${fmt(dag.min)} tot ${fmt(dag.max)}.`;
       else zin += `voorspeld, ${betrouwbaarheidTekst(dag, false)}, gemiddeld rond ${fmt(dag.gem)} ct/kWh.`;
       zin += ` Dagdelen: ${dagdelenTekst(dag)}.`;
-      if (dag.laden) zin += ` Goedkoopste ${duurTekst(dag.laden.n)} om te laden: ${blokTijd(dag.laden)}.`;
       return zin;
     }).join(' ');
   }
@@ -599,31 +487,38 @@
   }
 
   // ---------- eigen apparaten (besluit 55, 63) ----------
-  // apparaat = { id, naam, uren (duur, per kwartier), kwh (per beurt), stap (uitstelstap op het apparaat, in uren) }
+  // apparaat = { id, naam, uren (duur, per kwartier), kwh (per beurt), stap (uitstelstap op het apparaat, in uren),
+  //              maxUitstel (hoogstens zoveel uur uitstel) }
 
   const standaardApparaten = () => APPARATEN_STANDAARD.map((a) => Object.assign({}, a));
   const geldigeStap = (stap) => (UITSTEL_STAPPEN.indexOf(Number(stap)) >= 0 ? Number(stap) : 1);
-  const geldigMaxUitstel = (uren) =>
-    (MAX_UITSTEL_KEUZES.indexOf(Number(uren)) >= 0 ? Number(uren) : MAX_UITSTEL_STANDAARD);
-  const geldigeHorizon = (dagen) =>
-    (HORIZON_KEUZES.indexOf(Number(dagen)) >= 0 ? Number(dagen) : HORIZON_STANDAARD);
-  const geldigeSoort = (soort) => (soort === 'laden' ? 'laden' : 'start');
+  // een oude instelling van 16 of 24 uur wordt 12 uur (besluit 85)
+  function geldigMaxUitstel(uren) {
+    const aantal = Number(uren);
+    if (aantal > MAX_UITSTEL_UREN) return MAX_UITSTEL_UREN;
+    return MAX_UITSTEL_KEUZES.indexOf(aantal) >= 0 ? aantal : MAX_UITSTEL_STANDAARD;
+  }
 
-  function leesApparaten() {
+  // Wat er bewaard is, zoals het er staat. Een oude lijst kan nog laadapparaten bevatten (soort 'laden',
+  // besluit 73): die zijn nu auto's en staan in hun eigen lijst.
+  function leesBewaardeApparaten() {
     try {
       const bewaard = lees(APPARATEN_SLEUTEL);
-      if (!bewaard) return standaardApparaten();
-      return JSON.parse(bewaard).filter((a) => a && a.uren > 0).map((a, i) => ({
-        id: String(a.id || `app${i}`),
-        naam: String(a.naam || 'Apparaat'),
-        uren: Math.min(MAX_DUUR_UREN, Number(a.uren)),
-        kwh: a.kwh > 0 ? Number(a.kwh) : 1,
-        stap: geldigeStap(a.stap),
-        maxUitstel: geldigMaxUitstel(a.maxUitstel),
-        soort: geldigeSoort(a.soort),
-        horizon: geldigeHorizon(a.horizon),
-      }));
-    } catch (e) { return standaardApparaten(); }
+      const lijst = bewaard ? JSON.parse(bewaard) : null;
+      return Array.isArray(lijst) ? lijst.filter((a) => a && a.uren > 0) : null;
+    } catch (e) { return null; }
+  }
+  function leesApparaten() {
+    const bewaard = leesBewaardeApparaten();
+    if (!bewaard) return standaardApparaten();
+    return bewaard.filter((a) => a.soort !== 'laden').map((a, i) => ({
+      id: String(a.id || `app${i}`),
+      naam: String(a.naam || 'Apparaat'),
+      uren: Math.min(MAX_DUUR_UREN, Number(a.uren)),
+      kwh: a.kwh > 0 ? Number(a.kwh) : 1,
+      stap: geldigeStap(a.stap),
+      maxUitstel: geldigMaxUitstel(a.maxUitstel),
+    }));
   }
   function bewaarApparaten(lijst) { bewaar(APPARATEN_SLEUTEL, JSON.stringify(lijst)); }
 
@@ -634,26 +529,17 @@
       .map((stap) => optieHtml(stap, UITSTEL_LABELS[stap], Math.abs((a.stap || 1) - stap) < 1e-9)).join('');
     const maxKeuzes = MAX_UITSTEL_KEUZES
       .map((uren) => optieHtml(uren, `${uren} uur`, geldigMaxUitstel(a.maxUitstel) === uren)).join('');
-    const laden = a.soort === 'laden';
-    const soorten = optieHtml('start', 'Vandaag starten', !laden) + optieHtml('laden', 'Laden deze week', laden);
-    const horizonKeuzes = HORIZON_KEUZES
-      .map((dagen) => optieHtml(dagen, `${dagen} dagen`, geldigeHorizon(a.horizon) === dagen)).join('');
-    // een laadapparaat heeft een horizon in dagen, een startapparaat een uitstelstap en een grens in uren
-    const planning = laden
-      ? `<label>Vooruitkijken<select name="horizon">${horizonKeuzes}</select></label>`
-      : `<label>Uitstelstap<select name="stap">${stappen}</select></label>` +
-        `<label>Hoogstens uitstel<select name="max">${maxKeuzes}</select></label>`;
     return [
-      `<div class="app-rij${laden ? ' laden' : ''}" data-i="${i}">`,
-      `<label>Apparaat<input type="text" name="naam" value="${esc(a.naam)}" maxlength="30"`,
+      `<div class="app-rij" data-i="${i}">`,
+      `<label class="breed">Apparaat<input type="text" name="naam" value="${esc(a.naam)}" maxlength="30"`,
       ' placeholder="bijv. vaatwasser"></label>',
       `<label>Uren<input type="number" name="uren" value="${duur.uren}" step="1" min="0" max="24"`,
       ' inputmode="numeric"></label>',
       `<label>Minuten<select name="min">${minuten}</select></label>`,
       `<label>Verbruik (kWh)<input type="number" name="kwh" value="${a.kwh}" step="0.1" min="0.1"`,
       ' inputmode="decimal"></label>',
-      `<label>Soort<select name="soort">${soorten}</select></label>`,
-      planning,
+      `<label>Uitstelstap<select name="stap">${stappen}</select></label>`,
+      `<label>Hoogstens uitstel<select name="max">${maxKeuzes}</select></label>`,
       `<button type="button" class="weg" aria-label="${esc(a.naam)} verwijderen" title="Verwijderen">×</button>`,
       '</div>',
     ].join('');
@@ -685,11 +571,8 @@
         naam: veld('naam').value.trim() || 'Apparaat',
         uren: uren,
         kwh: kwh >= 0.1 ? kwh : (vorige.kwh || 1),
-        // de velden die bij de andere soort horen staan niet in de rij: die houden hun vorige waarde
-        stap: veld('stap') ? geldigeStap(parseFloat(veld('stap').value)) : geldigeStap(vorige.stap),
-        maxUitstel: veld('max') ? geldigMaxUitstel(parseFloat(veld('max').value)) : geldigMaxUitstel(vorige.maxUitstel),
-        soort: geldigeSoort(veld('soort').value),
-        horizon: veld('horizon') ? geldigeHorizon(parseFloat(veld('horizon').value)) : geldigeHorizon(vorige.horizon),
+        stap: geldigeStap(parseFloat(veld('stap').value)),
+        maxUitstel: geldigMaxUitstel(parseFloat(veld('max').value)),
       };
     }
     function bewaarEnMeld() {
@@ -710,7 +593,7 @@
         bewaarEnMeld();
       } else if (ev.target.matches('.toevoegen')) {
         // de nieuwe rij wordt pas bewaard als er iets in is ingevuld
-        lijst.push({ id: `app${Date.now()}`, naam: '', uren: 1, kwh: 1, soort: 'start' });
+        lijst.push({ id: `app${Date.now()}`, naam: '', uren: 1, kwh: 1 });
         teken();
         const naamVeld = container.querySelector('.app-rij:last-of-type [name=naam]');
         if (naamVeld) naamVeld.focus();
@@ -720,84 +603,126 @@
     return lijst;
   }
 
-  // ---------- de auto: laadvermogen en hoeveelheid (besluit 32, 63) ----------
-  // instellingen = { kw, kwh, horizon } (kw en kwh een getal of null; horizon in dagen), of null als er niets is
-  // ingevuld
+  // ---------- auto's: hoeveel bijladen, hoe snel, en tussen welke tijden (besluit 85) ----------
+  // auto = { id, naam, kwh (bij te laden), kw (laadvermogen), vanaf (uur van de dag waarop de auto aan de lader
+  //          gaat), klaar (uur van de dag waarop de auto klaar moet zijn: 8 of 18) }
+  // Zo vult iemand het ook in bij een leverancier die slim laadt: "klaar om 08:00". Met 18:00 tellen de uren
+  // overdag mee. "Klaar om" staat niet in het formulier maar als schakelaar bij de auto op de pagina.
 
-  const positief = (x) => (x > 0 ? x : null);
-  const volledig = (inst) => !!inst && inst.kw > 0 && inst.kwh > 0;
+  const UREN_VAN_DE_DAG = Array.from({ length: 24 }, (_, uur) => uur);
+  const geldigUur = (x, standaard) => (typeof x === 'number' && x >= 0 && x < 24 ? Math.floor(x) : standaard);
 
-  function leesLaadinstellingen() {
+  function netAuto(a, i) {
+    return {
+      id: String(a.id || `auto${i}`),
+      naam: String(a.naam || 'Auto'),
+      kwh: a.kwh > 0 ? Number(a.kwh) : LAAD_STANDAARD_KWH,
+      kw: a.kw > 0 ? Number(a.kw) : LAAD_STANDAARD_KW,
+      vanaf: geldigUur(a.vanaf, LAAD_STANDAARD_VANAF),
+      klaar: LAAD_KLAAR_KEUZES.indexOf(a.klaar) >= 0 ? a.klaar : LAAD_KLAAR_KEUZES[0],
+    };
+  }
+  // De eerste keer: de auto uit de oude instelling (stroomprijs-laden-v1) en de laadapparaten uit de oude
+  // apparatenlijst worden auto's, zodat niemand opnieuw hoeft in te vullen. Een laadapparaat had een duur en een
+  // verbruik; het laadvermogen is het een gedeeld door het ander.
+  function autosUitOudeInstellingen() {
+    let oud = null;
+    try { oud = JSON.parse(lees(LADEN_SLEUTEL) || 'null'); } catch (e) { /* onleesbaar: de standaard */ }
+    const lijst = [netAuto({ id: 'auto', naam: 'Auto', kwh: oud && oud.kwh, kw: oud && oud.kw }, 0)];
+    (leesBewaardeApparaten() || []).filter((a) => a.soort === 'laden').forEach((a, i) => {
+      const kwh = a.kwh > 0 ? Number(a.kwh) : LAAD_STANDAARD_KWH;
+      lijst.push(netAuto({ id: a.id, naam: a.naam, kwh: kwh, kw: Math.round((kwh / a.uren) * 10) / 10 }, i + 1));
+    });
+    return lijst;
+  }
+  // geeft { lijst, nieuw }: nieuw is true als er nog geen eigen lijst met auto's bewaard was
+  function leesAutos() {
     try {
-      const bewaard = lees(LADEN_SLEUTEL);
-      if (!bewaard) return null;
-      const inst = JSON.parse(bewaard);
-      return { kw: positief(inst.kw), kwh: positief(inst.kwh), horizon: geldigeHorizon(inst.horizon) };
-    } catch (e) { return null; }
+      const bewaard = lees(AUTOS_SLEUTEL);
+      const lijst = bewaard ? JSON.parse(bewaard) : null;
+      if (Array.isArray(lijst)) return { lijst: lijst.filter((a) => a).map(netAuto), nieuw: false };
+    } catch (e) { /* onleesbaar: opnieuw opbouwen */ }
+    return { lijst: autosUitOudeInstellingen(), nieuw: true };
   }
-  function bewaarLaadinstellingen(inst) {
-    bewaar(LADEN_SLEUTEL, inst ? JSON.stringify(inst) : null);
-  }
-  // Lengte van het laadblok in uren: kWh / kW, naar boven afgerond op een kwartier, minstens een kwartier en
-  // hoogstens een dag. Zonder volledige instellingen 3 uur.
-  function laadBlokUren(inst) {
-    if (!volledig(inst)) return LAAD_STANDAARD_UREN;
-    const kwartieren = Math.ceil(inst.kwh / inst.kw * 4 - 1e-9);
-    return Math.min(MAX_DUUR_UREN, Math.max(KWARTIER, kwartieren * KWARTIER));
-  }
-  function laadKwh(inst) { return inst && inst.kwh > 0 ? inst.kwh : LAAD_STANDAARD_KWH; }
-  function laadUitleg(inst) {
-    if (volledig(inst)) {
-      return `${fmtKort(inst.kwh)} kWh bij ${fmtKort(inst.kw)} kW: laden duurt ${duurTekst(laadBlokUren(inst))} ` +
-        '(afgerond op een kwartier).';
-    }
-    return `Standaard: ${LAAD_STANDAARD_KWH} kWh in een blok van ${LAAD_STANDAARD_UREN} uur. ` +
-      'Vul laadsnelheid en hoeveelheid in voor uw eigen laadbeurt.';
+  function bewaarAutos(lijst) { bewaar(AUTOS_SLEUTEL, JSON.stringify(lijst)); }
+  // hoe lang laden duurt, in uren (hoogstens een etmaal)
+  function laadUren(auto) { return Math.min(MAX_DUUR_UREN, auto.kwh / auto.kw); }
+
+  function autoRijHtml(a, i) {
+    const uurKeuzes = (gekozen) => UREN_VAN_DE_DAG.map((uur) => optieHtml(uur, fmtUur(uur), uur === gekozen)).join('');
+    return [
+      `<div class="app-rij" data-i="${i}">`,
+      `<label class="breed">Auto<input type="text" name="naam" value="${esc(a.naam)}" maxlength="30"></label>`,
+      `<label>Bijladen (kWh)<input type="number" name="kwh" value="${a.kwh}" step="1" min="1"`,
+      ' inputmode="decimal"></label>',
+      `<label>Laadvermogen (kW)<input type="number" name="kw" value="${a.kw}" step="0.1" min="0.5"`,
+      ' inputmode="decimal"></label>',
+      `<label>Aan de lader vanaf<select name="vanaf">${uurKeuzes(a.vanaf)}</select></label>`,
+      `<button type="button" class="weg" aria-label="${esc(a.naam)} verwijderen" title="Verwijderen">×</button>`,
+      `<p class="rij-noot">Laden duurt ${duurTekst(Math.ceil(laadUren(a) * 4 - 1e-9) / 4)}.</p>`,
+      '</div>',
+    ].join('');
   }
 
-  // formulier met select[name=kw] (met de optie "anders"), input[name=kw-anders] in een .kw-anders,
-  // input[name=kwh], select[name=horizon] (dagen vooruit) en een element .laad-uitleg
-  function koppelLaadinstellingen(formulier, bijWijziging) {
-    const kwKeuze = formulier.querySelector('[name=kw]');
-    const kwAnders = formulier.querySelector('[name=kw-anders]');
-    const kwhVeld = formulier.querySelector('[name=kwh]');
-    const horizonKeuze = formulier.querySelector('[name=horizon]');
-    const uitleg = formulier.querySelector('.laad-uitleg');
+  // Tekent in `container` de lijst met auto's en een knop "Auto toevoegen". Geeft { lijst, zetKlaar(id, uur) }
+  // terug: de lijst van dit moment, en de functie waarmee de pagina "klaar om" van een auto verzet.
+  function koppelAutos(container, bijWijziging) {
+    const gelezen = leesAutos();
+    let lijst = gelezen.lijst;
+    // meteen vastleggen wat uit de oude instellingen is overgenomen: de apparatenlijst wordt hierna zonder
+    // laadapparaten bewaard
+    if (gelezen.nieuw) bewaarAutos(lijst);
 
-    const bewaard = leesLaadinstellingen();
-    if (bewaard && bewaard.kw) {
-      const keuze = LAAD_KEUZES_KW.find((kw) => Math.abs(kw - bewaard.kw) < 0.01);
-      if (keuze !== undefined) kwKeuze.value = String(keuze);
-      else { kwKeuze.value = 'anders'; kwAnders.value = bewaard.kw; }
+    function teken() {
+      container.innerHTML = lijst.map(autoRijHtml).join('') +
+        '<button type="button" class="toevoegen">+ Auto toevoegen</button>';
     }
-    if (bewaard && bewaard.kwh) kwhVeld.value = bewaard.kwh;
-    if (horizonKeuze) {
-      horizonKeuze.innerHTML = HORIZON_KEUZES.map((dagen) => optieHtml(dagen, `${dagen} dagen`, false)).join('');
-      horizonKeuze.value = String(geldigeHorizon(bewaard && bewaard.horizon));
+    function leesRij(rij, i) {
+      const vorige = lijst[i] || {};
+      const veld = (naam) => rij.querySelector(`[name=${naam}]`);
+      const kwh = leesGetal(veld('kwh')), kw = leesGetal(veld('kw'));
+      return netAuto({
+        id: vorige.id || `auto${Date.now()}${i}`,
+        naam: veld('naam').value.trim() || 'Auto',
+        kwh: kwh > 0 ? kwh : vorige.kwh,
+        kw: kw > 0 ? kw : vorige.kw,
+        vanaf: parseInt(veld('vanaf').value, 10),
+        klaar: vorige.klaar,
+      }, i);
+    }
+    function bewaarEnMeld() {
+      bewaarAutos(lijst);
+      bijWijziging(lijst);
     }
 
-    function huidig() {
-      const kw = positief(leesGetal(kwKeuze.value === 'anders' ? kwAnders : kwKeuze));
-      const kwh = positief(leesGetal(kwhVeld));
-      const horizon = geldigeHorizon(horizonKeuze && horizonKeuze.value);
-      return kw || kwh || horizon !== HORIZON_STANDAARD ? { kw: kw, kwh: kwh, horizon: horizon } : null;
-    }
-    function toonAndersVeld() { (kwAnders.closest('.kw-anders') || kwAnders).hidden = kwKeuze.value !== 'anders'; }
-    function toonUitleg() { if (uitleg) uitleg.textContent = laadUitleg(huidig()); }
-    function toepassen() {
-      const inst = huidig();
-      bewaarLaadinstellingen(inst);
-      toonUitleg();
-      bijWijziging(inst);
-    }
-    kwKeuze.addEventListener('change', () => { toonAndersVeld(); toepassen(); });
-    kwAnders.addEventListener('change', toepassen);
-    kwhVeld.addEventListener('change', toepassen);
-    if (horizonKeuze) horizonKeuze.addEventListener('change', toepassen);
-    formulier.addEventListener('submit', (ev) => { ev.preventDefault(); toepassen(); });
-    toonAndersVeld();
-    toonUitleg();
-    return huidig();
+    container.addEventListener('change', (ev) => {
+      if (!ev.target.matches('input, select')) return;
+      lijst = Array.from(container.querySelectorAll('.app-rij')).map(leesRij);
+      bewaarEnMeld();
+      teken();
+    });
+    container.addEventListener('click', (ev) => {
+      if (ev.target.matches('.weg')) {
+        lijst.splice(parseInt(ev.target.closest('.app-rij').dataset.i, 10), 1);
+        teken();
+        bewaarEnMeld();
+      } else if (ev.target.matches('.toevoegen')) {
+        // een nieuwe auto staat er meteen, met de standaardwaarden en een eigen naam
+        lijst.push(netAuto({ id: `auto${Date.now()}`, naam: lijst.length ? `Auto ${lijst.length + 1}` : 'Auto' }, lijst.length));
+        teken();
+        bewaarEnMeld();
+        const naamVeld = container.querySelector('.app-rij:last-of-type [name=naam]');
+        if (naamVeld) { naamVeld.focus(); naamVeld.select(); }
+      }
+    });
+    teken();
+    return {
+      lijst: lijst,
+      zetKlaar: (id, uur) => {
+        lijst = lijst.map((a, i) => (a.id === id ? netAuto(Object.assign({}, a, { klaar: uur }), i) : a));
+        bewaarEnMeld();
+      },
+    };
   }
 
   // ---------- prijsstand, leverancier en inkoopvergoeding (besluit 35, 36) ----------
@@ -938,7 +863,7 @@
   const GRAFIEK_KLEUREN = {   // CSS-variabele op het canvas -> terugval als die ontbreekt
     tekst: ['--g-tekst', '#333'], zacht: ['--g-zacht', '#777'], raster: ['--g-raster', '#e5e5e5'],
     lijn: ['--g-lijn', '#17335c'], bekend: ['--g-bekend', '#17335c'], band: ['--g-band', '#17335c'],
-    nu: ['--g-nu', '#d9480f'], vlak: ['--g-vlak', '#ffffff'],
+    nu: ['--g-nu', '#d9480f'], vlak: ['--g-vlak', '#ffffff'], laden: ['--g-laden', '#16a34a'],
   };
   const GRAFIEK_FONT = 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // hoe stevig een verwachte dag getekend wordt, per betrouwbaarheid (besluit 71): dekking van lijn en band, lijndikte
@@ -980,8 +905,10 @@
   }
 
   /*
-   * tekenGrafiek(canvas, model, opties) -> { teken(), update(model) }
+   * tekenGrafiek(canvas, model, opties) -> { teken(), update(model), markeer(blokken) }
    * opties: { maxDagen, hoogte, compact }
+   * markeer([{ start, eind }]) kleurt die uren groen over de volle hoogte: de gekozen laaduren (besluit 85). De
+   * tijden zijn uren vanaf het begin van de eerste dag.
    *
    * Alle dagen naast elkaar op één tijdas, allemaal per uur (besluit 71): een bekende dag als gevuld vlak onder
    * een trapjeslijn (per kwartier als dat gekozen is), een verwachte dag als band (P10-P90) met een gestreepte
@@ -992,6 +919,7 @@
     let dagen, totaalUren;
     let hoverX = null;         // x-positie van muis of vinger op het canvas, of null
     let arcering = null;       // { kleur, patroon }: de arcering van de netspits, één keer gemaakt per kleur
+    let markering = [];        // [{ start, eind }]: de gekozen laaduren
 
     function zetModel(nieuw) {
       model = nieuw;
@@ -1043,6 +971,7 @@
         y: (prijs) => marge.boven + vlakHoog - ((prijs - ymin) / (ymax - ymin)) * vlakHoog,
       };
       tekenAssen(t, stap, ymax);
+      tekenMarkering(t);
       let eersteUur = 0;   // het uur op de tijdas waarop deze dag begint
       dagen.forEach((dag) => {
         tekenDag(t, dag, eersteUur);
@@ -1073,6 +1002,17 @@
       ctx.textAlign = 'center'; ctx.fillStyle = t.kleur.zacht;
       ctx.fillText('ct/kWh', 0, 0);
       ctx.restore();
+    }
+
+    // de gekozen laaduren: een groen vlak over de volle hoogte, minstens drie pixels breed
+    function tekenMarkering(t) {
+      const ctx = t.ctx;
+      ctx.fillStyle = t.kleur.laden; ctx.globalAlpha = 0.25;
+      markering.forEach((blok) => {
+        const x0 = Math.max(t.links, t.x(blok.start)), x1 = Math.min(t.rechts, t.x(blok.eind));
+        if (x1 > x0) ctx.fillRect(x0, t.boven, Math.max(3, x1 - x0), t.vlakHoog);
+      });
+      ctx.globalAlpha = 1;
     }
 
     function tekenDag(t, dag, eersteUur) {
@@ -1271,12 +1211,16 @@
 
     zetModel(model);
     teken();
-    return { teken: teken, update: (nieuw) => { zetModel(nieuw); teken(); } };
+    return {
+      teken: teken,
+      update: (nieuw) => { zetModel(nieuw); teken(); },
+      markeer: (blokken) => { markering = blokken || []; teken(); },
+    };
   }
 
   // ==================== 9. advies ====================
 
-  // ---------- "start je apparaat om ...": hoeveel uitstel stel ik nu in? (besluit 58) ----------
+  // ---------- "start om ...": hoeveel uitstel stel ik nu in? (besluit 58, 85) ----------
 
   // Gemiddelde prijs van het blok [start, start + duur] op een tijdlijn van kwartieren, gewogen naar de tijd die
   // elk kwartier in het blok valt. null als het blok (deels) buiten de tijdlijn valt.
@@ -1293,51 +1237,57 @@
     if (gedekt < duur - 1e-6) return null;
     return { start: start, eind: eind, p50: som / gedekt, bekend: bekend };
   }
+  // de dagen van het model achter elkaar, per kwartier; `abs` is de tijd in uren vanaf middernacht van de eerste dag
+  function tijdlijnVan(dagen) {
+    const uit = [];
+    dagen.forEach((dag, i) => {
+      naarKwartieren(dag.reeks).forEach((u) => { uit.push(Object.assign({}, u, { abs: i * 24 + u.uur })); });
+    });
+    return uit;
+  }
+  // het moment 'nu' op die tijdlijn; bij een verouderde voorspelling (de eerste dag is niet vandaag) het begin
+  function nuOpTijdlijn(model, nuUur) {
+    return model.dagen[0].datum === vandaagLokaal() ? nuUur : 0;
+  }
 
   /*
    * startAdvies(model, apparaat, nuUur) -> advies of null
    *
    * De vraag is: "de machine is vol, zet ik hem nu aan of loont een paar uur wachten?" (besluit 67). Kandidaten
-   * zijn de starttijden nu + k x stap (de uitstelstap van het apparaat). Binnen de grens die de gebruiker per
-   * apparaat toestaat (`maxUitstel`, standaard 8 uur) wint niet het allergoedkoopste moment, maar het eerste dat
-   * bijna zo goedkoop is (binnen 2 cent of 5%): eerder is beter. Scheelt dat met meteen starten minder dan
-   * 5 cent of 10%, dan is het advies 'nu'.
-   * Is de eerste getoonde dag niet vandaag (een verouderde voorspelling), dan geldt die dag als venster vanaf 0:00.
+   * zijn de starttijden nu + k x stap (de uitstelstap van het apparaat), tot 12 uur vooruit en alleen zolang het
+   * hele programma in uren met een vaste prijs valt (besluit 85): het advies is een som, geen verwachting. Voor de
+   * publicatie van de prijzen voor de volgende dag (rond 13:30) kijkt het dus tot middernacht.
+   * Binnen de grens die de gebruiker per apparaat toestaat (`maxUitstel`, standaard 8 uur) wint niet het
+   * allergoedkoopste moment, maar het eerste dat bijna zo goedkoop is (binnen 2 cent of 5%): eerder is beter.
+   * Scheelt dat met meteen starten minder dan 5 cent of 10%, dan is het advies 'nu'.
    *
    *   uitstel     uren uitstel om in te stellen (0 = nu)
-   *   beste       { start, eind (uur van de dag), dagStart, euro, bekend, isNu }
+   *   beste       { start, eind (uur van de dag), euro, isNu }
    *   nu          { euro }: wat meteen starten kost
    *   winst       euro goedkoper dan meteen starten (0 bij 'nu')
    *   maxWinst    wat wachten binnen de grens hooguit oplevert
    *   maxUitstel  de grens in uren
-   *   verder      { uitstel, start, eind, dagStart, euro, winst, bekend }: een moment na de grens maar binnen
-   *               24 uur dat duidelijk goedkoper is (10 cent en 20%), of null
-   *   andereDag   { dag, blok, euro, winst }: een latere dag die duidelijk goedkoper is, of null
+   *   verder      { uitstel, start, eind, euro, winst }: een moment na de grens maar binnen 12 uur dat duidelijk
+   *               goedkoper is (10 cent en 20%), of null
+   *   ingekort    true als de vaste prijzen eerder ophouden dan de grens
    */
   function startAdvies(model, apparaat, nuUur) {
-    const [vandaag, morgen] = model.dagen;
-    if (!vandaag) return null;
-    // tijd in uren vanaf middernacht van de eerste dag: morgen 02:00 is 26
-    const opTijdlijn = (dag, verschuiving) =>
-      naarKwartieren(dag.reeks).map((u) => Object.assign({}, u, { abs: u.uur + verschuiving }));
-    const tijdlijn = opTijdlijn(vandaag, 0).concat(morgen ? opTijdlijn(morgen, 24) : []);
-    const dagVan = (tijd) => (tijd >= 24 && morgen ? morgen : vandaag);
+    if (!model.dagen.length) return null;
+    const tijdlijn = tijdlijnVan(model.dagen.slice(0, 2));
     const euro = (ct) => (ct * apparaat.kwh) / 100;
 
-    // alle starttijden tot 24 uur vooruit, zolang het blok binnen de bekende reeks valt
     const stap = apparaat.stap || 1;
-    const eersteStart = vandaag.datum === vandaagLokaal() ? nuUur : 0;
+    const eersteStart = nuOpTijdlijn(model, nuUur);
     const kandidaten = [];
     for (let k = 0; k * stap <= MAX_UITSTEL_UREN + 1e-9; k++) {
       const blok = blokOpTijd(tijdlijn, eersteStart + k * stap, apparaat.uren);
-      if (!blok) break;
+      if (!blok || !blok.bekend) break;
       blok.uitstel = k * stap;
       blok.euro = euro(blok.p50);
       kandidaten.push(blok);
     }
     if (!kandidaten.length) return null;
     const goedkoopste = (lijst) => lijst.reduce((beste, b) => (b.euro < beste.euro - 1e-9 ? b : beste));
-    const duidelijkMinder = (bedrag) => bedrag - Math.max(ANDERE_DAG_MIN_EURO, ANDERE_DAG_MIN_DEEL * Math.abs(bedrag));
 
     const maxUitstel = Math.min(MAX_UITSTEL_UREN, apparaat.maxUitstel || MAX_UITSTEL_STANDAARD);
     const meteen = kandidaten[0];
@@ -1351,10 +1301,7 @@
     let gekozen = meteen;
     if (meteen.euro - laagste.euro >= genoeg) gekozen = meteen.euro - eerste.euro >= genoeg ? eerste : laagste;
 
-    const alsMoment = (b) => ({
-      uitstel: b.uitstel, start: b.start % 24, eind: b.eind % 24, dagStart: dagVan(b.start),
-      euro: b.euro, bekend: b.bekend,
-    });
+    const alsMoment = (b) => ({ uitstel: b.uitstel, start: b.start % 24, eind: b.eind % 24, euro: b.euro });
     const advies = {
       uitstel: gekozen.uitstel,
       beste: Object.assign(alsMoment(gekozen), { isNu: gekozen.uitstel === 0 }),
@@ -1363,118 +1310,102 @@
       maxWinst: meteen.euro - laagste.euro,
       maxUitstel: maxUitstel,
       verder: null,
-      andereDag: null,
+      ingekort: kandidaten[kandidaten.length - 1].uitstel + stap <= maxUitstel + 1e-9,
     };
-    // na de grens maar binnen 24 uur: alleen noemen als het duidelijk goedkoper is
+    // na de grens maar binnen 12 uur: alleen noemen als het duidelijk goedkoper is
     const naGrens = kandidaten.filter((b) => b.uitstel > maxUitstel + 1e-9);
     if (naGrens.length) {
       const later = goedkoopste(naGrens);
-      if (later.euro < duidelijkMinder(gekozen.euro)) {
+      const duidelijkMinder = gekozen.euro - Math.max(ANDERE_DAG_MIN_EURO, ANDERE_DAG_MIN_DEEL * Math.abs(gekozen.euro));
+      if (later.euro < duidelijkMinder) {
         advies.verder = Object.assign(alsMoment(later), { winst: gekozen.euro - later.euro });
       }
     }
-    // een latere dag (na morgen, niet 'onzeker') die minstens 20% en 10 cent goedkoper is
-    const drempel = duidelijkMinder(gekozen.euro);
-    model.dagen.slice(morgen ? 2 : 1).forEach((dag) => {
-      const blok = dag.blokken[apparaat.id];
-      if (!blok || dag.betrouwbaarheid.code === 'laag') return;
-      const kosten = euro(blok.p50);
-      if (kosten < drempel && (!advies.andereDag || kosten < advies.andereDag.euro)) {
-        advies.andereDag = { dag: dag, blok: blok, euro: kosten, winst: gekozen.euro - kosten };
-      }
-    });
     return advies;
   }
 
-  // ---------- "laden deze week": welke dag en welk blok (besluit 73) ----------
+  // ---------- "klaar op welke dag?": wat kost de laadbeurt van een auto, per dag (besluit 85) ----------
 
-  // De apparaten die per week geladen worden: de auto (uit de laadinstellingen) en eigen apparaten van de soort
-  // 'laden'. Bij de auto raden we wachten alleen aan als het ook in het slechte geval loont (streng).
-  function laadApparaten(model) {
-    const auto = {
-      id: 'auto', naam: 'Auto', auto: true, streng: true,
-      kwh: model.laad.kwh, uren: model.laad.uren, horizon: model.laad.horizon,
+  // De laadbeurt in het venster [start, klaar] (uren op de tijdlijn): de goedkoopste kwartieren tot `nodig` uren
+  // vol zijn, zoals een leverancier die slim laadt het ook doet. De uren hoeven niet aaneen te liggen.
+  // null als de tijdlijn het venster niet helemaal dekt.
+  function laadBeurt(tijdlijn, start, klaar, nodig, kw) {
+    const stukken = [];
+    let gedekt = 0, zeker = true;
+    tijdlijn.forEach((u) => {
+      const van = Math.max(start, u.abs), tot = Math.min(klaar, u.abs + u.duur);
+      if (tot - van <= 1e-9) return;
+      stukken.push({ van: van, tot: tot, u: u });
+      gedekt += tot - van;
+      zeker = zeker && u.bekend;
+    });
+    if (!stukken.length || gedekt < klaar - start - 1e-6) return null;
+
+    const opPrijs = stukken.slice().sort((a, b) => (a.u.p50 - b.u.p50) || (a.van - b.van));
+    let rest = nodig, euro = 0, euroLaag = 0, euroHoog = 0;
+    const gekozen = [];
+    opPrijs.forEach((stuk) => {
+      if (rest <= 1e-9) return;
+      const duur = Math.min(stuk.tot - stuk.van, rest);
+      const kwh = kw * duur;
+      euro += (stuk.u.p50 * kwh) / 100;
+      euroLaag += (stuk.u.p10 * kwh) / 100;
+      euroHoog += (stuk.u.p90 * kwh) / 100;
+      gekozen.push({ start: stuk.van, eind: stuk.van + duur });
+      rest -= duur;
+    });
+    // aansluitende kwartieren samen tot blokken
+    gekozen.sort((a, b) => a.start - b.start);
+    const blokken = [];
+    gekozen.forEach((stuk) => {
+      const vorige = blokken[blokken.length - 1];
+      if (vorige && stuk.start <= vorige.eind + 1e-9) vorige.eind = Math.max(vorige.eind, stuk.eind);
+      else blokken.push({ start: stuk.start, eind: stuk.eind });
+    });
+    // van en tot op hele kwartieren, voor de tekst: het laatste kwartier wordt zelden helemaal gebruikt
+    return {
+      klaar: klaar, blokken: blokken,
+      van: Math.floor(blokken[0].start * 4 + 1e-6) / 4, tot: Math.ceil(blokken[blokken.length - 1].eind * 4 - 1e-6) / 4,
+      euro: euro, euroLaag: euroLaag, euroHoog: euroHoog, zeker: zeker, teKort: rest > 1e-6,
     };
-    const eigen = model.apparaten.filter((a) => a.soort === 'laden').map((a) => ({
-      id: a.id, naam: a.naam, auto: false, streng: false, kwh: a.kwh, uren: a.uren, horizon: geldigeHorizon(a.horizon),
-    }));
-    return [auto].concat(eigen);
-  }
-
-  // het goedkoopste blok van een dag voor dit apparaat; van vandaag tellen alleen de uren die nog komen
-  function weekBlok(model, apparaat, dag, nuUur) {
-    const kant = apparaat.auto ? dag.laden : dag.blokken[apparaat.id];
-    if (dag.datum !== vandaagLokaal()) return kant;
-    const volgende = model.dagen[dag.index + 1];
-    const stap = dag.perKwartier ? KWARTIER : 1;
-    const straks = dag.reeks.filter((u) => u.uur >= nuUur - 1e-9);
-    let vervolg = [];
-    if (apparaat.auto && volgende) vervolg = stap === 1 ? volgende.uren : naarKwartieren(volgende.reeks);
-    const blok = goedkoopsteBlok(straks, Math.max(1, Math.round(apparaat.uren / stap)), vervolg);
-    if (blok && blok.volgendeDag && volgende) blok.eindDagNaam = dagNaam(volgende, false);
-    return blok;
   }
 
   /*
-   * weekAdvies(model, apparaat, nuUur) -> advies of null
+   * laadAdvies(model, auto, nuUur) -> advies of null
    *
-   * Per dag binnen de horizon het goedkoopste blok en wat de laadbeurt dan kost. Het advies vergelijkt de eerste
-   * mogelijkheid (vandaag, of anders de eerste dag) met de goedkoopste dag verderop.
+   * Voor de eerstvolgende drie dagen waarop de auto op tijd klaar kan zijn: wat de laadbeurt kost als de auto op
+   * die dag om `klaar` vol moet zijn. Het venster loopt van `vanaf` tot `klaar`; staat `klaar` niet later op de dag
+   * dan `vanaf`, dan begint het venster de dag ervoor (18:00 tot 07:00). Van het eerste venster tellen alleen de
+   * uren die nog komen.
    *
-   *   dagen     [{ dag, blok, euro, euroLaag, euroHoog, zeker, zwak }], een per dag binnen de horizon
-   *   gekozen   het element uit `dagen` dat het advies aanwijst
-   *   soort     'nu' (de eerste dag is de goedkoopste), 'gewoon' (scheelt te weinig), 'wacht' (wachten loont) of
-   *             'misschien' (loont waarschijnlijk, maar niet zeker; alleen bij de auto)
-   *   advies    de zin die erbij hoort
+   *   dagen        [{ dag (de dag waarop de auto klaar is), klaar, blokken [{ start, eind }], van, tot, euro,
+   *                   euroLaag, euroHoog, zeker (alle prijzen in het venster staan vast), zwak, teKort }]
+   *                tijden in uren vanaf middernacht van de eerste dag van het model
+   *   eerste       de eerste dag uit `dagen`
+   *   goedkoopste  de goedkoopste dag uit `dagen`
    */
-  function weekAdvies(model, apparaat, nuUur) {
-    const euro = (ct) => (ct * apparaat.kwh) / 100;
+  function laadAdvies(model, auto, nuUur) {
+    if (!model.dagen.length) return null;
+    const tijdlijn = tijdlijnVan(model.dagen);
+    const nu = nuOpTijdlijn(model, nuUur);
+    const venster = ((auto.klaar - auto.vanaf + 24) % 24) || 24;
+    const nodig = laadUren(auto);
     const dagen = [];
-    model.dagen.slice(0, apparaat.horizon).forEach((dag) => {
-      const blok = weekBlok(model, apparaat, dag, nuUur);
-      if (!blok) return;
-      dagen.push({
-        dag: dag, blok: blok, euro: euro(blok.p50), euroLaag: euro(blok.p10), euroHoog: euro(blok.p90),
-        zeker: blok.bekend, zwak: dag.betrouwbaarheid.code === 'laag',
-      });
-    });
+    for (let d = 0; d < model.dagen.length && dagen.length < LAAD_DAGEN; d++) {
+      const klaar = d * 24 + auto.klaar;
+      const start = Math.max(klaar - venster, nu);
+      // te laat voor deze dag: er is minder tijd over dan de laadbeurt (of het hele venster) vraagt
+      if (klaar - start < Math.min(nodig, venster) - 1e-9) continue;
+      const beurt = laadBeurt(tijdlijn, start, klaar, nodig, auto.kw);
+      if (!beurt) continue;
+      const dag = model.dagen[d];
+      dagen.push(Object.assign(beurt, { dag: dag, zwak: dag.betrouwbaarheid.code === 'laag' }));
+    }
     if (!dagen.length) return null;
-    const eerste = dagen[0];
-    const goedkoopste = dagen.reduce((beste, d) => (d.euro < beste.euro - 1e-9 ? d : beste));
-    const naam = (d) => dagNaam(d.dag, true);
-    const advies = { apparaat: apparaat, dagen: dagen, gekozen: eerste, goedkoopste: goedkoopste };
-
-    if (dagen.length === 1) {
-      advies.soort = 'nu';
-      advies.advies = `Geen verwachting verder vooruit. ${naam(eerste)} ${blokTijd(eerste.blok)} is het goedkoopste moment.`;
-      return advies;
-    }
-    if (goedkoopste === eerste) {
-      advies.soort = 'nu';
-      advies.advies = `Laad ${naam(eerste).toLowerCase()}: later wordt het niet goedkoper.`;
-      return advies;
-    }
-    const winst = eerste.euro - goedkoopste.euro;             // wat wachten naar verwachting oplevert
-    const winstSlecht = eerste.euro - goedkoopste.euroHoog;   // als de prijs later hoog uitvalt
-    const winstGoed = eerste.euro - goedkoopste.euroLaag;     // als de prijs later laag uitvalt
-    const drempel = apparaat.auto
-      ? LAAD_DREMPEL_EURO
-      : Math.max(WEEK_MIN_WINST_EURO, WEEK_MIN_WINST_DEEL * Math.abs(eerste.euro));
-    const later = naam(goedkoopste).toLowerCase();
-    if (winst < drempel) {
-      advies.soort = 'gewoon';
-      advies.advies = `Scheelt weinig: hooguit ${fmtEuro(winst)} met ${later}. Laad wanneer het uitkomt.`;
-    } else if (apparaat.streng && !goedkoopste.zeker && winstSlecht < drempel) {
-      advies.soort = 'misschien';
-      advies.advies = `Op ${later} waarschijnlijk ${fmtEuro(winst)} goedkoper, maar dat is niet zeker ` +
-        `(${plusMinEuro(winstGoed - winst, winst - winstSlecht)}). Laad nu alleen wat u nodig hebt.`;
-    } else {
-      advies.soort = 'wacht';
-      advies.gekozen = goedkoopste;
-      advies.advies = `Wacht tot ${later}: ${goedkoopste.zeker ? '' : 'waarschijnlijk '}${fmtEuro(winst)} goedkoper.`;
-    }
-    if (goedkoopste.zwak) advies.advies += ' Nog onzeker, kijk een dag later opnieuw.';
-    return advies;
+    return {
+      auto: auto, dagen: dagen, eerste: dagen[0],
+      goedkoopste: dagen.reduce((beste, d) => (d.euro < beste.euro - 1e-9 ? d : beste)),
+    };
   }
 
   // ==================== 10. gegevens ophalen ====================
@@ -1494,23 +1425,25 @@
       .catch(() => leeg);
   }
 
-  // Wat index.html gebruikt. Al het andere in dit bestand is intern.
+  // Wat index.html en uitleg.html gebruiken. Al het andere in dit bestand is intern.
   window.SP = {
     // opmaak
     fmt: fmt, fmtKort: fmtKort, fmtUur: fmtUur, fmtEuro: fmtEuro, duurTekst: duurTekst, plusMinEuro: plusMinEuro,
-    dagNaam: dagNaam, datumTekst: datumTekst, gegenereerdTekst: gegenereerdTekst, esc: esc,
+    dagNaam: dagNaam, weekdagNaam: (dag) => WEEKDAGEN[dag.weekdag], datumTekst: datumTekst,
+    gegenereerdTekst: gegenereerdTekst, esc: esc,
     // klok
     vandaagLokaal: vandaagLokaal, morgenLokaal: morgenLokaal, nuLokaalUur: nuLokaalUur,
     msTotMiddernacht: msTotMiddernacht,
     // model en zinnen
-    STOPLICHT: STOPLICHT, verwerk: verwerk, blokTijd: blokTijd, laadZin: laadZin, apparaatZin: apparaatZin,
-    bandZin: bandZin, betrouwbaarheidHtml: betrouwbaarheidHtml, stoplichtHtml: stoplichtHtml,
-    tariefUitlegTekst: tariefUitlegTekst,
+    STOPLICHT: STOPLICHT, verwerk: verwerk, bandZin: bandZin, tariefUitlegTekst: tariefUitlegTekst,
     // instellingen
-    koppelResolutie: koppelResolutie, koppelApparaten: koppelApparaten, koppelLaadinstellingen: koppelLaadinstellingen,
+    leesTarief: leesTarief, leesResolutie: leesResolutie, leesApparaten: leesApparaten,
+    koppelResolutie: koppelResolutie, koppelApparaten: koppelApparaten, koppelAutos: koppelAutos,
     koppelTarief: koppelTarief,
     // tabel, grafiek, advies
-    maakTabel: maakTabel, tekenGrafiek: tekenGrafiek, startAdvies: startAdvies, weekAdvies: weekAdvies, laadApparaten: laadApparaten,
+    maakTabel: maakTabel, tekenGrafiek: tekenGrafiek, startAdvies: startAdvies, laadAdvies: laadAdvies,
+    laadDrempelEuro: 0.5,   // onder dit verschil met de eerste dag zegt de pagina "scheelt weinig"
+    laadKlaarKeuzes: LAAD_KLAAR_KEUZES,
     // gegevens
     laadForecast: laadForecast, laadLeveranciers: laadLeveranciers,
   };

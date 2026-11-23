@@ -8,6 +8,9 @@
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- als snelkoppeling op het beginscherm van een telefoon (besluit 85) -->
+<link rel="manifest" href="/site.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Stroomprijs">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://stroomprijsvoorspeller.nl/">
 <meta property="og:title" content="Stroomprijsvoorspeller">
@@ -18,19 +21,21 @@
 <style>
   /* kleuren, licht en donker; de --g-kleuren zijn voor de grafiek, de --sl-kleuren voor het stoplicht */
   :root {
-    --achtergrond: #fbfbfa; --vlak: #f1f1ee; --tekst: #1c1c1a; --zacht: #63635e; --rand: #e2e2dd;
+    --achtergrond: #fbfbfa; --vlak: #f1f1ee; --kaart: #ffffff; --tekst: #1c1c1a; --zacht: #63635e; --rand: #e2e2dd;
     --hoofdkleur: #17335c; --hoofdkleur-licht: #dde5f0;
     --accent: var(--hoofdkleur); --accent-zacht: var(--hoofdkleur-licht);
+    --groen: #16a34a;
     --g-tekst: #1c1c1a; --g-zacht: #63635e; --g-raster: #e2e2dd; --g-lijn: var(--hoofdkleur); --g-bekend: var(--hoofdkleur);
-    --g-band: var(--hoofdkleur); --g-nu: #c2410c; --g-vlak: #fbfbfa;
+    --g-band: var(--hoofdkleur); --g-nu: #c2410c; --g-vlak: #fbfbfa; --g-laden: var(--groen);
     --sl-g-t: #0b6b2b; --sl-g-a: #cfeeda; --sl-m-t: #8a5300; --sl-m-a: #ffe7b8; --sl-d-t: #a3121f; --sl-d-a: #fbd3d7;
     color-scheme: light dark;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --achtergrond: #131315; --vlak: #1d1d20; --tekst: #e9e9e6; --zacht: #a4a49e; --rand: #2d2d31;
+      --achtergrond: #131315; --vlak: #1d1d20; --kaart: #1d1d20; --tekst: #e9e9e6; --zacht: #a4a49e; --rand: #2d2d31;
       /* lichtere variant van de hoofdkleur voor de donkere modus (besluit 79) */
       --hoofdkleur: #9db2d1; --hoofdkleur-licht: #223a5e;
+      --groen: #4ade80;
       --g-tekst: #e9e9e6; --g-zacht: #a4a49e; --g-raster: #2d2d31; --g-nu: #fb923c; --g-vlak: #1d1d20;
       --sl-g-t: #9fe8b8; --sl-g-a: #17472a; --sl-m-t: #ffd27d; --sl-m-a: #4a350c; --sl-d-t: #ffa3ad;
       --sl-d-a: #55181f;
@@ -44,11 +49,12 @@
     margin: 0; background: var(--achtergrond); color: var(--tekst);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   }
-  .wrap { max-width: 56rem; margin: 0 auto; padding: 0 1rem 3rem; }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 0 1rem 2.5rem; }
+  a { color: var(--accent); }
 
-  /* kop van de pagina, ververs-knop en meldingen */
+  /* kop van de pagina */
   header {
-    padding: 1.25rem 0 .5rem; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+    padding: 1.1rem 0 .3rem; display: flex; justify-content: space-between; align-items: baseline; gap: .5rem 1rem;
     flex-wrap: wrap;
   }
   header .naam { font-weight: 700; font-size: 1.15rem; }
@@ -59,13 +65,18 @@
   @media (prefers-color-scheme: dark) {
     .merk-logo [stroke="#17335c"] { stroke: var(--hoofdkleur); }
   }
-  header .bijgewerkt { font-size: .8rem; color: var(--zacht); }
-  header .ververs { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
-  .ververs-knop {
+  .kop-rechts { display: flex; align-items: center; gap: .75rem; font-size: .9rem; }
+  .knop {
     font: inherit; font-size: .85rem; padding: .35rem .85rem; border-radius: .4rem; border: 1px solid var(--rand);
     background: var(--vlak); color: var(--tekst); cursor: pointer;
   }
-  .ververs-knop:disabled { opacity: .6; cursor: wait; }
+  .knop:disabled { opacity: .6; cursor: wait; }
+  .knop[aria-expanded=true] { background: var(--hoofdkleur); border-color: var(--hoofdkleur); color: #fff; }
+  @media (prefers-color-scheme: dark) { .knop[aria-expanded=true] { color: #111; } }
+  .tekstknop {
+    font: inherit; font-size: .85rem; padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer;
+    text-decoration: underline;
+  }
   .ververs-paneel {
     font-size: .9rem; border: 1px solid var(--rand); border-radius: .5rem; padding: .6rem .85rem; margin: 0 0 .75rem;
     background: var(--vlak); line-height: 1.5;
@@ -78,332 +89,102 @@
     font: inherit; font-size: .85rem; padding: .25rem .7rem; border-radius: .4rem; border: 1px solid var(--rand);
     background: var(--achtergrond); color: var(--tekst); cursor: pointer; margin-left: .4rem;
   }
+  .opening { color: var(--zacht); font-size: .9rem; margin: 0 0 .5rem; }
   .melding {
-    font-size: .9rem; border-left: 3px solid var(--accent); padding: .4rem .75rem; margin: 0 0 .75rem;
-    color: var(--zacht);
+    font-size: .85rem; border-left: 3px solid var(--accent); padding: .3rem .7rem; margin: .5rem 0; color: var(--zacht);
   }
-  .melding.testversie { background: var(--accent-zacht); color: var(--tekst); }
-  .melding.testversie a { color: var(--accent); }
-  h1 { font-size: clamp(1.4rem, 4.5vw, 1.9rem); margin: .25rem 0 .25rem; font-weight: 700; letter-spacing: -0.01em; }
 
-  /* "Start je apparaat om ..." */
-  .start { margin: .25rem 0 1.25rem; }
-  /* de drie hoofdkoppen van de pagina even groot */
-  .start h2, .kosten h2, #week h2 { margin: 0; font-size: clamp(1.15rem, 3.4vw, 1.35rem); font-weight: 700; letter-spacing: -0.01em; }
-  .start-blokjes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
-  /* kop van een sectie met rechts een knop of schakelaar */
-  .sectiekop { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem 1rem; flex-wrap: wrap; }
-  .sectiekop .sub { margin: .1rem 0 .6rem; font-size: .9rem; }
-  .aanpas-knop {
-    font: inherit; font-size: .85rem; padding: .35rem .85rem; border-radius: .4rem; border: 1px solid var(--rand);
-    background: var(--vlak); color: var(--tekst); cursor: pointer;
+  /* de drie blokken: start om, laden, de week */
+  section, .laadblok { margin-top: 1.1rem; }
+  h2 { font-size: .9rem; font-weight: 600; color: var(--zacht); margin: 0 0 .4rem; }
+  .sectiekop { display: flex; justify-content: space-between; align-items: center; gap: .4rem 1rem; flex-wrap: wrap; margin-bottom: .4rem; }
+  .sectiekop h2 { margin: 0; }
+  .tegels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+  /* een knop met het antwoord erin: naam of dag, het tijdstip of bedrag groot, en een regel eronder */
+  .tegel {
+    font: inherit; display: flex; flex-direction: column; align-items: center; gap: .05rem; text-align: center;
+    background: var(--kaart); border: 1px solid var(--rand); border-radius: .75rem; padding: .55rem .3rem;
+    min-width: 0; color: inherit; cursor: pointer;
   }
-  .aanpas-knop[aria-expanded=true] { background: var(--hoofdkleur); border-color: var(--hoofdkleur); color: #fff; }
-  @media (prefers-color-scheme: dark) { .aanpas-knop[aria-expanded=true] { color: #111; } }
-  #instellingen-paneel h3 { font-size: 1rem; margin: 0 0 .2rem; }
-  #instellingen-paneel h3 + .paneel-uitleg { color: var(--zacht); font-size: .85rem; margin: 0 0 .5rem; }
-  #instellingen-paneel .apparaten-form { margin-bottom: 1.1rem; }
-  #week { margin-top: 2rem; }
-  .blokken-hint { font-size: .8rem; color: var(--zacht); margin: .6rem 0 .3rem; }
-  /* "Laden deze week": per laadapparaat het beste moment en de kosten per dag (besluit 73) */
-  .laadkaart { background: var(--vlak); border-radius: .75rem; padding: .7rem .85rem; margin: 0 0 .6rem; }
-  .laadkaart .lk-naam { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: baseline; font-size: .85rem; color: var(--zacht); }
-  .laadkaart .lk-naam b { color: var(--tekst); font-size: .95rem; }
-  .laadkaart .lk-naam a { color: var(--accent); }
-  .laadkaart .lk-moment { font-size: 1.15rem; font-weight: 700; margin: .15rem 0 .1rem; font-variant-numeric: tabular-nums; }
-  .laadkaart .lk-moment small { font-size: .8rem; font-weight: 400; color: var(--zacht); }
-  .lk-dagen { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.4rem, 1fr)); gap: .3rem; margin-top: .45rem; }
-  .lk-dag {
-    border: 1px solid var(--rand); border-radius: .45rem; padding: .25rem .2rem; text-align: center;
-    font-size: .72rem; color: var(--zacht); line-height: 1.3; background: var(--achtergrond);
+  .tegel .n {
+    font-size: .8rem; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .lk-dag b { display: block; font-size: .9rem; color: var(--tekst); font-variant-numeric: tabular-nums; }
-  .lk-dag.gekozen { border: 2px solid var(--accent); }
-  .lk-dag.zwak { opacity: .55; }
-  .laadkaart .advies { margin-top: .5rem; }
-  .start-blok {
-    display: flex; flex-direction: column; gap: .1rem; background: var(--vlak); border-radius: .75rem;
-    padding: .7rem .8rem; min-width: 0; color: inherit; text-decoration: none;
+  .tegel b {
+    font-size: clamp(1.2rem, 5.5vw, 1.6rem); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25;
+    white-space: nowrap;
   }
-  .start-blok .n {
-    font-size: .85rem; color: var(--zacht); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .start-blok .t {
-    font-size: clamp(1.4rem, 5vw, 1.9rem); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15;
-  }
-  .start-blok .t small { font-size: .8rem; font-weight: 500; color: var(--zacht); }
-  .start-blok .w, .start-blok .later { font-size: .78rem; color: var(--zacht); line-height: 1.3; }
-  .start-blok .later { color: var(--accent); }
-  @media (max-width: 560px) {
-    .start-blokjes { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); }
-  }
-  .sub { color: var(--zacht); margin: 0 0 1rem; }
-  @media (max-width: 359px) {
-    /* op de smalste telefoons past de openingstekst anders niet op drie regels (besluit 79) */
-    .opening { font-size: .9rem; }
-  }
-  h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; font-weight: 600; }
+  .tegel .w { font-size: .72rem; color: var(--zacht); line-height: 1.25; }
+  .tegel.loont b, .tegel.best b { color: var(--sl-g-t); }
+  /* de goedkoopste dag: groen omrand; de aangetikte knop: licht gekleurd */
+  .tegel.best { border: 2px solid var(--groen); padding: calc(.55rem - 1px) calc(.3rem - 1px); }
+  .tegel[aria-pressed=true], .tegel[aria-expanded=true] { background: var(--accent-zacht); }
+  .regel { font-size: .85rem; margin: .4rem 0 0; }
+  .mini { font-size: .75rem; color: var(--zacht); margin: .35rem 0 0; }
 
-  /* grafiek: legenda, schakelaars en "Mijn tarief" */
-  canvas { display: block; width: 100%; }
-  .legenda {
-    display: flex; flex-wrap: wrap; gap: .3rem .9rem; list-style: none; padding: 0; margin: .4rem 0 0;
-    font-size: .8rem; color: var(--zacht);
-  }
-  .legenda li { display: inline-flex; align-items: center; gap: .35em; }
-  .vak { display: inline-block; width: 1.1em; height: .7em; border-radius: 2px; }
-  .resolutie { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; margin: .6rem 0 0; }
-  .resolutie .noot { font-size: .8rem; color: var(--zacht); }
-  .resolutie-noot { font-size: .8rem; color: var(--zacht); margin: .3rem 0 0; }
-  .tarief-details { margin: .4rem 0 0; font-size: .9rem; }
-  .tarief-details summary {
-    cursor: pointer; color: var(--accent); list-style: none; display: inline-flex; align-items: center; gap: .35rem;
-    font-weight: 600;
-  }
-  .tarief-details summary::-webkit-details-marker { display: none; }
-  .tarief-details .chevron { transition: transform .15s; flex: none; }
-  .tarief-details[open] .chevron { transform: rotate(90deg); }
-  .tarief-details .hint { font-weight: 400; color: var(--zacht); font-size: .85rem; }
-  .tarief-details .info {
-    display: inline-flex; align-items: center; justify-content: center; width: 1.1rem; height: 1.1rem;
-    border-radius: 50%; border: 1px solid var(--accent); font: 600 .7rem/1 Georgia, serif; color: var(--accent);
-    cursor: help;
-  }
-  .tarief-details .noot { font-size: .85rem; color: var(--zacht); }
-  .tarief-details fieldset { margin-bottom: 0; }
-
+  /* schakelaar grafiek of kleuren, en de schakelaars in het paneel */
   .segment { display: inline-flex; border: 1px solid var(--rand); border-radius: .5rem; overflow: hidden; }
   .segment button {
-    font: inherit; font-size: .85rem; padding: .3rem .7rem; border: 0; background: transparent; color: var(--zacht);
+    font: inherit; font-size: .85rem; padding: .25rem .7rem; border: 0; background: transparent; color: var(--zacht);
     cursor: pointer;
   }
   .segment button[aria-pressed=true] { background: var(--hoofdkleur); color: #fff; }
   @media (prefers-color-scheme: dark) {
     .segment button[aria-pressed=true] { color: #111; }
   }
-  .l-spits::before, .vak.spits {
-    background: repeating-linear-gradient(135deg, var(--zacht) 0 1px, transparent 1px 4px) !important; opacity: .55;
-  }
+
+  /* de week als grafiek */
+  canvas { display: block; width: 100%; }
+  .legenda { display: flex; flex-wrap: wrap; gap: .2rem .8rem; list-style: none; padding: 0; margin: .35rem 0 0; font-size: .75rem; color: var(--zacht); }
+  .legenda li { display: inline-flex; align-items: center; gap: .35em; }
+  .vak { display: inline-block; width: 1.1em; height: .7em; border-radius: 2px; }
+
+  /* de week als kleuren: per dag een strook met een cel per uur of kwartier */
+  .tijdlijn { list-style: none; padding: 0; margin: 0; }
+  .rij { display: grid; grid-template-columns: 4.3rem 1fr; gap: .5rem; align-items: center; margin-bottom: 3px; }
+  .rij .datum { font-size: .78rem; color: var(--zacht); white-space: nowrap; }
+  .uren { display: grid; gap: 1px; height: 1.5rem; border-radius: .3rem; overflow: hidden; }
   .uren.fijn { gap: 0; }
-  .spitsvlak {
-    position: absolute; top: 0; height: 2.6rem; left: 66.667%; width: 20.833%; pointer-events: none;
-    background: repeating-linear-gradient(135deg, var(--tekst) 0 1px, transparent 1px 5px); opacity: .22;
-    border-radius: 0;
-  }
-
-  /* tabel met dezelfde cijfers */
-  details.tabel { margin-top: .4rem; font-size: .9rem; }
-  summary { cursor: pointer; color: var(--accent); }
-  .sp-tabel { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; }
-  .sp-tabel th, .sp-tabel td { text-align: left; padding: .2rem .5rem; border-bottom: 1px solid var(--rand); }
-  .sp-tabel td { text-align: right; }
-  .sp-tabel td:last-child { text-align: left; }
-  .sp-tabel thead th { color: var(--zacht); font-weight: 500; }
-  h4 { margin: 1rem 0 .25rem; font-size: .95rem; }
-
-  /* tijdlijn */
-  .tijdlijn { list-style: none; padding: 1.3rem 0 0; margin: 0; }
-  .rij { border-top: 1px solid var(--rand); }
-  .rij:last-child { border-bottom: 1px solid var(--rand); }
-  .rijknop {
-    width: 100%; display: grid; grid-template-columns: 5.5rem 1fr 1.4rem; gap: .75rem; align-items: center;
-    padding: .7rem 0; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
-  }
-  .rijknop:hover .datum b { color: var(--accent); }
-  .datum b { display: block; font-weight: 700; line-height: 1.2; }
-  .datum small { color: var(--zacht); font-size: .78rem; display: block; line-height: 1.2; }
-  .datum .status { font-size: .72rem; margin-top: .2rem; color: var(--zacht); }
-  .datum .status .btr-icoon { font-size: .6rem; letter-spacing: .05em; }
-  .strook { position: relative; }
-  .uren {
-    display: grid; grid-template-columns: repeat(24, 1fr); gap: 1px; height: 2.6rem; border-radius: .4rem;
-    overflow: hidden;
-  }
   .uren.mate-redelijk { opacity: .75; }   /* bleker naarmate de dag minder betrouwbaar is (besluit 72) */
   .uren.mate-laag { opacity: .45; }
-  .cel {
-    display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 600; min-width: 0;
-  }
-  .cel.sl-goedkoop { background: var(--sl-g-a); color: var(--sl-g-t); }
-  .cel.sl-gemiddeld { background: var(--sl-m-a); color: var(--sl-m-t); }
-  .cel.sl-duur { background: var(--sl-d-a); color: var(--sl-d-t); }
+  .cel { min-width: 0; }
+  .cel.sl-goedkoop { background: var(--sl-g-a); }
+  .cel.sl-gemiddeld { background: var(--sl-m-a); }
+  .cel.sl-duur { background: var(--sl-d-a); }
   .cel.voorbij { filter: grayscale(1); opacity: .45; }   /* de uren van vandaag die voorbij zijn */
-  .assen {
-    display: flex; justify-content: space-between; font-size: .68rem; color: var(--zacht); margin-top: .2rem;
-    font-variant-numeric: tabular-nums;
-  }
-  .markering {
-    position: absolute; top: -.55rem; height: .5rem; border-top: 2px solid var(--accent);
-    border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); border-radius: 3px 3px 0 0;
-  }
-  .markering svg {
-    position: absolute; left: 50%; top: -1.15rem; width: 1rem; height: 1rem; transform: translateX(-50%);
-    color: var(--accent); background: var(--achtergrond);
-  }
-  .pijl { color: var(--zacht); transition: transform .15s; justify-self: center; }
-  .rijknop[aria-expanded=true] .pijl { transform: rotate(180deg); }
-  .detail { padding: 0 0 1rem calc(5.5rem + .75rem); display: grid; gap: .5rem; font-size: .9rem; }
-  .detail .btr-regel {
-    margin: 0; display: flex; flex-wrap: wrap; gap: .3rem .5rem; align-items: center; font-size: .85rem;
-    color: var(--zacht);
-  }
-  .detail .beste { display: grid; gap: .5rem; }
-  .detail .beste > div { display: flex; gap: .5rem; align-items: flex-start; }
-  .detail .beste b { display: block; }
-  .detail .beste svg { width: 1.2rem; height: 1.2rem; color: var(--accent); }
-  .detail .beste span { color: var(--zacht); }
-  .ddlijst { display: grid; gap: .3rem; }
-  .ddlijst div { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
-  .ddlijst .n { min-width: 5rem; font-weight: 600; }
-  .ddlijst .band { color: var(--zacht); font-size: .85rem; }
-  @media (max-width: 480px) {
-    .rijknop { grid-template-columns: 4.6rem 1fr 1.2rem; gap: .5rem; }
-    .datum b { font-size: .95rem; }
-    .datum .status { font-size: .68rem; }
-    .detail { padding-left: 0; }
-    .cel { font-size: .62rem; }
-  }
+  /* de gekozen laaduren: een groene rand boven en onder (besluit 85) */
+  .cel.laadt { box-shadow: inset 0 3px 0 var(--groen), inset 0 -3px 0 var(--groen); }
+  .assen { display: flex; justify-content: space-between; font-size: .68rem; color: var(--zacht); font-variant-numeric: tabular-nums; }
 
-  /* stoplicht en betrouwbaarheid */
-  .sl {
-    display: inline-flex; align-items: center; gap: .3em; font-weight: 600; font-size: .78rem; padding: .1em .5em;
-    border-radius: 999px; white-space: nowrap;
+  /* onderaan: bijgewerkt, aanpassen en het paneel met instellingen */
+  .onderregel {
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem 1rem; flex-wrap: wrap;
+    margin-top: 1.25rem; padding-top: .75rem; border-top: 1px solid var(--rand); font-size: .78rem; color: var(--zacht);
   }
-  .sl-icoon { font-size: .75em; }
-  .sl-goedkoop { color: var(--sl-g-t); background: var(--sl-g-a); }
-  .sl-gemiddeld { color: var(--sl-m-t); background: var(--sl-m-a); }
-  .sl-duur { color: var(--sl-d-t); background: var(--sl-d-a); }
-
-  .btr {
-    display: inline-flex; align-items: center; gap: .35em; font-size: .8rem; font-weight: 600; padding: .1em .55em;
-    border-radius: 999px; white-space: nowrap;
+  .kader { background: var(--vlak); border-radius: .75rem; padding: .9rem 1rem; margin-top: .75rem; }
+  .kader h3 { font-size: .95rem; margin: 1rem 0 .1rem; }
+  .kader h3:first-child { margin-top: 0; }
+  .app-rij {
+    display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; padding: .5rem 0 .6rem;
+    border-bottom: 1px solid var(--rand);
   }
-  .btr-icoon { font-size: .7em; letter-spacing: .05em; }
-  /* betrouwbaarheid: een kleur (de hoofdkleur), van verzadigd (zeker) naar bleek (onzeker); los van het stoplicht */
-  .btr-bekend { color: #ffffff; background: #17335c; }
-  .btr-hoog { color: #17335c; background: #dde5f0; }
-  .btr-redelijk { color: #44608f; background: #e9eef6; }
-  .btr-laag { color: #63635e; background: #f4f6f9; box-shadow: inset 0 0 0 1px #dde5f0; }
-  @media (prefers-color-scheme: dark) {
-    .btr-bekend { color: #111111; background: #9db2d1; }
-    .btr-hoog { color: #c7d2e6; background: #223a5e; }
-    .btr-redelijk { color: #a8c0e6; background: #1f3352; }
-    .btr-laag { color: #a4a49e; background: #1b2c47; box-shadow: inset 0 0 0 1px #223a5e; }
-  }
-  .grafiek-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .grafiek-scroll canvas { min-width: 620px; }
-  .schuifhint { display: none; font-size: .78rem; color: var(--zacht); margin: .25rem 0 0; }
-  @media (max-width: 640px) {
-    .schuifhint { display: block; }
-  }
-  .kader { background: var(--vlak); border-radius: .75rem; padding: 1rem 1.1rem; margin-top: 1rem; }
-  /* blok "wat kost het als ik het nu doe?" */
-  .kosten { margin: 0 0 1.5rem; }
-  .kosten .intro { color: var(--zacht); font-size: .9rem; margin: 0 0 .75rem; }
-  .apparaat {
-    display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; align-items: start; padding: .85rem 0;
-    border-top: 1px solid var(--rand);
-  }
-  .apparaat:last-of-type { border-bottom: 1px solid var(--rand); }
-  .apparaat > svg { width: 1.6rem; height: 1.6rem; color: var(--accent); margin-top: .1rem; }
-  .apparaat .naam { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; font-weight: 700; }
-  .apparaat .naam small { font-weight: 400; font-size: .85rem; color: var(--zacht); }
-  .apparaat .naam a { font-weight: 400; font-size: .85rem; color: var(--accent); }
-
-  /* "Mijn apparaten" */
-  .apparaten-form .app-rij {
-    display: grid;
-    grid-template-columns: minmax(6rem, 1.4fr) minmax(3rem, .5fr) minmax(4.2rem, .6fr) minmax(4.4rem, .7fr) minmax(9.2rem, 1.3fr) minmax(5.4rem, .9fr) minmax(5.4rem, .9fr) auto;
-    gap: .5rem; align-items: end; margin: .5rem 0;
-  }
-  .apparaten-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--zacht); }
-  .apparaten-form input, .apparaten-form select {
+  .app-rij label { flex: 1 1 5.6rem; display: flex; flex-direction: column; gap: .2rem; font-size: .78rem; color: var(--zacht); min-width: 0; }
+  .app-rij label.breed { flex: 2 1 9rem; }
+  .app-rij input, .app-rij select {
     font: inherit; font-size: .95rem; padding: .35rem .5rem; border: 1px solid var(--rand); border-radius: .4rem;
-    background: var(--vlak); color: var(--tekst); min-width: 0;
+    background: var(--achtergrond); color: var(--tekst); min-width: 0; width: 100%;
   }
-  .apparaten-form .weg {
-    font: inherit; font-size: 1.1rem; line-height: 1; padding: .35rem .6rem; border: 1px solid var(--rand);
-    border-radius: .4rem; background: transparent; color: var(--zacht); cursor: pointer;
+  .app-rij .weg {
+    font: inherit; font-size: 1.1rem; line-height: 1; padding: .4rem .65rem; border: 1px solid var(--rand);
+    border-radius: .4rem; background: transparent; color: var(--zacht); cursor: pointer; flex: none;
   }
-  .apparaten-form .toevoegen {
-    font: inherit; font-size: .9rem; margin-top: .4rem; padding: .4rem .8rem; border: 1px dashed var(--rand);
+  .app-rij .rij-noot { flex-basis: 100%; margin: 0; font-size: .75rem; color: var(--zacht); }
+  .toevoegen {
+    font: inherit; font-size: .9rem; margin-top: .5rem; padding: .4rem .8rem; border: 1px dashed var(--rand);
     border-radius: .5rem; background: transparent; color: var(--accent); cursor: pointer;
   }
-  @media (max-width: 560px) {
-    .apparaten-form .app-rij { grid-template-columns: 1fr 1fr 1fr; }
-    .apparaten-form .app-rij label:first-child { grid-column: 1 / -1; }
-  }
-  .bedragen { grid-column: 2; display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .35rem; }
-  .bedrag { background: var(--vlak); border-radius: .5rem; padding: .5rem .6rem; min-width: 0; }
-  .bedrag .l { display: block; font-size: .72rem; color: var(--zacht); line-height: 1.25; }
-  .bedrag .e {
-    display: block; font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; line-height: 1.3;
-    margin: .15rem 0 0;
-  }
-  .bedrag .w { display: block; font-size: .72rem; color: var(--zacht); line-height: 1.25; }
-  .advies {
-    grid-column: 2; display: flex; gap: .5rem; align-items: flex-start; margin-top: .5rem; padding: .5rem .7rem;
-    border-radius: .5rem; font-size: .92rem; line-height: 1.4;
-  }
-  .advies .ic { flex: none; font-weight: 700; }
-  .advies.gewoon { background: var(--sl-g-a); color: var(--sl-g-t); }
-  .advies.nu { background: var(--sl-g-a); color: var(--sl-g-t); }
-  .advies.wacht { background: var(--accent-zacht); color: var(--tekst); }
-  .advies.misschien { background: var(--sl-m-a); color: var(--sl-m-t); }
-  .kosten .voet { font-size: .78rem; color: var(--zacht); margin: .6rem 0 0; }
-  @media (max-width: 480px) {
-    .bedragen { grid-column: 1 / -1; }
-    .advies { grid-column: 1 / -1; }
-    .bedrag .e { font-size: 1rem; }
-  }
+  .schakelaars { display: flex; flex-wrap: wrap; gap: .5rem .75rem; margin-top: .6rem; }
 
-  /* kaders onderaan: uitleg, scores en formulieren */
-  .kader p { margin: 0 0 .6rem; font-size: .95rem; }
-  .scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin: .5rem 0; }
-  .scores div { text-align: center; background: var(--achtergrond); border-radius: .5rem; padding: .5rem .25rem; }
-  .scores b { display: block; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
-  .scores span { font-size: .75rem; color: var(--zacht); }
-  form.tarief { margin-top: .5rem; }
-  form.tarief fieldset {
-    border: 0; padding: 0; margin: 0 0 1.1rem; min-width: 0; display: grid; grid-template-columns: 1fr 1fr 1fr;
-    gap: .75rem;
-  }
-  form.tarief legend { font-weight: 600; padding: 0; margin-bottom: .4rem; }
-  form.tarief select {
-    width: 100%; font: inherit; padding: .4rem .5rem; border: 1px solid var(--rand); border-radius: .4rem;
-    background: var(--achtergrond); color: var(--tekst);
-  }
-  form.tarief .laad-uitleg, form.tarief .tarief-noot, form.tarief .leverancier-info, form.tarief .leveranciers-noot {
-    grid-column: 1 / -1; margin: 0; font-size: .9rem; color: var(--zacht);
-  }
-  form.tarief .leverancier-info { color: var(--tekst); }
-  @media (max-width: 480px) {
-    form.tarief fieldset { grid-template-columns: 1fr; }
-  }
-  form.tarief label { font-size: .85rem; color: var(--zacht); display: block; }
-  form.tarief input[type=number] {
-    width: 100%; font: inherit; padding: .4rem .5rem; border: 1px solid var(--rand); border-radius: .4rem;
-    background: var(--achtergrond); color: var(--tekst);
-  }
-  form.tarief .schakel {
-    grid-column: 1 / -1; display: flex; align-items: center; gap: .5rem; font-size: 1rem; color: var(--tekst);
-  }
-  form.tarief button {
-    font: inherit; padding: .45rem 1rem; border-radius: .4rem; border: 0; background: var(--accent); color: #fff;
-    cursor: pointer;
-  }
-  @media (prefers-color-scheme: dark) {
-    form.tarief button { color: #111; }
-  }
-
-  /* voet en toegankelijkheid */
-  footer {
-    font-size: .8rem; color: var(--zacht); margin-top: 2rem; line-height: 1.6; border-top: 1px solid var(--rand);
-    padding-top: 1rem;
-  }
-  footer a { color: var(--accent); }
-  /* de melding "Deze pagina is nieuw" staat hier als gewone voettekst, zonder kader of streep (besluit 79) */
-  footer .melding { border-left: 0; padding: 0; margin: 0 0 1rem; font-size: inherit; }
+  footer { font-size: .78rem; color: var(--zacht); margin-top: 1.25rem; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 </style>
@@ -416,202 +197,110 @@
       <svg class="merk-logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M57 32 A25 25 0 1 1 32 7" fill="none" stroke="#17335c" stroke-width="5" stroke-linecap="round"/><circle cx="39.73" cy="8.22" r="2.5" fill="#9db2d1"/><circle cx="46.69" cy="11.77" r="2.5" fill="#9db2d1"/><circle cx="52.23" cy="17.31" r="2.5" fill="#9db2d1"/><circle cx="55.78" cy="24.27" r="2.5" fill="#9db2d1"/><line x1="32.00" y1="13.70" x2="32.00" y2="11.20" stroke="#17335c" stroke-width="2.6" stroke-linecap="round"/><line x1="50.30" y1="32.00" x2="52.80" y2="32.00" stroke="#17335c" stroke-width="2.6" stroke-linecap="round"/><line x1="32.00" y1="50.30" x2="32.00" y2="52.80" stroke="#17335c" stroke-width="2.6" stroke-linecap="round"/><line x1="13.70" y1="32.00" x2="11.20" y2="32.00" stroke="#17335c" stroke-width="2.6" stroke-linecap="round"/><polygon points="34.59,18.68 23.49,34.22 30.89,34.22 28.67,45.32 40.51,29.04 32.37,29.04" fill="#16a34a" stroke="#16a34a" stroke-width="1.2" stroke-linejoin="round"/></svg>
       <span class="merk-2" aria-hidden="true">voorspeller</span>
     </a>
-    <div class="ververs">
-      <span class="bijgewerkt" id="bijgewerkt"></span>
-      <button type="button" class="ververs-knop" id="ververs-knop"
+    <div class="kop-rechts">
+      <button type="button" class="knop" id="ververs-knop"
         title="Nieuwe voorspelling maken met de laatste prijzen en het nieuwste weer">Ververs</button>
+      <a href="uitleg.html">Uitleg</a>
     </div>
   </header>
   <div class="ververs-paneel" id="ververs-paneel" hidden></div>
-  <p class="melding" id="melding" hidden></p>
-  <h1 id="kop">Even laden…</h1>
   <p class="opening">Dynamisch stroomcontract? Zie het goedkoopste uur voor je was en de goedkoopste dag voor je auto, een paar dagen vooruit.</p>
-  <p class="sub" id="sub"></p>
-  <section class="start" id="start" aria-labelledby="start-kop">
-    <div class="sectiekop">
-      <div>
-        <h2 id="start-kop">Start je apparaat om …</h2>
-        <p class="sub">Vandaag of morgen: nu aanzetten, of loont een paar uur uitstel?</p>
-      </div>
-      <button type="button" class="aanpas-knop" id="aanpas-knop" aria-expanded="false"
-        aria-controls="instellingen-paneel">Aanpassen</button>
-    </div>
-    <div class="start-blokjes" id="start-blokjes"></div>
-    <p class="sub" id="start-leeg" hidden>Nog geen apparaat om vandaag te starten. Voeg er een toe via Aanpassen.</p>
+  <p class="melding" id="melding" hidden></p>
 
-    <div class="kader" id="instellingen-paneel" hidden>
-      <h3 id="apparaten-instellingen">Mijn apparaten</h3>
-      <p class="paneel-uitleg">Per apparaat: hoe lang het duurt, hoeveel stroom het per beurt gebruikt, en of u het
-        vandaag wilt starten (met uitstel) of deze week wilt laden (op de goedkoopste dag). Dit blijft in uw eigen
-        browser.</p>
-      <div class="apparaten-form" id="apparaten-form"></div>
-      <h3 id="instellingen">Mijn auto</h3>
-      <p class="paneel-uitleg">Standaard 30 kWh in een laadblok van 3 uur. Vul uw laadsnelheid en de hoeveelheid in
-        voor uw eigen laadbeurt, en hoeveel dagen u vooruit wilt kijken.</p>
-    <form class="tarief" id="tarief">
-      <fieldset class="laad">
-        <legend>Auto laden</legend>
-        <label>Laadvermogen<select name="kw"><option value="">kies…</option><option value="2.3">2,3 kW
-          (stopcontact)</option><option value="3.7">3,7 kW</option><option value="7.4">7,4 kW</option><option
-          value="11">11 kW</option><option value="22">22 kW</option><option
-          value="anders">anders…</option></select></label>
-        <label class="kw-anders" hidden>Vermogen in kW<input type="number" name="kw-anders" step="0.1" min="0.5"
-          inputmode="decimal"></label>
-        <label>Te laden (kWh)<input type="number" name="kwh" step="1" min="1" placeholder="30"
-          inputmode="decimal"></label>
-        <label>Vooruitkijken<select name="horizon"></select></label>
-        <p class="laad-uitleg"></p>
-      </fieldset>
-      <button type="submit">Toepassen</button>
-    </form>
-    </div>
+  <section id="start" aria-labelledby="start-kop">
+    <h2 id="start-kop">Start om</h2>
+    <div class="tegels" id="start-tegels"></div>
+    <p class="regel" id="start-regel" hidden></p>
+    <p class="regel" id="start-leeg" hidden>Nog geen apparaat. Voeg er een toe via Aanpassen.</p>
   </section>
 
-  <section class="kosten" id="laden" aria-labelledby="laden-kop">
-    <h2 id="laden-kop">Laden deze week</h2>
-    <p class="intro">Welke dag en welk blok is het goedkoopst? Per dag wat de laadbeurt kost in het goedkoopste
-      blok, zo ver vooruit als u instelt.</p>
-    <div id="laadkaarten"></div>
-    <p class="voet" id="kosten-voet"></p>
-  </section>
+  <div id="laden">
+    <div id="laadblokken"></div>
+    <p class="regel"><button type="button" class="tekstknop" id="auto-erbij">+ auto</button></p>
+  </div>
 
   <section id="week" aria-labelledby="week-kop">
     <div class="sectiekop">
-      <h2 id="week-kop">De week vooruit</h2>
-      <div class="segment" role="group" aria-label="Grafiek of blokken" id="weergave">
+      <h2 id="week-kop">De week</h2>
+      <div class="segment" role="group" aria-label="Grafiek of kleuren" id="weergave">
         <button type="button" data-weergave="grafiek" aria-pressed="true">Grafiek</button>
-        <button type="button" data-weergave="blokken" aria-pressed="false">Blokken</button>
+        <button type="button" data-weergave="blokken" aria-pressed="false">Kleuren</button>
       </div>
     </div>
-    <div class="resolutie prijsstand">
-      <div class="segment" role="group" aria-label="Prijzen per uur of per kwartier" id="resolutie">
-        <button type="button" data-resolutie="kwartier" aria-pressed="true">Per kwartier</button>
-        <button type="button" data-resolutie="uur" aria-pressed="false">Per uur</button>
-      </div>
-      <div class="segment" role="group" aria-label="Welke prijs" id="standen">
-        <button type="button" data-stand="markt" aria-pressed="false">Marktprijs</button>
-        <button type="button" data-stand="marktplus" aria-pressed="false">Marktprijs+</button>
-        <button type="button" data-stand="allin" aria-pressed="true">All-in</button>
-      </div>
-      <span class="noot tarief-uitleg"></span>
-    </div>
-
     <div id="weergave-grafiek">
-      <div class="grafiek-scroll"><canvas id="grafiek"></canvas></div>
-      <p class="schuifhint">Schuif opzij voor alle 7 dagen.</p>
-    <ul class="legenda">
-      <li><span class="vak" style="background:var(--accent)"></span>bekend</li>
-      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0"></span>verwacht</li>
-      <li><span class="vak" style="background:var(--accent);opacity:.25"></span>marge: in 8 van de 10 gevallen valt de
-        prijs hierbinnen</li>
-      <li><span class="vak spits"></span>netspits 16–21 uur</li>
-      <li><span class="vak" style="border-top:2px dashed var(--accent);height:0;opacity:.4"></span>lichter: minder
-        betrouwbaar</li>
-      <li><span class="vak" style="background:var(--zacht);opacity:.35"></span>grijs: voorbij</li>
-    </ul>
-    </div>
-
-    <div id="weergave-blokken" hidden>
-      <p class="noot blokken-hint">Klik op een dag voor het beste moment per apparaat.</p>
-      <ul class="legenda" style="margin-bottom:.6rem">
-        <li><span class="vak sl-goedkoop" style="background:var(--sl-g-a)"></span>▼ goedkoop</li>
-        <li><span class="vak" style="background:var(--sl-m-a)"></span>■ gemiddeld</li>
-        <li><span class="vak" style="background:var(--sl-d-a)"></span>▲ duur</li>
-        <li>t.o.v. de hele periode</li>
-        <li>bleker: minder betrouwbaar</li>
-        <li><span class="vak spits"></span>netspits 16–21 uur</li>
+      <canvas id="grafiek"></canvas>
+      <ul class="legenda">
+        <li><span class="vak" style="background:var(--accent)"></span>vast</li>
+        <li><span class="vak" style="border-top:2px dashed var(--accent);height:0"></span>verwacht</li>
+        <li><span class="vak" style="background:var(--groen);opacity:.4"></span>laden</li>
       </ul>
-      <ul class="tijdlijn" id="tijdlijn"></ul>
     </div>
-
-    <details class="tarief-details">
-      <summary><svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-        stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Mijn tarief <span class="info"
-        tabindex="0" role="img" aria-label="Uitleg"
-        title="Kies hier je leverancier; dan vullen we de inkoopvergoeding in. Scheelt een paar tienden van een cent per kWh, verandert het beste moment niet. Zonder instelling rekenen we met 1,65 ct.">i</span><span
-        class="hint">leverancier en inkoopvergoeding</span></summary>
-      <p class="noot" style="margin:.4rem 0 .6rem">Voor de fijnproever: de inkoopvergoeding van je leverancier scheelt
-        een paar tienden van een cent per kWh en verandert niets aan het beste moment. Zonder instelling rekenen we
-        met 1,65 ct.</p>
-      <form class="tarief" id="tarief-prijs">
-      <fieldset>
-        <legend>Prijs</legend>
-        <label>Mijn leverancier<select name="leverancier"><option value="">Anders / zelf
-          invullen</option></select></label>
-        <label>Inkoopvergoeding (ct/kWh, zonder btw)<input type="number" name="inkoop" step="0.01" min="0"
-          inputmode="decimal"></label>
-        <p class="leverancier-info"></p>
-        <p class="leveranciers-noot"></p>
-        <p class="tarief-noot"></p>
-      </fieldset>
-      </form>
-    </details>
-    <p class="noot resolutie-noot">Kwartierprijzen alleen voor dagen met bekende prijzen; de verwachting is per uur.</p>
-    <details class="tabel"><summary>Dezelfde cijfers als tabel</summary><div id="tabel"></div></details>
+    <div id="weergave-blokken" hidden>
+      <ul class="tijdlijn" id="tijdlijn"></ul>
+      <ul class="legenda">
+        <li><span class="vak" style="background:var(--sl-g-a)"></span>goedkoop</li>
+        <li><span class="vak" style="background:var(--sl-m-a)"></span>gemiddeld</li>
+        <li><span class="vak" style="background:var(--sl-d-a)"></span>duur</li>
+        <li><span class="vak" style="border-top:3px solid var(--groen);border-bottom:3px solid var(--groen);height:.9em"></span>laden</li>
+        <li>bleker: minder zeker</li>
+      </ul>
+    </div>
   </section>
 
-  <div class="kader">
-    <h2 style="margin-top:0">Hoe zeker is dit?</h2>
-    <p><b>Dagen met bekende prijzen</b> (met het label "zeker") staan vast: die prijzen komen van de stroombeurs en
-      veranderen niet meer. Meestal zijn dat de dag van de voorspelling en de dag erna.</p>
-    <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen
-      dagen. Bij elke verwachting staat hoeveel de prijs naar boven (+) en naar beneden (−) kan afwijken. In ongeveer
-      8 van de 10 gevallen blijft de echte prijs binnen die marge.</p>
-    <p><b>Dag 4 en verder</b> zijn grof. De grafiek toont ze wel per uur, voor het overzicht van de week, maar
-      hoe lichter de lijn, hoe minder betrouwbaar: het niveau van de dag klopt meestal, het exacte uur kan schuiven.
-      In de blokkenweergave zijn die dagen daarom bleker. Klap een dag uit voor het oordeel per dagdeel: een goedkoop
-      dagdeel blijft meestal goedkoop.</p>
-    <p>Hoe verder vooruit, hoe onzekerder. Bij dag 6 en 7 geven we alleen een richting. Het label bij elke dag zegt
-      hoe betrouwbaar de verwachting is, met de gemiddelde afwijking van de afgelopen 30 dagen.</p>
-    <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen. Daarom
-      is "gratis stroom" op de rekening niet gratis. Marktprijs toont de kale beursprijs zonder btw, Marktprijs+ de
-      beursprijs plus de inkoopvergoeding met btw, All-in alles zoals op de rekening.</p>
-    <p>De gearceerde uren zijn de netspits (16–21 uur): de overheid vraagt om dan zo min mogelijk stroom te gebruiken,
-      omdat het stroomnet dan het drukst is. Dat staat los van de prijs; het advies op deze site gaat over de
-      prijs.</p>
-    <div id="scores"></div>
+  <div class="onderregel">
+    <span id="bijgewerkt"></span>
+    <button type="button" class="knop" id="aanpas-knop" aria-expanded="false"
+      aria-controls="instellingen-paneel">Aanpassen</button>
+  </div>
+  <div class="kader" id="instellingen-paneel" hidden>
+    <h3 id="apparaten-instellingen">Apparaten</h3>
+    <div id="apparaten-form"></div>
+    <h3 id="autos-instellingen">Auto's</h3>
+    <div id="autos-form"></div>
+    <h3>Prijs</h3>
+    <form id="tarief-prijs">
+      <div class="app-rij">
+        <label class="breed">Leverancier<select name="leverancier"><option value="">Anders / zelf
+          invullen</option></select></label>
+        <label class="breed">Inkoopvergoeding (ct/kWh, zonder btw)<input type="number" name="inkoop" step="0.01" min="0"
+          inputmode="decimal"></label>
+        <p class="rij-noot leverancier-info"></p>
+      </div>
+      <div class="schakelaars">
+        <div class="segment" role="group" aria-label="Welke prijs" id="standen">
+          <button type="button" data-stand="markt" aria-pressed="false">Marktprijs</button>
+          <button type="button" data-stand="marktplus" aria-pressed="false">Marktprijs+</button>
+          <button type="button" data-stand="allin" aria-pressed="true">All-in</button>
+        </div>
+        <div class="segment" role="group" aria-label="Prijzen per uur of per kwartier" id="resolutie">
+          <button type="button" data-resolutie="kwartier" aria-pressed="true">Per kwartier</button>
+          <button type="button" data-resolutie="uur" aria-pressed="false">Per uur</button>
+        </div>
+      </div>
+      <p class="mini tarief-uitleg"></p>
+    </form>
+    <p class="mini">Je instellingen blijven in je eigen browser. <a href="uitleg.html">Meer uitleg</a>.</p>
   </div>
 
   <footer>
-    <p><b>Deze pagina is nieuw.</b> Heb je suggesties? Deel ze op <a
-      href="https://github.com/martienbrander/stroomprijsvoorspeller/issues">GitHub</a>. De data zijn ook als <a
-      href="api/v1/voorspelling.json">JSON</a> beschikbaar.</p>
-    <p><b>Hulpmiddel, geen garantie.</b> Deze voorspelling is een inschatting op basis van openbare gegevens en een
-      statistisch model. Het is geen advies en geen garantie; de echte prijzen kunnen afwijken. Gebruik is op eigen
-      risico. De maker is niet aansprakelijk voor beslissingen die op deze cijfers worden gebaseerd. Uw leverancier
-      bepaalt wat u betaalt.</p>
-    <p>Prijzen: <a href="https://transparency.entsoe.eu/">ENTSO-E Transparency Platform</a>. Oudere prijzen en
-      dagen die daar ontbreken: <a href="https://www.energy-charts.info/">Energy-Charts</a> (Fraunhofer ISE, data
-      Bundesnetzagentur/SMARD, CC BY 4.0) of <a href="https://www.energyzero.nl/">EnergyZero</a>.
-      Weer: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0).
-      Biedzone Nederland, day-ahead. Geen cookies, geen tracking. Open source (MIT, <a
-      href="https://github.com/martienbrander/stroomprijsvoorspeller">broncode op GitHub</a>); de cijfers zijn ook als
-      <a href="api/v1/voorspelling.json">JSON</a> beschikbaar.</p>
+    <p>Hulpmiddel, geen garantie. <a href="uitleg.html">Uitleg, bronnen en data</a>.</p>
   </footer>
 </div>
 <!-- ?v= verhogen bij een wijziging die dit bestand en gedeeld.js samen raakt: dan haalt de browser het script opnieuw op
      in plaats van een oude kopie uit de cache te combineren met de nieuwe pagina. -->
-<script src="gedeeld.js?v=9"></script>
+<script src="gedeeld.js?v=10"></script>
 <script>
 /*
  * De pagina zelf: haalt de voorspelling op, laat gedeeld.js (window.SP) rekenen en zet de uitkomst in de HTML.
- * render() tekent alles opnieuw; dat gebeurt bij het laden, na elke wijziging van een instelling, elk kwartier
- * (voor "start je apparaat om ...") en na middernacht (de voorbije dag valt dan weg).
+ * Drie blokken (besluit 85): "Start om" (apparaten), per auto "klaar op welke dag?", en de week als grafiek of
+ * kleuren. render() tekent alles opnieuw; dat gebeurt bij het laden, na elke wijziging van een instelling, elk
+ * kwartier en na middernacht (de voorbije dag valt dan weg).
  */
 (function () {
   'use strict';
-  const { fmt, fmtKort, fmtUur, fmtEuro, duurTekst, dagNaam, blokTijd, bandZin, esc } = SP;
+  const { fmtUur, fmtEuro, duurTekst, dagNaam, bandZin, esc } = SP;
   const el = (id) => document.getElementById(id);
 
-  const ICOON_LADEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"' +
-    ' aria-hidden="true"><rect x="3" y="7" width="16" height="10" rx="2"/>' +
-    '<path d="M19 10h2v4h-2M7 12h6M10 9l-2 3h4l-2 3"/></svg>';
-  const ICOON_APPARAAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"' +
-    ' aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="5"/>' +
-    '<path d="M8 6h2M14 6h2M8.5 14c1.2-1 2.4-1 3.5 0s2.3 1 3.5 0"/></svg>';
-  const PIJL = '<svg class="pijl" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"' +
-    ' stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-  const ADVIES_ICOON = { gewoon: '✓', nu: '✓', wacht: '→', misschien: '?' };
   const RUN_LABEL = { hoofd: 'hoofdrun', verversing: 'verversing', inhaal: 'inhaalrun' };
   const MAX_STARTTEGELS = 3;
   const VEROUDERD_NA_UREN = 26;
@@ -628,46 +317,30 @@
   // met ?online in het adres gedraagt de pagina zich ook op de pc als online, om dat te kunnen bekijken
   const OP_EIGEN_PC = !new URLSearchParams(location.search).has('online') && (location.protocol === 'file:' ||
     /^(localhost$|127\.|192\.168\.|10\.|\[::1\]$)/.test(location.hostname));
-  const DREMPEL_UITLEG = 'Bij de auto zeggen we onder de 50 cent verschil: laad wanneer het uitkomt, en raden we ' +
-    'wachten alleen aan als het ook in het slechte geval loont. Een laadblok van de auto mag over middernacht lopen.';
+  const WEERGAVE_SLEUTEL = 'stroomprijs-weergave-v1';
 
   // wat de pagina toont: de voorspelling uit de JSON, de instellingen van de gebruiker en het model dat daaruit volgt
   let forecast = null, model = null, grafiek = null;
-  let tarief = null, laad = null, apparaten = null, resolutie = 'kwartier';
-  let weergave = 'grafiek';   // wat "De week vooruit" toont: 'grafiek' of 'blokken' (besluit 73)
-  const WEERGAVE_SLEUTEL = 'stroomprijs-weergave-v1';
-  const open = {};   // dagindex -> is de rij op de tijdlijn uitgeklapt
+  let tarief = null, apparaten = null, autos = null, resolutie = 'kwartier';
+  let weergave = 'grafiek';    // wat "De week" toont: 'grafiek' of 'blokken' (besluit 73)
+  let openApparaat = null;     // id van het apparaat waarvan de regel met details openstaat
+  let laadKeuze = null;        // { auto, datum }: de aangetikte laaddag; zonder keuze de goedkoopste van de eerste auto
+  let laadAdviezen = [];       // [{ auto, advies }], een per auto
+  let autoKoppeling = null;    // wat SP.koppelAutos teruggeeft; zetKlaar(id, uur) verzet "klaar om" van een auto
 
   function render() {
-    model = SP.verwerk(forecast, tarief, laad, resolutie, apparaten);
+    model = SP.verwerk(forecast, tarief, resolutie, apparaten);
     el('bijgewerkt').textContent = `Bijgewerkt ${SP.gegenereerdTekst(model.gegenereerd)}${runLabel()}` +
       (OP_EIGEN_PC ? '' : ` · ${volgendeVersieTekst()}`);
     toonMelding();
-    toonKop();
-    toonStartadvies();
-    toonLaadkaarten();
+    toonStart();
+    toonLaden();
+    const gekozen = gekozenLaaddag();
+    const laaduren = gekozen ? gekozen.dag.blokken : [];
     if (grafiek) grafiek.update(model);
     else grafiek = SP.tekenGrafiek(el('grafiek'), model, { hoogte: 200, compact: true });
-    SP.maakTabel(el('tabel'), model);
-    el('tijdlijn').innerHTML = model.dagen.map(rijHtml).join('');
-    toonScores();
-  }
-
-  // ---------- kop: het goedkoopste laadmoment van de eerstvolgende dag ----------
-
-  function toonKop() {
-    const dag = model.dagen[1] || model.dagen[0];
-    const blok = dag.laden;
-    const naam = dagNaam(dag, true);
-    const totDag = blok.volgendeDag ? ` (tot ${blok.eindDagNaam})` : '';
-    el('kop').textContent = `${naam}${dag.bekend ? '' : ' (verwachting)'}: goedkoopst tussen ` +
-      `${fmtUur(blok.start)} en ${fmtUur(blok.eind)} uur${totDag}`;
-    el('sub').textContent = `Dan ${fmt(blok.p50)} ct/kWh, ${fmt(blok.marge)} ct onder het daggemiddelde. ` +
-      `Prijs in ${model.eenheidLabel}.`;
-    const zekerheid = dag.bekend
-      ? `${naam} is zeker, de dagen erna zijn een verwachting. `
-      : `De prijzen voor ${naam.toLowerCase()} zijn nog niet bekend, dus die dag is ook nog een verwachting. `;
-    el('kosten-voet').textContent = zekerheid + DREMPEL_UITLEG;
+    grafiek.markeer(laaduren);
+    el('tijdlijn').innerHTML = model.dagen.map((dag) => rijHtml(dag, laaduren)).join('') + ASSEN_HTML;
   }
 
   // "(hoofdrun) · verouderd, 3 dagen oud" achter het tijdstip van de laatste run
@@ -719,7 +392,7 @@
     return CONTROLE_UUR_MS;
   }
 
-  // melding boven de kop als de prijzen voor morgen er nog niet zijn, of als de voorspelling verouderd is
+  // melding als de prijzen voor de volgende dag er nog niet zijn, of als de voorspelling verouderd is
   function toonMelding() {
     const melding = el('melding');
     const bekendTot = forecast.prijzen_bekend_tot;
@@ -729,94 +402,148 @@
     const verouderd = bekendTot < SP.vandaagLokaal();
     const wat = verouderd
       ? `Deze voorspelling is verouderd: de prijzen zijn bekend tot en met ${SP.datumTekst(bekendTot)}.`
-      : `De prijzen voor ${SP.datumTekst(morgen)} zijn nog niet bekend; die komen meestal tussen 13:00 en 14:00.`;
+      : `De prijzen voor ${SP.datumTekst(morgen)} komen meestal tussen 13:00 en 14:00.`;
     let doen;
     if (OP_EIGEN_PC) doen = verouderd ? 'Klik op Ververs.' : 'Klik daarna op Ververs.';
-    else doen = verouderd ? 'De dagelijkse run loopt achter.' : 'De site rekent daarna opnieuw; deze pagina werkt zichzelf bij.';
+    else doen = verouderd ? 'De dagelijkse run loopt achter.' : 'De pagina werkt zichzelf bij.';
     melding.textContent = `${wat} ${doen}`;
   }
 
-  // ---------- "Start je apparaat om ...": per apparaat het uitstel dat je nu instelt (besluit 58) ----------
+  // ---------- "Start om": per apparaat het tijdstip en het uitstel dat je nu instelt (besluit 58, 85) ----------
 
-  function toonStartadvies() {
+  function toonStart() {
     const nu = SP.nuLokaalUur();
-    // alleen de apparaten die je vandaag of morgen start; laadapparaten staan onder "Laden deze week"
-    const tegels = model.apparaten.filter((a) => a.soort !== 'laden').slice(0, MAX_STARTTEGELS)
-      .map((a) => startTegelHtml(a, nu)).join('');
-    el('start-blokjes').innerHTML = tegels;
-    el('start-leeg').hidden = !!tegels;
+    const lijst = model.apparaten.slice(0, MAX_STARTTEGELS)
+      .map((apparaat) => ({ apparaat: apparaat, advies: SP.startAdvies(model, apparaat, nu) }));
+    el('start-tegels').innerHTML = lijst.map(startTegelHtml).join('');
+    el('start-leeg').hidden = lijst.length > 0;
+    const open = lijst.find((x) => x.apparaat.id === openApparaat);
+    el('start-regel').hidden = !open;
+    el('start-regel').textContent = open ? startRegel(open.apparaat, open.advies) : '';
   }
-  function startTegelHtml(apparaat, nu) {
-    const advies = SP.startAdvies(model, apparaat, nu);
-    if (!advies) return '';
+  // de knop: naam, het starttijdstip groot, en het uitstel om in te stellen
+  function startTegelHtml(x) {
+    const advies = x.advies;
+    let tijd = '–', onder = 'nog geen vaste prijs', klasse = '';
+    if (advies && advies.beste.isNu) { tijd = 'nu'; onder = 'wachten loont niet'; }
+    else if (advies) { tijd = fmtUur(advies.beste.start); onder = `uitstel ${duurTekst(advies.uitstel)}`; klasse = ' loont'; }
+    return `<button type="button" class="tegel${klasse}" data-apparaat="${esc(x.apparaat.id)}" ` +
+      `aria-expanded="${x.apparaat.id === openApparaat}" aria-controls="start-regel">` +
+      `<span class="n">${esc(x.apparaat.naam)}</span><b>${tijd}</b><span class="w">${onder}</span></button>`;
+  }
+  // de regel onder de knoppen, na een tik: wat het kost en wat het scheelt
+  function startRegel(apparaat, advies) {
+    if (!advies) return `${apparaat.naam}: de prijzen voor de komende uren staan nog niet vast.`;
     const beste = advies.beste;
-    const dagErbij = (moment) => (moment.dagStart !== model.dagen[0] ? ` (${dagNaam(moment.dagStart, false)})` : '');
-    const verwacht = (moment) => (moment.bekend ? '' : ' (verwacht)');
-    const regels = [];
+    const zinnen = [];
     if (beste.isNu) {
-      // nu: wat het kost, en wat wachten binnen de grens hooguit zou schelen
-      regels.push(`<span class="w">klaar ${fmtUur(beste.eind)} · ${fmtEuro(beste.euro)}${verwacht(beste)}</span>`);
-      regels.push(`<span class="w">${advies.maxWinst > 0.005
-        ? `tot ${advies.maxUitstel} uur wachten scheelt hooguit ${fmtEuro(advies.maxWinst)}`
-        : 'wachten scheelt niets'}</span>`);
+      zinnen.push(`${apparaat.naam}: nu starten kost ${fmtEuro(beste.euro)}, klaar om ${fmtUur(beste.eind)}.`);
+      zinnen.push(advies.maxWinst > 0.005 ? `Wachten scheelt hooguit ${fmtEuro(advies.maxWinst)}.` : 'Wachten scheelt niets.');
     } else {
-      // later: het moment en de prijs, met ernaast wat nu starten kost
-      regels.push(`<span class="w">start ${fmtUur(beste.start)}${dagErbij(beste)}, klaar ${fmtUur(beste.eind)} · ` +
-        `${fmtEuro(beste.euro)}${verwacht(beste)}</span>`);
-      regels.push(`<span class="later">nu starten: ${fmtEuro(advies.nu.euro)}, ${fmtEuro(advies.winst)} duurder</span>`);
+      zinnen.push(`${apparaat.naam}: start om ${fmtUur(beste.start)}, klaar om ${fmtUur(beste.eind)}, ${fmtEuro(beste.euro)}.`);
+      zinnen.push(`Nu starten kost ${fmtEuro(advies.winst)} meer.`);
     }
     if (advies.verder) {
       const v = advies.verder;
-      regels.push(`<span class="w">nog goedkoper: ${duurTekst(v.uitstel)} uitstel, start ${fmtUur(v.start)}` +
-        `${dagErbij(v)}, ${fmtEuro(v.winst)} minder${verwacht(v)}</span>`);
-    } else if (advies.andereDag) {
-      const ander = advies.andereDag;
-      regels.push(`<span class="w">overweeg een andere dag: ${dagNaam(ander.dag, false)} ` +
-        `${blokTijd(ander.blok)}, ${fmtEuro(ander.winst)} goedkoper (verwacht)</span>`);
+      zinnen.push(`Nog goedkoper: ${duurTekst(v.uitstel)} uitstel, start om ${fmtUur(v.start)}, ${fmtEuro(v.winst)} minder.`);
     }
-    return [
-      '<a class="start-blok" href="#apparaten-instellingen">',
-      `<span class="n">${esc(apparaat.naam)}</span>`,
-      `<span class="t">${beste.isNu ? 'nu' : `${duurTekst(advies.uitstel)} <small>uitstel</small>`}</span>`,
-      regels.join(''),
-      '</a>',
-    ].join('');
+    if (advies.ingekort) zinnen.push('Verder vooruit staan de prijzen nog niet vast.');
+    return zinnen.join(' ');
   }
+  // tik op een apparaat: de regel met details open of dicht
+  el('start-tegels').addEventListener('click', (ev) => {
+    const knop = ev.target.closest('[data-apparaat]');
+    if (!knop) return;
+    openApparaat = openApparaat === knop.dataset.apparaat ? null : knop.dataset.apparaat;
+    toonStart();
+  });
 
-  // ---------- "Laden deze week": per laadapparaat de beste dag binnen de horizon (besluit 73) ----------
+  // ---------- auto's: op welke dag moet de auto klaar zijn? (besluit 85) ----------
 
-  function laadkaartHtml(apparaat, nu) {
-    const advies = SP.weekAdvies(model, apparaat, nu);
-    if (!advies) return '';
-    const gekozen = advies.gekozen;
-    const snelheid = apparaat.auto && model.laad.inst && model.laad.inst.kw
-      ? `, ${fmtKort(model.laad.inst.kw)} kW` : '';
-    const anker = apparaat.auto ? '#instellingen' : '#apparaten-instellingen';
-    const dagen = advies.dagen.map((d) => {
-      const klassen = ['lk-dag', d === gekozen ? 'gekozen' : '', d.zwak ? 'zwak' : ''].filter(Boolean).join(' ');
-      const marge = d.zeker ? 'zeker' : SP.plusMinEuro(d.euroHoog - d.euro, d.euro - d.euroLaag);
-      return `<div class="${klassen}" title="${dagNaam(d.dag, true)} ${blokTijd(d.blok)}: ${fmtEuro(d.euro)} (${marge})">` +
-        `${dagNaam(d.dag, false)}<b>${fmtEuro(d.euro)}</b>${fmtUur(d.blok.start)}</div>`;
-    }).join('');
-    return [
-      '<div class="laadkaart">',
-      `<div class="lk-naam"><b>${esc(apparaat.naam)}</b><span>${fmtKort(apparaat.kwh)} kWh${snelheid}, `,
-      `duurt ${duurTekst(apparaat.uren)} · kijkt ${apparaat.horizon} dagen vooruit</span>`,
-      `<a href="${anker}">aanpassen</a></div>`,
-      `<div class="lk-moment">${dagNaam(gekozen.dag, false)}, ${blokTijd(gekozen.blok)} · ${fmtEuro(gekozen.euro)} `,
-      `<small>${gekozen.zeker ? 'zeker' : 'verwacht'}</small></div>`,
-      `<div class="lk-dagen">${dagen}</div>`,
-      `<div class="advies ${advies.soort}"><span class="ic" aria-hidden="true">${ADVIES_ICOON[advies.soort]}</span>`,
-      `<span>${advies.advies}</span></div>`,
-      '</div>',
-    ].join('');
+  // de dag waarvan de laaduren in de week gemarkeerd zijn: { auto, advies, dag } of null
+  function gekozenLaaddag() {
+    const metAdvies = laadAdviezen.filter((x) => x.advies);
+    if (laadKeuze) {
+      const x = metAdvies.find((y) => y.auto.id === laadKeuze.auto);
+      const dag = x && x.advies.dagen.find((d) => d.dag.datum === laadKeuze.datum);
+      if (dag) return { auto: x.auto, advies: x.advies, dag: dag };
+    }
+    const eerste = metAdvies[0];
+    return eerste ? { auto: eerste.auto, advies: eerste.advies, dag: eerste.advies.goedkoopste } : null;
   }
-  function toonLaadkaarten() {
+  function toonLaden() {
     const nu = SP.nuLokaalUur();
-    el('laadkaarten').innerHTML = SP.laadApparaten(model).map((a) => laadkaartHtml(a, nu)).join('');
+    laadAdviezen = autos.map((auto) => ({ auto: auto, advies: SP.laadAdvies(model, auto, nu) }));
+    const gekozen = gekozenLaaddag();
+    el('laadblokken').innerHTML = laadAdviezen.map((x) => laadblokHtml(x, gekozen)).join('');
   }
+  // per auto: de schakelaar "klaar om 08:00 of 18:00", drie knoppen met de dag waarop de auto klaar is en wat de
+  // laadbeurt dan kost, en een regel eronder
+  function laadblokHtml(x, gekozen) {
+    const auto = x.auto, advies = x.advies;
+    const tijden = SP.laadKlaarKeuzes.map((uur) => `<button type="button" data-klaar="${uur}" ` +
+      `data-voor="${esc(auto.id)}" aria-pressed="${auto.klaar === uur}">${fmtUur(uur)}</button>`).join('');
+    const kop = `<div class="sectiekop"><h2>${esc(auto.naam)} laden, klaar om</h2>` +
+      `<div class="segment" role="group" aria-label="${esc(auto.naam)} klaar om">${tijden}</div></div>`;
+    if (!advies) return `<div class="laadblok">${kop}<p class="regel">Geen prijzen voor de komende dagen.</p></div>`;
+    const tegels = advies.dagen.map((d) => {
+      const best = d === advies.goedkoopste && advies.dagen.length > 1;
+      const aan = !!gekozen && gekozen.dag === d;
+      const datum = dagNaam(d.dag, false).split(' ').slice(1).join(' ');
+      const marge = d.zeker ? 'staat vast' : `± ${fmtEuro((d.euroHoog - d.euroLaag) / 2)}`;
+      return `<button type="button" class="tegel${best ? ' best' : ''}" data-auto="${esc(auto.id)}" ` +
+        `data-datum="${d.dag.datum}" aria-pressed="${aan}">` +
+        `<span class="n">${SP.weekdagNaam(d.dag)}<br>${datum}</span><b>${fmtEuro(d.euro)}</b>` +
+        `<span class="w">${marge}</span></button>`;
+    }).join('');
+    // de regel hoort bij de aangetikte dag van deze auto, anders bij de goedkoopste
+    const dag = gekozen && gekozen.auto === auto ? gekozen.dag : advies.goedkoopste;
+    return `<div class="laadblok">${kop}<div class="tegels">${tegels}</div>` +
+      `<p class="regel">${esc(laadRegel(advies, dag))}</p></div>`;
+  }
+  // "Woensdag 25 nov: laden tussen 01:00 en 05:00. Scheelt € 2,10 met di 24 nov. Verwachting: +40 cent / −35 cent."
+  function laadRegel(advies, d) {
+    const eerste = advies.eerste, goedkoopste = advies.goedkoopste;
+    const zinnen = [`${dagNaam(d.dag, true)}: laden tussen ${fmtUur(d.van % 24)} en ${fmtUur(d.tot % 24)}.`];
+    const verschil = eerste.euro - d.euro;   // zoveel goedkoper dan de eerste dag
+    const plus = d.euroHoog - d.euro;        // zoveel kan deze dag duurder uitvallen
+    if (d !== eerste) {
+      const metEerste = dagNaam(eerste.dag, false);
+      if (verschil > 0.005 && !d.zeker && verschil < plus) {
+        // de winst is kleiner dan de marge: het kan ook duurder uitvallen
+        zinnen.push(`Scheelt misschien ${fmtEuro(verschil)} met ${metEerste}, maar dat is niet zeker.`);
+      } else if (verschil >= SP.laadDrempelEuro) {
+        zinnen.push(`Scheelt ${d.zeker ? '' : 'waarschijnlijk '}${fmtEuro(verschil)} met ${metEerste}.`);
+      } else if (verschil > 0.005) {
+        zinnen.push(`Scheelt weinig: ${fmtEuro(verschil)} met ${metEerste}.`);
+      } else if (verschil < -0.005) {
+        zinnen.push(`Kost ${fmtEuro(-verschil)} meer dan ${metEerste}.`);
+      }
+    } else if (goedkoopste !== eerste) {
+      zinnen.push(`${dagNaam(goedkoopste.dag, true)} is ${goedkoopste.zeker ? '' : 'waarschijnlijk '}` +
+        `${fmtEuro(d.euro - goedkoopste.euro)} goedkoper.`);
+    } else if (advies.dagen.length > 1) {
+      zinnen.push('Later wordt het niet goedkoper.');
+    }
+    if (!d.zeker) zinnen.push(`Verwachting: ${SP.plusMinEuro(plus, d.euro - d.euroLaag)}.`);
+    if (d.teKort) zinnen.push('Te weinig tijd om helemaal te laden.');
+    if (d.zwak) zinnen.push('Nog onzeker, kijk later opnieuw.');
+    return zinnen.join(' ');
+  }
+  // tik op een tijd: de auto moet dan klaar zijn; tik op een dag: die laaduren komen in de grafiek en de kleuren
+  el('laadblokken').addEventListener('click', (ev) => {
+    const tijd = ev.target.closest('[data-klaar]');
+    if (tijd) {
+      autoKoppeling.zetKlaar(tijd.dataset.voor, Number(tijd.dataset.klaar));
+      return;
+    }
+    const knop = ev.target.closest('[data-auto]');
+    if (!knop) return;
+    laadKeuze = { auto: knop.dataset.auto, datum: knop.dataset.datum };
+    render();
+  });
 
-  // ---------- "De week vooruit": grafiek of blokken ----------
+  // ---------- "De week": grafiek of kleuren ----------
 
   function toonWeergave() {
     el('weergave-grafiek').hidden = weergave !== 'grafiek';
@@ -838,128 +565,45 @@
     toonWeergave();
   }
 
-  // ---------- "Aanpassen": het paneel met de apparaten en de auto ----------
+  // de kleuren: per dag een strook met een cel per uur (of kwartier op dagen met vaste prijzen)
+  const dagdelenTekst = (dag) => dag.dagdelen.map((deel) => `${deel.label.toLowerCase()} ${deel.stoplicht}`).join(', ');
+  const ASSEN_HTML = '<li class="rij" aria-hidden="true"><span></span><span class="assen"><span>0</span><span>6</span>' +
+    '<span>12</span><span>18</span><span>24 u</span></span></li>';
+  function rijHtml(dag, laaduren) {
+    // vandaag: wat voorbij is wordt grijs (besluit 66)
+    const nu = dag.datum === SP.vandaagLokaal() ? SP.nuLokaalUur() : -1;
+    const cellen = dag.reeks.map((u) => {
+      const begin = dag.index * 24 + u.uur;   // uren vanaf het begin van de eerste dag, zoals de laaduren
+      const voorbij = u.uur + u.duur <= nu + 1e-9;
+      const laadt = laaduren.some((blok) => begin + u.duur > blok.start + 1e-9 && begin < blok.eind - 1e-9);
+      return `<div class="cel ${SP.STOPLICHT[u.stoplicht].klasse}${voorbij ? ' voorbij' : ''}${laadt ? ' laadt' : ''}" ` +
+        `title="${fmtUur(u.uur)}: ${bandZin(u.p10, u.p50, u.p90, u.bekend)}${voorbij ? ' (voorbij)' : ''}` +
+        `${laadt ? ' (laden)' : ''}"></div>`;
+    }).join('');
+    // hoe minder betrouwbaar de dag, hoe bleker de strook (besluit 72)
+    const klassen = ['uren', dag.perKwartier ? 'fijn' : '', `mate-${dag.betrouwbaarheid.code}`].filter(Boolean).join(' ');
+    return `<li class="rij"><span class="datum">${dagNaam(dag, false)}</span>` +
+      `<div class="${klassen}" style="grid-template-columns:repeat(${dag.reeks.length},1fr)" role="img" ` +
+      `aria-label="${dagNaam(dag, true)}: ${dagdelenTekst(dag)}">${cellen}</div></li>`;
+  }
+
+  // ---------- "Aanpassen": het paneel met apparaten, auto's en prijs ----------
 
   function zetPaneel(open) {
     el('instellingen-paneel').hidden = !open;
     el('aanpas-knop').setAttribute('aria-expanded', open ? 'true' : 'false');
     el('aanpas-knop').textContent = open ? 'Sluiten' : 'Aanpassen';
   }
-  el('aanpas-knop').addEventListener('click', () => zetPaneel(el('instellingen-paneel').hidden));
-  // elke link naar de instellingen (tegels, "aanpassen" op een laadkaart) klapt het paneel eerst open
-  document.addEventListener('click', (ev) => {
-    const link = ev.target.closest('a[href="#apparaten-instellingen"], a[href="#instellingen"]');
-    if (link) zetPaneel(true);
+  el('aanpas-knop').addEventListener('click', () => {
+    zetPaneel(el('instellingen-paneel').hidden);
+    if (!el('instellingen-paneel').hidden) el('instellingen-paneel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
-
-  // ---------- tijdlijn: per dag een strook met de prijskleur per uur of dagdeel, uit te klappen ----------
-
-  const dagdelenTekst = (dag) => dag.dagdelen.map((deel) => `${deel.label.toLowerCase()} ${deel.stoplicht}`).join(', ');
-
-  // de gekleurde strook: een cel per uur (of kwartier op bekende dagen), voor alle dagen
-  function strookHtml(dag) {
-    const beschrijving = `role="img" aria-label="${dagNaam(dag, true)}: ${dagdelenTekst(dag)}"`;
-    // vandaag: wat voorbij is wordt grijs (besluit 66)
-    const nu = dag.datum === SP.vandaagLokaal() ? SP.nuLokaalUur() : -1;
-    const cellen = dag.reeks.map((u) => {
-      const voorbij = u.uur + u.duur <= nu + 1e-9;
-      return `<div class="cel ${SP.STOPLICHT[u.stoplicht].klasse}${voorbij ? ' voorbij' : ''}" ` +
-        `title="${fmtUur(u.uur)}: ${bandZin(u.p10, u.p50, u.p90, u.bekend)}${voorbij ? ' (voorbij)' : ''}"></div>`;
-    }).join('');
-    // elke dag per uur (besluit 72); hoe minder betrouwbaar de dag, hoe bleker de strook
-    const klassen = ['uren', dag.perKwartier ? 'fijn' : '', `mate-${dag.betrouwbaarheid.code}`].filter(Boolean).join(' ');
-    return `<div class="${klassen}" style="grid-template-columns:repeat(${dag.reeks.length},1fr)" ` +
-      `${beschrijving}>${cellen}</div>`;
-  }
-  // het haakje boven de strook dat het goedkoopste laadblok aanwijst
-  function laadMarkeringHtml(blok) {
-    if (!blok) return '';
-    const links = (blok.start / 24 * 100).toFixed(2);
-    const breedte = (Math.min(blok.n, 24 - blok.start) / 24 * 100).toFixed(2);
-    return `<div class="markering" style="left:${links}%;width:${breedte}%" ` +
-      `title="Goedkoopste ${duurTekst(blok.n)} om te laden">${ICOON_LADEN}</div>`;
-  }
-  function besteMomentHtml(icoon, titel, zin) {
-    return `<div>${icoon}<div><b>${titel}</b> <span>${zin}</span></div></div>`;
-  }
-  // het uitklapdeel: betrouwbaarheid, het beste moment voor de auto en voor elk apparaat, en bij dagen per
-  // dagdeel de prijs per dagdeel (uurprijzen staan in de tabel)
-  function detailHtml(dag) {
-    const perDagdeel = dag.perUur ? '' :
-      ' <span>Per dagdeel: een goedkoop dagdeel blijft meestal goedkoop, het uur kan schuiven.</span>';
-    const apparaatRegels = model.apparaten.map((a) => {
-      const blok = dag.blokken[a.id];
-      return blok ? besteMomentHtml(ICOON_APPARAAT, `${esc(a.naam)} ${blokTijd(blok)}`, SP.apparaatZin(blok, a.kwh)) : '';
-    }).join('');
-    return [
-      `<p class="btr-regel">${SP.betrouwbaarheidHtml(dag)}${perDagdeel}</p>`,
-      '<div class="beste">',
-      besteMomentHtml(ICOON_LADEN, `Laden ${blokTijd(dag.laden)}`, SP.laadZin(dag.laden, model.laad.kwh)),
-      apparaatRegels,
-      '</div>',
-      dag.perUur ? '' : dagdelenLijstHtml(dag),
-    ].join('');
-  }
-  function dagdelenLijstHtml(dag) {
-    const regels = dag.dagdelen.map((deel) =>
-      `<div><span class="n">${deel.label} <small style="color:var(--zacht);font-weight:400">` +
-      `${deel.van}–${deel.tot} u</small></span>${SP.stoplichtHtml(deel.stoplicht)}` +
-      `<span class="band">${bandZin(deel.p10, deel.p50, deel.p90, false)}</span></div>`).join('');
-    return `<div class="ddlijst">${regels}</div>`;
-  }
-  function rijHtml(dag) {
-    const isOpen = !!open[dag.index];
-    const b = dag.betrouwbaarheid;
-    return [
-      '<li class="rij">',
-      `<button class="rijknop" type="button" aria-expanded="${isOpen}" aria-controls="detail-${dag.index}"`,
-      ` data-index="${dag.index}">`,
-      `<span class="datum"><b>${dagNaam(dag, false)}</b><small>gem. ${fmt(dag.gem)} ct</small>`,
-      `<span class="status"><span class="btr-icoon" aria-hidden="true">${b.icoon}</span> ${b.label}</span></span>`,
-      `<span class="strook">${laadMarkeringHtml(dag.laden)}${strookHtml(dag)}`,
-      '<span class="spitsvlak" aria-hidden="true" title="Netspits 16–21 uur"></span>',
-      '<span class="assen" aria-hidden="true"><span>0</span><span>6</span><span>12</span><span>18</span>',
-      '<span>24 u</span></span></span>',
-      `${PIJL}</button>`,
-      `<div class="detail" id="detail-${dag.index}"${isOpen ? '' : ' hidden'}>${detailHtml(dag)}</div>`,
-      '</li>',
-    ].join('');
-  }
-  // klik op een dag: uitklappen of weer dicht (één luisteraar voor de hele lijst)
-  el('tijdlijn').addEventListener('click', (ev) => {
-    const knop = ev.target.closest('.rijknop');
-    if (!knop) return;
-    const i = knop.dataset.index;
-    open[i] = !open[i];
-    knop.setAttribute('aria-expanded', open[i] ? 'true' : 'false');
-    el(`detail-${i}`).hidden = !open[i];
+  // "+ auto": het paneel open en meteen een nieuwe auto erbij
+  el('auto-erbij').addEventListener('click', () => {
+    zetPaneel(true);
+    el('autos-form').querySelector('.toevoegen').click();
+    el('autos-instellingen').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-
-  // ---------- scores: hoe goed was de verwachting de afgelopen 30 dagen ----------
-
-  function toonScores() {
-    const scores = model.scores;
-    const metAfwijking = Object.keys(scores.mae);
-    const metDekking = Object.keys(scores.dekking);
-    if (!metAfwijking.length) {
-      el('scores').innerHTML = '<p style="margin:.75rem 0 .25rem;color:var(--zacht)">Nog geen scores: ' +
-        'die komen zodra er 30 dagen met bekende uitkomsten zijn.</p>';
-      return;
-    }
-    const procent = (dag) => Math.round(scores.dekking[dag] * 100);
-    const tegels = metAfwijking
-      .map((dag) => `<div><b>${fmt(scores.mae[dag])}</b><span>ct, dag ${dag}</span></div>`).join('');
-    let dekking = '';
-    if (metDekking.length) {
-      const eerste = metDekking[0], verste = metDekking[metDekking.length - 1];
-      const bijVerste = verste !== eerste ? `, bij dag ${verste} was dat ${procent(verste)}%` : '';
-      dekking = '<p style="margin:0;font-size:.85rem;color:var(--zacht)">' +
-        `In ${procent(eerste)}% van de uren viel de echte prijs binnen de marge (dag ${eerste})${bijVerste}. Doel: 80%.</p>`;
-    }
-    el('scores').innerHTML = `<p style="margin:.75rem 0 .25rem"><b>Afgelopen ${scores.periode} dagen</b>, ` +
-      'gemiddelde afwijking van de verwachting (in de gekozen prijsstand):</p>' +
-      `<div class="scores">${tegels}</div>${dekking}`;
-  }
 
   // ---------- verversen (besluit 49) ----------
   // Draait de pagina via `epv serve`, dan start de knop de pipeline op de pc en volgt de voortgang. Op de eigen pc
@@ -1059,7 +703,6 @@
     .then(([voorspelling, leveranciers]) => {
       forecast = voorspelling;
       const prijsFormulier = el('tarief-prijs');
-      document.querySelector('.tarief-noot').textContent = SP.tariefUitlegTekst();
       // elke koppeling geeft de bewaarde instelling terug en meldt latere wijzigingen
       tarief = SP.koppelTarief({
         standen: el('standen'),
@@ -1068,10 +711,11 @@
         inkoop: prijsFormulier.querySelector('[name=inkoop]'),
         leveranciers: prijsFormulier.querySelector('[name=leverancier]'),
         leverancierInfo: prijsFormulier.querySelector('.leverancier-info'),
-        leveranciersNoot: prijsFormulier.querySelector('.leveranciers-noot'),
         lijst: leveranciers,
       }, (nieuw) => { tarief = nieuw; render(); });
-      laad = SP.koppelLaadinstellingen(el('tarief'), (nieuw) => { laad = nieuw; render(); });
+      // eerst de auto's: die nemen de eerste keer de laadapparaten uit de oude apparatenlijst over
+      autoKoppeling = SP.koppelAutos(el('autos-form'), (nieuw) => { autos = nieuw; render(); });
+      autos = autoKoppeling.lijst;
       apparaten = SP.koppelApparaten(el('apparaten-form'), (nieuw) => { apparaten = nieuw; render(); });
       resolutie = SP.koppelResolutie(el('resolutie'), (nieuw) => { resolutie = nieuw; render(); });
       koppelWeergave();
@@ -1087,8 +731,8 @@
       });
     })
     .catch((fout) => {
-      el('kop').textContent = 'De voorspelling kon niet geladen worden.';
-      el('sub').textContent = fout.message;
+      el('melding').hidden = false;
+      el('melding').textContent = `De voorspelling kon niet geladen worden. ${fout.message}`;
     });
 })();
 </script>

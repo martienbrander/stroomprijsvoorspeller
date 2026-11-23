@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uitleg · Stroomprijsvoorspeller</title>
+<meta name="description" content="Uitleg bij de Stroomprijsvoorspeller: wat je ziet, hoe zeker het is, en waar de cijfers vandaan komen.">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#17335c">
+<style>
+  /* dezelfde kleuren als de hoofdpagina (index.html) */
+  :root {
+    --achtergrond: #fbfbfa; --vlak: #f1f1ee; --tekst: #1c1c1a; --zacht: #63635e; --rand: #e2e2dd;
+    --hoofdkleur: #17335c; --accent: var(--hoofdkleur); --groen: #16a34a;
+    --sl-g-a: #cfeeda; --sl-m-a: #ffe7b8; --sl-d-a: #fbd3d7;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --achtergrond: #131315; --vlak: #1d1d20; --tekst: #e9e9e6; --zacht: #a4a49e; --rand: #2d2d31;
+      --hoofdkleur: #9db2d1; --groen: #4ade80;
+      --sl-g-a: #17472a; --sl-m-a: #4a350c; --sl-d-a: #55181f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--achtergrond); color: var(--tekst);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 0 1rem 3rem; }
+  a { color: var(--accent); }
+  .terug { display: inline-block; margin: 1.1rem 0 .2rem; font-size: .9rem; }
+  h1 { font-size: 1.5rem; margin: .2rem 0 1rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; margin: 1.6rem 0 .3rem; }
+  p { margin: 0 0 .6rem; }
+  ul { margin: 0 0 .6rem; padding-left: 1.2rem; }
+  li { margin-bottom: .2rem; }
+  .vak { display: inline-block; width: 1.1em; height: .7em; border-radius: 2px; vertical-align: baseline; margin-right: .3em; }
+  .zacht { color: var(--zacht); font-size: .9rem; }
+  /* scores: de gemiddelde afwijking per dag vooruit */
+  .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: .5rem; margin: .5rem 0; }
+  .scores div { text-align: center; background: var(--vlak); border-radius: .5rem; padding: .5rem .25rem; }
+  .scores b { display: block; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+  .scores span { font-size: .75rem; color: var(--zacht); }
+  /* tabel met de cijfers per uur */
+  summary { cursor: pointer; color: var(--accent); }
+  .sp-tabel { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .sp-tabel th, .sp-tabel td { text-align: left; padding: .2rem .5rem; border-bottom: 1px solid var(--rand); }
+  .sp-tabel td { text-align: right; }
+  .sp-tabel td:last-child { text-align: left; }
+  .sp-tabel thead th { color: var(--zacht); font-weight: 500; }
+  h4 { margin: 1rem 0 .25rem; font-size: .95rem; }
+  footer { font-size: .8rem; color: var(--zacht); margin-top: 2rem; border-top: 1px solid var(--rand); padding-top: 1rem; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="terug" href="/">← Terug naar de voorspeller</a>
+  <h1>Uitleg</h1>
+
+  <h2>Wat zie ik?</h2>
+  <p>De stroomprijs per uur, zeven dagen vooruit. Voor de lopende dag staan de prijzen vast. De prijzen voor de dag
+    erna komen meestal tussen 13:00 en 14:00 en staan dan ook vast. Alles daarna is een verwachting.</p>
+
+  <h2>Start om</h2>
+  <p>Voor apparaten met uitgestelde start. De knop zegt hoe laat het apparaat het best begint en hoeveel uur uitstel
+    je instelt. Tik op de knop voor de kosten.</p>
+  <ul>
+    <li>Het advies rekent alleen met vaste prijzen en kijkt hoogstens 12 uur vooruit.</li>
+    <li>Eerder is beter: het eerste moment dat bijna zo goedkoop is als het goedkoopste wint.</li>
+    <li>Scheelt wachten minder dan 5 cent of 10%, dan staat er "nu".</li>
+  </ul>
+
+  <h2>Auto laden</h2>
+  <p>Per auto drie dagen. De dag is de dag waarop de auto klaar moet zijn, zoals je dat invult bij een leverancier
+    die slim laadt. Het bedrag is wat de laadbeurt kost in de goedkoopste uren tussen "aan de lader vanaf" en "klaar
+    om". De goedkoopste dag is groen omrand.</p>
+  <ul>
+    <li>Kies bij de auto wanneer hij klaar moet zijn: 08:00 of 18:00. Met 18:00 tellen de uren overdag mee.</li>
+    <li>Tik op een dag om de laaduren in de grafiek of de kleuren te zien.</li>
+    <li>Bij een dag met vaste prijzen staat "staat vast". Anders staat er hoeveel het bedrag kan afwijken.</li>
+  </ul>
+
+  <h2>De week</h2>
+  <p>In de grafiek is een dag met vaste prijzen een gevuld vlak. Een verwachte dag is een gestreepte lijn met een
+    band eromheen: in ongeveer 8 van de 10 gevallen valt de echte prijs binnen die band. Hoe lichter de lijn, hoe
+    minder betrouwbaar. Grijs is voorbij. Groen zijn de gekozen laaduren.</p>
+  <p>De kleuren vergelijken elk uur met de hele week:
+    <span class="vak" style="background:var(--sl-g-a)"></span>goedkoop,
+    <span class="vak" style="background:var(--sl-m-a)"></span>gemiddeld,
+    <span class="vak" style="background:var(--sl-d-a)"></span>duur. Een blekere dag is minder zeker.</p>
+  <p>De gearceerde uren in de grafiek zijn de netspits (16–21 uur). De overheid vraagt om dan zo min mogelijk stroom
+    te gebruiken, omdat het stroomnet dan het drukst is. Dat staat los van de prijs.</p>
+
+  <h2>Hoe zeker is dit?</h2>
+  <p><b>Vaste prijzen</b> komen van de stroombeurs en veranderen niet meer.</p>
+  <p><b>De dagen daarna</b> zijn een verwachting op basis van de weersverwachting en de prijzen van de afgelopen
+    dagen. Hoe verder vooruit, hoe onzekerder. Het niveau van een dag klopt meestal, het exacte uur kan schuiven.
+    Bij dag 6 en 7 is het alleen een richting.</p>
+  <div id="scores"></div>
+
+  <h2>Jouw prijs</h2>
+  <p>Onder Aanpassen kies je je leverancier. Dan rekent de pagina met de inkoopvergoeding van die leverancier. Dat
+    scheelt een paar tienden van een cent per kWh en verandert niets aan het beste moment. Zonder keuze rekenen we
+    met 1,65 ct.</p>
+  <ul>
+    <li><b>All-in</b>: zoals op je rekening, met belasting en btw.</li>
+    <li><b>Marktprijs+</b>: de beursprijs plus de inkoopvergoeding, met btw.</li>
+    <li><b>Marktprijs</b>: de kale beursprijs, zonder btw.</li>
+  </ul>
+  <p>Bij een negatieve beursprijs blijft de all-in prijs vaak positief, omdat belasting en btw erbij komen.</p>
+  <p class="zacht" id="tarief-noot"></p>
+
+  <h2>Op je telefoon</h2>
+  <p>Zet de pagina als snelkoppeling op je beginscherm. Je instellingen blijven op dat toestel bewaard.</p>
+  <ul>
+    <li><b>iPhone</b> (Safari): tik op Deel en kies "Zet op beginscherm".</li>
+    <li><b>Android</b> (Chrome): tik op het menu met de drie puntjes en kies "Toevoegen aan startscherm".</li>
+  </ul>
+
+  <h2>Cijfers per uur</h2>
+  <details><summary>Alle prijzen als tabel</summary><div id="tabel"></div></details>
+
+  <footer>
+    <p><b>Deze site is nieuw.</b> Heb je suggesties? Deel ze op <a
+      href="https://github.com/martienbrander/stroomprijsvoorspeller/issues">GitHub</a>. De data zijn ook als <a
+      href="api/v1/voorspelling.json">JSON</a> beschikbaar.</p>
+    <p><b>Hulpmiddel, geen garantie.</b> Deze voorspelling is een inschatting op basis van openbare gegevens en een
+      statistisch model. Het is geen advies en geen garantie; de echte prijzen kunnen afwijken. Gebruik is op eigen
+      risico. De maker is niet aansprakelijk voor beslissingen die op deze cijfers worden gebaseerd. Je leverancier
+      bepaalt wat je betaalt.</p>
+    <p>Prijzen: <a href="https://transparency.entsoe.eu/">ENTSO-E Transparency Platform</a>. Oudere prijzen en
+      dagen die daar ontbreken: <a href="https://www.energy-charts.info/">Energy-Charts</a> (Fraunhofer ISE, data
+      Bundesnetzagentur/SMARD, CC BY 4.0) of <a href="https://www.energyzero.nl/">EnergyZero</a>.
+      Weer: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0).
+      Biedzone Nederland, day-ahead. Geen cookies, geen tracking. Open source (MIT, <a
+      href="https://github.com/martienbrander/stroomprijsvoorspeller">broncode op GitHub</a>).</p>
+  </footer>
+</div>
+<script src="gedeeld.js?v=10"></script>
+<script>
+/* De uitlegpagina: vaste tekst, met de scores en de tabel uit dezelfde voorspelling en instellingen als de hoofdpagina. */
+(function () {
+  'use strict';
+  const el = (id) => document.getElementById(id);
+  el('tarief-noot').textContent = SP.tariefUitlegTekst();
+
+  // hoe goed was de verwachting de afgelopen 30 dagen
+  function toonScores(scores) {
+    const metAfwijking = Object.keys(scores.mae);
+    const metDekking = Object.keys(scores.dekking);
+    if (!metAfwijking.length) {
+      el('scores').innerHTML = '<p class="zacht">Nog geen scores: die komen zodra er 30 dagen met bekende uitkomsten zijn.</p>';
+      return;
+    }
+    const procent = (dag) => Math.round(scores.dekking[dag] * 100);
+    const tegels = metAfwijking
+      .map((dag) => `<div><b>${SP.fmt(scores.mae[dag])}</b><span>ct, dag ${dag}</span></div>`).join('');
+    let dekking = '';
+    if (metDekking.length) {
+      const eerste = metDekking[0], verste = metDekking[metDekking.length - 1];
+      const bijVerste = verste !== eerste ? `, bij dag ${verste} was dat ${procent(verste)}%` : '';
+      dekking = `<p class="zacht">In ${procent(eerste)}% van de uren viel de echte prijs binnen de band ` +
+        `(dag ${eerste})${bijVerste}. Doel: 80%.</p>`;
+    }
+    el('scores').innerHTML = `<p><b>Afgelopen ${scores.periode} dagen</b>: de gemiddelde afwijking van de verwachting, ` +
+      `per dag vooruit, in jouw prijsstand.</p><div class="scores">${tegels}</div>${dekking}`;
+  }
+
+  SP.laadForecast('data/forecast.json').then((forecast) => {
+    const model = SP.verwerk(forecast, SP.leesTarief(), SP.leesResolutie(), SP.leesApparaten());
+    toonScores(model.scores);
+    SP.maakTabel(el('tabel'), model);
+  }).catch((fout) => {
+    el('scores').innerHTML = `<p class="zacht">De cijfers konden niet geladen worden. ${SP.esc(fout.message)}</p>`;
+  });
+})();
+</script>
+</body>
+</html>
