@@ -81,6 +81,7 @@
   // auto's (besluit 85): zonder instellingen 30 kWh bijladen met 11 kW, aan de lader van 18:00 tot 08:00
   const LAAD_STANDAARD_KWH = 30;
   const LAAD_STANDAARD_KW = 11;
+  const LAAD_KEUZES_KW = [2.3, 3.7, 7.4, 11, 22];   // de gangbare laadvermogens; iets anders kan via "anders..."
   const LAAD_STANDAARD_VANAF = 18;
   const LAAD_KLAAR_KEUZES = [8, 18]; // "klaar om": 's ochtends, of aan het eind van de middag (dan telt de dag mee)
   const LAAD_DAGEN = 3;              // voor zoveel dagen laten we zien wat de laadbeurt kost
@@ -648,15 +649,24 @@
   // hoe lang laden duurt, in uren (hoogstens een etmaal)
   function laadUren(auto) { return Math.min(MAX_DUUR_UREN, auto.kwh / auto.kw); }
 
-  function autoRijHtml(a, i) {
+  // `eigenKw`: de gebruiker koos "anders..." en vult het vermogen zelf in
+  function autoRijHtml(a, i, eigenKw) {
     const uurKeuzes = (gekozen) => UREN_VAN_DE_DAG.map((uur) => optieHtml(uur, fmtUur(uur), uur === gekozen)).join('');
+    const gangbaar = LAAD_KEUZES_KW.find((kw) => Math.abs(kw - a.kw) < 0.01);
+    const anders = eigenKw || gangbaar === undefined;
+    const kwKeuzes = LAAD_KEUZES_KW.map((kw) =>
+      optieHtml(kw, `${fmtKort(kw)} kW${kw === LAAD_KEUZES_KW[0] ? ' (stopcontact)' : ''}`, !anders && kw === gangbaar)).join('') +
+      optieHtml('anders', 'anders…', anders);
+    const kwAnders = anders
+      ? `<label>Vermogen in kW<input type="number" name="kw-anders" value="${a.kw}" step="0.1" min="0.5" inputmode="decimal"></label>`
+      : '';
     return [
       `<div class="app-rij" data-i="${i}">`,
       `<label class="breed">Auto<input type="text" name="naam" value="${esc(a.naam)}" maxlength="30"></label>`,
       `<label>Bijladen (kWh)<input type="number" name="kwh" value="${a.kwh}" step="1" min="1"`,
       ' inputmode="decimal"></label>',
-      `<label>Laadvermogen (kW)<input type="number" name="kw" value="${a.kw}" step="0.1" min="0.5"`,
-      ' inputmode="decimal"></label>',
+      `<label>Laadvermogen<select name="kw">${kwKeuzes}</select></label>`,
+      kwAnders,
       `<label>Aan de lader vanaf<select name="vanaf">${uurKeuzes(a.vanaf)}</select></label>`,
       `<button type="button" class="weg" aria-label="${esc(a.naam)} verwijderen" title="Verwijderen">×</button>`,
       `<p class="rij-noot">Laden duurt ${duurTekst(Math.ceil(laadUren(a) * 4 - 1e-9) / 4)}.</p>`,
@@ -673,14 +683,21 @@
     // laadapparaten bewaard
     if (gelezen.nieuw) bewaarAutos(lijst);
 
+    const eigenKw = new Set();   // id's van de auto's waarbij "anders..." gekozen is
+
     function teken() {
-      container.innerHTML = lijst.map(autoRijHtml).join('') +
+      container.innerHTML = lijst.map((a, i) => autoRijHtml(a, i, eigenKw.has(a.id))).join('') +
         '<button type="button" class="toevoegen">+ Auto toevoegen</button>';
     }
     function leesRij(rij, i) {
       const vorige = lijst[i] || {};
       const veld = (naam) => rij.querySelector(`[name=${naam}]`);
-      const kwh = leesGetal(veld('kwh')), kw = leesGetal(veld('kw'));
+      const kwh = leesGetal(veld('kwh'));
+      // het vermogen uit de keuzelijst, of bij "anders..." uit het eigen veld (dat er na de keuze pas staat)
+      const kwAnders = veld('kw').value === 'anders';
+      const eigenVeld = rij.querySelector('[name="kw-anders"]');
+      const kw = kwAnders ? (eigenVeld ? leesGetal(eigenVeld) : NaN) : parseFloat(veld('kw').value);
+      if (vorige.id) { if (kwAnders) eigenKw.add(vorige.id); else eigenKw.delete(vorige.id); }
       return netAuto({
         id: vorige.id || `auto${Date.now()}${i}`,
         naam: veld('naam').value.trim() || 'Auto',
